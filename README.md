@@ -1,5 +1,9 @@
 # CuNi (Code:uNiTY)
 
+<p align="center">
+  <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
+</p>
+
 A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
