@@ -14,6 +14,14 @@ A small, mnemonic programming language that compiles to **exact, idiomatic** Pyt
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
 
+### 30s demo
+
+<p align="center">
+  <a href="assets/demo-30s.mp4"><img src="assets/demo-30s.gif" alt="CuNi 30-second demo" width="640" /></a>
+</p>
+
+[Full MP4 (30s)](assets/demo-30s.mp4) · one source → Python / Go / JavaScript with identical stdout
+
 ## Install
 
 **Requirements:** Rust (stable), plus `python3`, `go`, and `node` if you want to run the conformance suite.
