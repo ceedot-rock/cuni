@@ -1,0 +1,6 @@
+def parse(s: str) -> int ? do
+    ret 1
+end
+
+# fallible call without ?? — must be refused
+let n = parse("x")

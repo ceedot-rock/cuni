@@ -1,0 +1,12 @@
+# `link` (SPEC.md §19): a typed message contract callable both in-process
+# and, via the generated `Greet_handler`/`Greet_remote` pair, from a
+# separately-compiled CuNi program running as a *different* target — see
+# tests/conformance.rs's `link_interop_go_server_python_client` for a real
+# example of a Go-compiled server answering a Python-compiled client over an
+# actual socket. Mounting the handler (starting an HTTP server, choosing a
+# port) is the user's own job, per the ratified "codegen-only, no bundled
+# runtime" decision (INTEROP_PROPOSAL.md item 6) — this file only declares
+# the contract and its local implementation.
+link Greet(name: str, times: int) -> str do
+    ret `hello ${name} x${times}`
+end

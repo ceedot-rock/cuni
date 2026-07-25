@@ -1,0 +1,10 @@
+# Portable CuNi module — imported via `use math` (SPEC.md §9).
+# Resolved as a sibling `math.cuni` relative to the importing file.
+
+def add(a: int, b: int) -> int do
+    ret a + b
+end
+
+def double(n: int) -> int do
+    ret n * 2
+end

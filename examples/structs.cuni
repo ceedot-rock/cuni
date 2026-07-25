@@ -1,0 +1,15 @@
+# Positional typ construction + field access (SPEC.md §10).
+# Maps to: Python dataclass, Go composite literal, JS `new Class(...)`.
+
+typ Point do
+    x: int
+    y: int
+end
+
+def manhattan(p: Point) -> int do
+    ret p.x + p.y
+end
+
+let p = Point(3, 4)
+say(manhattan(p))
+say(p.x)

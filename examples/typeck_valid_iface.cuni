@@ -1,0 +1,11 @@
+iface Shape do
+    area() -> float
+end
+
+typ Circle is Shape do
+    r: float
+end
+
+def area(c: Circle) -> float do
+    ret 3.14 * c.r * c.r
+end

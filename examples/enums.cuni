@@ -1,0 +1,29 @@
+enum Color do
+    Red
+    Green
+    Blue
+end
+
+def parse(s: str) -> int ? do
+    if s == "" do
+        fail "empty input"
+    end
+    ret 42
+end
+
+let nums = [1, 2, 3, 4]
+say(nums.len())
+
+let c = Color.Green
+
+if c == Color.Red do
+    say("stop")
+els
+    say("go")
+end
+
+let n = parse("") ?? do
+    say("parse failed as expected")
+    ret 0
+end
+say(n)

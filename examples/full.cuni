@@ -1,0 +1,53 @@
+iface Shape do
+    area() -> float
+end
+
+typ Circle is Shape do
+    r: float
+end
+
+def area(c: Circle) -> float do
+    ret 3.14159 * c.r * c.r
+end
+
+def find<T>(xs: list<T>, target: T) -> opt<int> do
+    for i, x in xs do
+        if x == target do
+            ret i
+        end
+    end
+    ret none
+end
+
+def parse(s: str) -> int ? do
+    if s == "" do
+        fail "empty input"
+    end
+    ret 42
+end
+
+let nums = [4, 8, 15, 16, 23]
+mut names: list<str> = []
+
+let idx = find(nums, 16) ?? do
+    say("not found")
+    ret -1
+end
+
+# greet whoever we found, if the input parses
+let n = parse("42") ?? do
+    say("bad input")
+    ret 0
+end
+
+# positional typ constructor — field order matches the `typ` declaration
+let c = Circle(2.0)
+let a = area(c)
+say(a)
+
+if idx > 0 and n > 0 do
+    names.push(`found at ${idx}, n is ${n}`)
+    say(names[0])
+els
+    say("nothing to report")
+end

@@ -1,0 +1,6 @@
+typ Point do
+    x: int
+    y: int
+end
+
+let p = Point(1)

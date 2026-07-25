@@ -1,0 +1,3 @@
+def f(x: int) -> int do
+    fail "nope"
+end
