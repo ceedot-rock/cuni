@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/version-0.1.0-cyan.svg" alt="v0.1.0" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.1"><img src="https://img.shields.io/badge/version-0.1.1-cyan.svg" alt="v0.1.1" /></a>
 </p>
 
 A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
@@ -28,7 +28,7 @@ A small, mnemonic programming language that compiles to **exact, idiomatic** Pyt
 
 ```bash
 # install the cuni binary onto your PATH
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.0
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.1
 
 # or clone and build from source
 git clone https://github.com/ceedot-rock/cuni.git
@@ -90,7 +90,7 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.0)
+## Status (v0.1.1)
 
 **Shipped:** lexer/parser, three codegens, bounded type checker, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), conformance tests.
 
