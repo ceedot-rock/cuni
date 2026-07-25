@@ -4,21 +4,39 @@
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.0"><img src="https://img.shields.io/badge/version-0.1.0-cyan.svg" alt="v0.1.0" /></a>
+</p>
+
 A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
 
+## Install
+
+**Requirements:** Rust (stable), plus `python3`, `go`, and `node` if you want to run the conformance suite.
+
+```bash
+# install the cuni binary onto your PATH
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.0
+
+# or clone and build from source
+git clone https://github.com/ceedot-rock/cuni.git
+cd cuni
+cargo build --release
+# binary: target/release/cuni
+```
+
 ## Quick start
 
 ```bash
-cd projects/cuni
-cargo build --release
-
 # type-check + dump AST
-cargo run -- examples/full.cuni
+cuni examples/full.cuni
 
 # emit all three targets
-cargo run -- examples/full.cuni \
+cuni examples/full.cuni \
   --emit-py /tmp/full.py \
   --emit-go /tmp/full.go \
   --emit-js /tmp/full.js
@@ -27,7 +45,8 @@ python3 /tmp/full.py
 go run /tmp/full.go
 node /tmp/full.js
 
-cargo test   # conformance (run real py/go/js) + typeck suite
+# from a clone: conformance (runs real py/go/js) + typeck suite
+cargo test
 ```
 
 ## Language at a glance
@@ -60,9 +79,10 @@ examples/                              # runnable .cuni samples
 tests/
   conformance.rs                       # byte-identical stdout across targets
   typeck.rs + typeck_invalid/          # compile-or-refuse fixtures
+assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1)
+## Status (v0.1.0)
 
 **Shipped:** lexer/parser, three codegens, bounded type checker, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), conformance tests.
 
@@ -74,3 +94,7 @@ tests/
 2. One concept, one keyword
 3. Small core over broad coverage
 4. Explicit over silently inferred (mutability, fallibility, `ext`)
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).
