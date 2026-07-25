@@ -163,19 +163,30 @@ fn link_interop_go_server_python_client() {
     )
     .unwrap();
 
-    let mut server = Command::new("go").args(["run", go_src.to_str().unwrap()]).spawn().expect("failed to start go server");
+    // Pre-compile with `go build` so readiness only waits on process start,
+    // not a cold `go run` compile (CI runners often exceed 15s on first compile).
+    let go_bin = tmp_path("link_server_bin");
+    let build = Command::new("go")
+        .args(["build", "-o", go_bin.to_str().unwrap(), go_src.to_str().unwrap()])
+        .output()
+        .expect("failed to invoke go build");
+    assert!(
+        build.status.success(),
+        "go build failed:\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&build.stdout),
+        String::from_utf8_lossy(&build.stderr)
+    );
+    let mut server = Command::new(&go_bin).spawn().expect("failed to start go server binary");
     // No readiness signal from the server itself (it's a hand-written driver,
-    // not part of the generated contract), and `go run` compiles from
-    // scratch on a cold cache — poll for the port instead of guessing a fixed
-    // delay.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
+    // not part of the generated contract) — poll for the port.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
     loop {
         if std::net::TcpStream::connect("127.0.0.1:8947").is_ok() {
             break;
         }
         if std::time::Instant::now() > deadline {
             let _ = server.kill();
-            panic!("go server never started listening on :8947 within 15s");
+            panic!("go server never started listening on :8947 within 30s");
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
     }
@@ -188,6 +199,7 @@ fn link_interop_go_server_python_client() {
     assert_eq!(out, "hello Cee x3\n");
 
     let _ = std::fs::remove_file(&go_src);
+    let _ = std::fs::remove_file(&go_bin);
     let _ = std::fs::remove_file(&py_src);
     let _ = std::fs::remove_file(&py_client);
 }
