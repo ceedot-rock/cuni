@@ -16,13 +16,13 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
 
-A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
+**CuNi (Code:uNiTY)** is a small language for **exact multi-target** code: one source → **identical** Python, JavaScript, and Go—or the compiler **refuses**. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + **Agent mode**). Open source, MIT, v0.1.6.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
 
-### Try it (no install)
+### Try it (no install) — primary
 
-**[CuNi Studio](https://cuni-studio.fly.dev/)** — hosted playground: edit CuNi → **emit** py/go/js → **`cuni check`** exactness → Notelog + Critic Book.
+**[CuNi Studio](https://cuni-studio.fly.dev/)** — edit → emit py/go/js → **`cuni check`** exactness → **Agent** skills (speech routes; law is CuNi) → Notelog + Critic Book.
 
 ### Agent mind = CuNi
 

@@ -35,6 +35,38 @@
 | neatmoon@zo.computer | Zo/agent tooling collaborator | sent |
 | rustaceanseditors@gmail.com | Rust Bytes tip | sent |
 
+## Release wave email (2026-07-26 evening) — Studio + Agent
+
+**Policy:** public tip lines + known contacts only (no scraped random personal inboxes).
+
+| To | Type | Status |
+|----|------|--------|
+| tips@techcrunch.com | press | sent |
+| tips@venturebeat.com | press | sent |
+| tips@theregister.com | press | sent |
+| tips@arstechnica.com | press | sent |
+| tips@zdnet.com | press | sent |
+| news@infoworld.com | press | sent |
+| editors@sdtimes.com | press | sent |
+| tips@devclass.com | press | sent |
+| hello@tldr.tech | newsletter | sent |
+| tips@thenewstack.io | press | sent |
+| tips@theverge.com | press | sent |
+| tips@wired.com | press | sent |
+| hello@console.dev | dev tools | sent |
+| tips@changelog.com | dev podcast/news | sent |
+| editors@hackernoon.com | dev media | sent |
+| rustaceanseditors@gmail.com | Rust community | sent |
+| tips@infoq.com | press | sent |
+| hello@pointer.io | newsletter | sent |
+| tips@producthunt.com | makers | sent |
+| news@ycombinator.com | tip | sent |
+| ptasz13@hotmail.com | personal | sent |
+| neatmoon@zo.computer | agents collab | sent |
+| larknet@zo.computer | ops / social | sent |
+
+Paragraph pitch: [`PRESS_PARAGRAPH.md`](PRESS_PARAGRAPH.md) · full: [`PRESS_RELEASE.md`](PRESS_RELEASE.md)
+
 ## Press release log (2026-07-26)
 
 Full text: [`PRESS_RELEASE.md`](PRESS_RELEASE.md)
