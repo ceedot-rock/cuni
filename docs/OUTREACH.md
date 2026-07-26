@@ -144,3 +144,62 @@ Launch as a developer tool when you have a short video (link-demo.gif is a start
 ### Do not re-send (already done 2026-07-26)
 Press: tips@techcrunch, tips@venturebeat, tips@theregister, tips@arstechnica, tips@zdnet, news@infoworld, editors@sdtimes, tips@devclass, hello@tldr.tech  
 Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com  
+
+---
+
+## Growth exec session — 2026-07-26 (scout merge + action queue)
+
+**Agent:** cuni-growth-exec  
+**Metrics at session start:** **1★** · **0 forks** · **0 open issues** · tag `v0.1.6`  
+**Goal:** merge scout P0/P1 into action-queue with final copy-paste; refresh posts-ready; no public posts, no bulk cold email.
+
+### Actions completed
+| Action | Result |
+|--------|--------|
+| Read `docs/OUTREACH.md` | Prior press + warm emails + first posts-ready session logged |
+| Read scout report | `docs/growth/conversation-opportunities-2026-07-26.md` (P0×4, P1×5+) |
+| Read prior `posts-ready` + thin action-queue | Upgraded action-queue from pointers → full inline paste |
+| Star count via GitHub API | 1 star, 0 forks (unchanged) |
+| Confirmed TWiR draft | `draft/2026-07-29-this-week-in-rust.md` still current |
+| Wrote full action queue | [`docs/growth/action-queue-2026-07-26.md`](growth/action-queue-2026-07-26.md) — outbound A1–A5 + P0 B1–B4 + P1 C1–C5 with final comments |
+| Refreshed posts-ready | [`docs/growth/posts-ready-2026-07-26.md`](growth/posts-ready-2026-07-26.md) — Show HN / Reddit / TWiR + scout cross-links + Haxe FAQ |
+| Public posts | **None** (human-only) |
+| Cold tip emails | **None** this session |
+
+### Artifacts
+- `docs/growth/action-queue-2026-07-26.md` — primary click-through queue
+- `docs/growth/posts-ready-2026-07-26.md` — outbound paste pack
+- Scout source: `docs/growth/conversation-opportunities-2026-07-26.md`
+
+### Metrics
+| Metric | Before | After |
+|--------|--------|-------|
+| GitHub stars | 1 | 1 |
+| Forks | 0 | 0 |
+| Emails sent this session | — | 0 |
+| Public posts this session | — | 0 |
+| P0 comment drafts ready | partial | 4 (Solod, Jacquard, Diplomat, Nudge) |
+| P1 comment drafts ready | partial | 5 (golang list, golden X, Compilers, WAYWO, r/Python) |
+
+### Blocked / needs human
+1. **Show HN** — https://news.ycombinator.com/submit (posts-ready §1 / action-queue A1)  
+2. **P0 HN comments** — Solod + Jacquard (action-queue B1–B2)  
+3. **r/ProgrammingLanguages** (action-queue A2)  
+4. **TWiR PR** — `draft/2026-07-29-this-week-in-rust.md` (action-queue A4)  
+5. After live: paste HN/Reddit/PR/comment URLs back into this log  
+
+### Top 5 human clicks (queued)
+1. Submit **Show HN**  
+2. Comment **HN Solod** (sound transpile)  
+3. Comment **HN Jacquard** (agent PL + verify)  
+4. Post **r/ProgrammingLanguages**  
+5. Open **This Week in Rust** PR (tutorial bullet)  
+
+### Next 3 actions after top 5
+1. Reddit **Diplomat** P0 + X **Nudge** peer reply  
+2. **r/rust** outbound (Rust-built framing)  
+3. P1: WAYWO self-intro + X golden/contract tests (same-day freshness)  
+
+### Do not re-send (already done 2026-07-26)
+Press: tips@techcrunch, tips@venturebeat, tips@theregister, tips@arstechnica, tips@zdnet, news@infoworld, editors@sdtimes, tips@devclass, hello@tldr.tech  
+Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com  

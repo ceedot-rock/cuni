@@ -2,7 +2,9 @@
 
 **Metrics at draft time:** 1★ · 0 forks · v0.1.6  
 **Repo:** https://github.com/ceedot-rock/cuni  
-**Status:** drafts only — **human must click submit** (HN auth, Reddit account, TWiR PR)
+**Status:** drafts only — **human must click submit** (HN auth, Reddit account, TWiR PR)  
+**Paired action queue:** [`action-queue-2026-07-26.md`](action-queue-2026-07-26.md) (inline P0/P1 comments)  
+**Scout:** [`conversation-opportunities-2026-07-26.md`](conversation-opportunities-2026-07-26.md)
 
 Do not claim production maturity. Frame as early open-source experiment with a hard exactness gate.
 
@@ -82,6 +84,13 @@ tutorial). Feedback and failing cases welcome.
 **Q: Written in what?**  
 ```
 Compiler is Rust (cargo install). Targets are Python, Go, and JavaScript.
+```
+
+**Q: How is this different from Haxe / multi-target “write once”?**  
+```
+Haxe optimizes for breadth of backends. CuNi optimizes for a refusal property
+on a tiny surface: if we can’t match behavior on py/go/js, we don’t emit.
+Different tradeoff — not a Haxe replacement.
 ```
 
 ---
@@ -173,7 +182,7 @@ Repo: https://github.com/ceedot-rock/cuni (v0.1.6, MIT)
 Also has an “exactness” mode for same-file multi-target stdout checks across py/go/js — orthogonal to the server interop story.
 ```
 
-**Skip r/Python / r/javascript** this week unless Show HN gains traction — same interop framing only.
+**Skip r/Python / r/javascript** outbound this week unless Show HN gains traction — same interop framing only. (Inbound r/Python API-types comment is in action-queue C5 if thread still warm.)
 
 ---
 
@@ -184,8 +193,9 @@ Also has an “exactness” mode for same-file multi-target stdout checks across
 - Prefer tutorial / long-form / release writeup with how-to  
 - Link text ≈ page title + small project description  
 - One project per contributor per week  
-- Submit PR against current draft in `draft/` (next: `2026-07-29-this-week-in-rust.md` as of this session)
+- Submit PR against current draft in `draft/`
 
+**Confirmed draft file (API 2026-07-26):** `draft/2026-07-29-this-week-in-rust.md`  
 **PR target:** https://github.com/rust-lang/this-week-in-rust  
 **Section:** `### Project/Tooling Updates`
 
@@ -228,13 +238,33 @@ Happy to reword the bullet if editors prefer different framing.
 
 ---
 
-## 6. Conversation scout
+## 6. Conversation scout — merged into action queue
 
-**File checked:** `docs/growth/conversation-opportunities-*.md` — **none present** this session.
+**File:** [`conversation-opportunities-2026-07-26.md`](conversation-opportunities-2026-07-26.md)  
+**Final copy-paste comments:** [`action-queue-2026-07-26.md`](action-queue-2026-07-26.md) §B–C  
 
-### Standby comment drafts (use only if a live thread fits — no drive-by spam)
+### P0 (do this week)
 
-**A. Multi-target / transpile drift thread**
+| # | Thread | Action queue |
+|---|--------|--------------|
+| 1 | [HN Solod](https://news.ycombinator.com/item?id=48895199) sound transpile | B1 |
+| 2 | [HN Jacquard](https://news.ycombinator.com/item?id=48894630) agent PL | B2 |
+| 3 | [Reddit Diplomat](https://www.reddit.com/r/rust/comments/1u5u5j5/diplomat_multilanguage_ffi_for_rust_libraries/) | B3 |
+| 4 | [X Nudge](https://x.com/Nekomya_Dev/status/2080672826500034652) multi-target | B4 |
+
+### P1 (after outbound + P0)
+
+| # | Thread | Action queue |
+|---|--------|--------------|
+| 5 | [r/golang compiles-to-Go](https://www.reddit.com/r/golang/comments/1sgobdq/list_of_programing_languages_that_compile_to_go/) | C1 |
+| 6 | [X golden/contract tests](https://x.com/hwisesa23/status/2081263849039077664) | C2 |
+| 7 | [r/Compilers multi-target](https://www.reddit.com/r/Compilers/comments/1ugucyo/thoughts_on_multitarget_compilation/) | C3 |
+| 8 | [HN WAYWO July](https://news.ycombinator.com/item?id=48884984) | C4 |
+| 9 | r/Python API types (if not stale) | C5 |
+
+### Standby (generic — only if a *new* live thread fits)
+
+**A. Multi-target / transpile drift**
 
 ```
 I’ve been hacking on a small language (CuNi) that treats multi-target as a
@@ -245,7 +275,7 @@ instead of approximate transpile. Tutorial if useful:
 https://github.com/ceedot-rock/cuni/blob/master/docs/LINK_TUTORIAL.md
 ```
 
-**B. Polyglot HTTP / shared API contract thread**
+**B. Polyglot HTTP / shared API contract**
 
 ```
 For shared contracts across languages we’ve been using a single link
@@ -254,7 +284,7 @@ definition that codegen’s a Go HTTP handler plus Python/JS clients (same path
 https://github.com/ceedot-rock/cuni/blob/master/docs/LINK_TUTORIAL.md
 ```
 
-**C. “Rust + Python + TS stack” / agent multi-runtime thread**
+**C. Agent multi-runtime consistency**
 
 ```
 If the pain is logic that must stay consistent across runtimes (not just FFI),
@@ -266,7 +296,7 @@ strict.
 
 ---
 
-## 7. Optional tip drafts (not sent this session — verify inbox still accepts tips)
+## 7. Optional tip drafts (not sent — prior list already covered)
 
 Already emailed (see OUTREACH.md): TC, VB, Register, Ars, ZDNet, InfoWorld, SD Times, DevClass, TLDR, Rust Bytes, personal contacts.
 
@@ -274,11 +304,11 @@ Already emailed (see OUTREACH.md): TC, VB, Register, Ars, ZDNet, InfoWorld, SD T
 
 | Outlet | Angle | Note |
 |--------|-------|------|
-| Cooper Press (JS Weekly / Golang Weekly) | interop demo, not “new language” spam | contact form on cooperpress.com — not a simple tip@ |
+| Cooper Press (JS Weekly / Golang Weekly) | interop demo, not “new language” spam | contact form on cooperpress.com |
 | Changelog News | submit form: changelog.com/news/submit | human submit |
 | The New Stack | only if tips@ still valid | verify before send |
 
-**No new cold emails sent this session** — priority is Show HN + Reddit + TWiR human submits.
+**No new cold emails this session** — priority is Show HN + Reddit + TWiR + P0 comments.
 
 ---
 
@@ -302,9 +332,13 @@ Post only after Show HN URL exists so you can reply with the HN thread.
 | # | Action | Done? |
 |---|--------|-------|
 | 1 | Post Show HN (section 1) | ☐ |
-| 2 | Post r/ProgrammingLanguages (section 2) | ☐ |
-| 3 | Post r/rust (section 3) | ☐ |
-| 4 | Open TWiR PR (section 5) | ☐ |
-| 5 | Optional: r/golang interop (section 4) | ☐ |
-| 6 | Reply on Show HN with FAQ kit | ☐ |
-| 7 | Log live URLs back into docs/OUTREACH.md | ☐ |
+| 2 | P0: HN Solod comment | ☐ |
+| 3 | P0: HN Jacquard comment | ☐ |
+| 4 | Post r/ProgrammingLanguages (section 2) | ☐ |
+| 5 | Open TWiR PR (section 5) | ☐ |
+| 6 | P0: Reddit Diplomat + X Nudge | ☐ |
+| 7 | Post r/rust (section 3) | ☐ |
+| 8 | P1 comments (golang list / golden X / Compilers / WAYWO) | ☐ |
+| 9 | Optional: r/golang interop (section 4) | ☐ |
+| 10 | Reply on Show HN with FAQ kit | ☐ |
+| 11 | Log live URLs back into docs/OUTREACH.md | ☐ |
