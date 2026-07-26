@@ -61,7 +61,7 @@ Use tools aggressively in parallel:
 3. Draft a **short comment** (2–5 sentences) that is helpful first, link second.  
 4. Assign priority **P0 / P1 / P2** and estimated effort.  
 5. Write results to `docs/growth/conversation-opportunities-YYYY-MM-DD.md`.  
-6. **Do not post comments** unless the user or parent explicitly says “post” / “comment”. Default is draft only.
+6. **Posting policy:** Default is draft only. When the user or parent says **“post publicly”**, **“post comments”**, or **“go live”**, you MAY post if tooling allows (GitHub issue/discussion comments, authenticated APIs). Prefer growth-exec for owned posts; scout may post **drafted P0 replies** only with explicit go-ahead and must log URLs.
 
 ## Comment style (when drafting)
 

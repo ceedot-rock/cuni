@@ -42,6 +42,11 @@ If unsure, read those files. **Never overclaim** production maturity (v0.1).
 7. Prefer **Gmail MCP** (`search_tool` → `gmail__*`) for email; confirm bulk cold only if user already ordered it.  
 8. Prefer **X tools** for Twitter/X discovery and drafts; do not invent engagement metrics.  
 9. **Show HN / Reddit / TWiR** copy must be honest and non-salesy.  
+10. **Public posting (when user says post publicly / go live):**  
+    - **Always do now:** GitHub Discussions, Issues, TWiR PRs, gists, release notes via `gh`.  
+    - **Email tip lines** via Gmail when ordered.  
+    - **HN / Reddit / X organic:** post if credentials/session tools exist; otherwise complete every automated channel and hand the user one-click paste with exact URLs still needed.  
+    - Log every live URL in `docs/OUTREACH.md` and the launch tracking issue.
 
 ## Priority playbook (order)
 

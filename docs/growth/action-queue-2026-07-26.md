@@ -1,5 +1,12 @@
 # CuNi action queue — 2026-07-26 (growth merge)
 
+> **PUBLIC POSTS LIVE (automation):**
+> - Discussions: https://github.com/ceedot-rock/cuni/discussions/1 · https://github.com/ceedot-rock/cuni/discussions/2
+> - TWiR PR: https://github.com/rust-lang/this-week-in-rust/pull/8468
+> - Tracking: https://github.com/ceedot-rock/cuni/issues/3
+>
+> **Still needs your login:** Show HN · Reddit · X comments (no API session on agent host)
+
 **Pipeline:** scout → growth merge · **Do not auto-post** (human clicks only)  
 **Stars:** 1 · **Forks:** 0 · **Tag:** v0.1.6  
 **Sources:** `conversation-opportunities-2026-07-26.md` · `posts-ready-2026-07-26.md`  

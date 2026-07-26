@@ -51,6 +51,7 @@ Order: **scout first**, then growth (or use the workflow).
 
 ## Rules
 
-- Scout never posts comments unless user says “post”.
-- Growth never spams; tip lines + warm contacts only.
-- Always update `docs/OUTREACH.md`.
+- Scout drafts by default; **posts when user says “post publicly” / “go live”**.
+- Growth **executes public posts** on available channels (GitHub Discussions/Issues/PRs, email tip lines). HN/Reddit/X organic require account session — complete automated channels first, then give one-click human paste for the rest.
+- Never spam; tip lines + warm contacts only for cold email.
+- Always update `docs/OUTREACH.md` with live URLs.

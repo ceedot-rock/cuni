@@ -203,3 +203,14 @@ Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com
 ### Do not re-send (already done 2026-07-26)
 Press: tips@techcrunch, tips@venturebeat, tips@theregister, tips@arstechnica, tips@zdnet, news@infoworld, editors@sdtimes, tips@devclass, hello@tldr.tech  
 Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com  
+
+## Public posts LIVE (2026-07-26 — post-publicly request)
+
+| Channel | URL |
+|---------|-----|
+| GH Discussion Announcements | https://github.com/ceedot-rock/cuni/discussions/1 |
+| GH Discussion Show and tell | https://github.com/ceedot-rock/cuni/discussions/2 |
+| Tracking issue | https://github.com/ceedot-rock/cuni/issues/3 |
+| This Week in Rust PR | https://github.com/rust-lang/this-week-in-rust/pull/8468 |
+
+**Blocked without human login session:** Show HN, Reddit posts/comments, X organic replies.
