@@ -83,3 +83,50 @@ Launch as a developer tool when you have a short video (link-demo.gif is a start
 - Cold-email random local businesses about CuNi
 - Mass-mail no-reply digests
 - Claim production readiness beyond v0.1
+
+---
+
+## Growth exec session — 2026-07-26 (posts-ready)
+
+**Agent:** cuni-growth-exec  
+**Metrics at session start:** **1★** · **0 forks** · **0 open issues** · tag `v0.1.6`  
+**Goal:** ship ready-to-paste community posts + TWiR blurb; log next human submits (no drive-by spam).
+
+### Actions completed
+| Action | Result |
+|--------|--------|
+| Read `docs/OUTREACH.md` + press/email log | Prior press tips + 3 personal/Rust Bytes emails already sent |
+| Star count via `gh api` | 1 star, 0 forks |
+| Wrote ready-to-paste posts | [`docs/growth/posts-ready-2026-07-26.md`](growth/posts-ready-2026-07-26.md) |
+| Show HN title + body + FAQ reply kit | In posts-ready §1 |
+| Reddit r/ProgrammingLanguages + r/rust (+ optional r/golang) | In posts-ready §2–4 |
+| TWiR Project/Tooling bullet + PR description | Tutorial link (not bare repo) — posts-ready §5 |
+| Conversation scout | **No** `docs/growth/conversation-opportunities-*.md` — standby comments only (§6) |
+| New cold tip emails | **None** this session (prior tip list already covered major press/TLDR/Rust Bytes) |
+| GH Discussion / README Community | **Skipped** (low value vs. human community submits) |
+
+### Artifacts
+- `docs/growth/posts-ready-2026-07-26.md` — full copy-paste pack
+
+### Metrics
+| Metric | Before | After |
+|--------|--------|-------|
+| GitHub stars | 1 | 1 (no community posts live yet) |
+| Forks | 0 | 0 |
+| Emails sent this session | — | 0 |
+| Ready posts drafted | 0 | Show HN + 3 Reddit + TWiR + X blurb |
+
+### Blocked / needs human
+1. **Submit Show HN** — https://news.ycombinator.com/submit (text in posts-ready §1)  
+2. **Submit r/ProgrammingLanguages** (posts-ready §2)  
+3. **Open TWiR PR** against `rust-lang/this-week-in-rust` `draft/` with tutorial bullet (posts-ready §5)  
+4. After live: paste HN/Reddit/PR URLs back into this log  
+
+### Next 3 actions (queued for human)
+1. Click-submit **Show HN** (weekday AM preferred).  
+2. Post **r/ProgrammingLanguages**, then **r/rust** (honest: compiler written in Rust).  
+3. Open **This Week in Rust** PR with link-tutorial bullet (not bare repo).  
+
+### Do not re-send (already done 2026-07-26)
+Press: tips@techcrunch, tips@venturebeat, tips@theregister, tips@arstechnica, tips@zdnet, news@infoworld, editors@sdtimes, tips@devclass, hello@tldr.tech  
+Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com  
