@@ -1,12 +1,21 @@
-# `link` (SPEC.md §19): a typed message contract callable both in-process
-# and, via the generated `Greet_handler`/`Greet_remote` pair, from a
-# separately-compiled CuNi program running as a *different* target — see
-# tests/conformance.rs's `link_interop_go_server_python_client` for a real
-# example of a Go-compiled server answering a Python-compiled client over an
-# actual socket. Mounting the handler (starting an HTTP server, choosing a
-# port) is the user's own job, per the ratified "codegen-only, no bundled
-# runtime" decision (INTEROP_PROPOSAL.md item 6) — this file only declares
-# the contract and its local implementation.
+# Flagship interop example — `link` (SPEC.md §16)
+#
+# One CuNi source declares a typed HTTP+JSON contract. Compile it to Go,
+# Python, and/or JavaScript: each emit produces
+#   • Greet(...)           — in-process function
+#   • Greet_handler        — wire handler (mount it yourself)
+#   • Greet_remote(...)    — always-fallible client stub
+#
+# Tutorial (drivers + one-command demo):
+#   docs/LINK_TUTORIAL.md
+#   examples/link/demo.sh
+#
+# Conformance proof (Go server ← Python client over a real socket):
+#   tests/conformance.rs :: link_interop_go_server_python_client
+#
+# Mounting the handler (port, TLS, router) is *your* job — codegen-only,
+# no bundled runtime (INTEROP_PROPOSAL.md item 6).
+
 link Greet(name: str, times: int) -> str do
     ret `hello ${name} x${times}`
 end

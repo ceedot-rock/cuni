@@ -1,7 +1,9 @@
 [package]
 name = "cuni"
-version = "0.1.0"
+version = "0.1.5"
 edition = "2021"
+description = "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript)"
+license = "MIT"
 
 [[bin]]
 name = "cuni"

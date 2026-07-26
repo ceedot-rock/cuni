@@ -5,16 +5,40 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.1"><img src="https://img.shields.io/badge/version-0.1.1-cyan.svg" alt="v0.1.1" /></a>
+  <a href="https://github.com/ceedot-rock/cuni"><img src="https://img.shields.io/badge/version-0.1.5-cyan.svg" alt="v0.1.5" /></a>
 </p>
 
 A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
 
-### 30s demo
+### Two proofs that matter
+
+| Proof | Command | What it shows |
+|-------|---------|----------------|
+| **Exactness** | `cuni check examples/full.cuni` | One program → py/go/js → **same stdout** |
+| **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
+
+### Flagship: one `link`, three languages
+
+```cuni
+link Greet(name: str, times: int) -> str do
+    ret `hello ${name} x${times}`
+end
+```
+
+```bash
+cargo build --release
+./examples/link/demo.sh
+# Python / JS / Go clients all print:  hello Cee x3
+```
+
+Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni)
+
+### 30s demo (exactness)
 
 <p align="center">
   <a href="assets/demo-30s.mp4"><img src="assets/demo-30s.gif" alt="CuNi 30-second demo" width="640" /></a>
@@ -28,7 +52,7 @@ A small, mnemonic programming language that compiles to **exact, idiomatic** Pyt
 
 ```bash
 # install the cuni binary onto your PATH
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.1
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.5
 
 # or clone and build from source
 git clone https://github.com/ceedot-rock/cuni.git
@@ -40,6 +64,17 @@ cargo build --release
 ## Quick start
 
 ```bash
+# exactness gate (platform step 1) — emit py/go/js, run each, require identical stdout
+cuni check examples/full.cuni
+# → exactness: PASS (py/go/js)   exit 0
+# → exactness: FAIL — …         exit 1
+
+cuni check examples/          # all .cuni under a directory
+cuni check examples/full.cuni --verbose --timeout 120
+
+# type errors include file:line:col (platform step 2)
+# → tests/typeck_invalid/undefined_var.cuni:1:9: type error: undefined variable `y`
+
 # type-check + dump AST
 cuni examples/full.cuni
 
@@ -57,6 +92,38 @@ node /tmp/full.js
 cargo test
 ```
 
+### Exactness CI (platform step 4)
+
+Workflows (run on every push/PR):
+
+| Workflow | Badge | What it runs |
+|----------|--------|----------------|
+| **Exactness** | [![Exactness](https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg)](https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml) | `cuni check` on portable examples |
+| **CI** | [![CI](https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg)](https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml) | `cargo test` + exactness |
+
+Local:
+
+```bash
+cargo build --release
+./target/release/cuni check --timeout 120 \
+  examples/full.cuni examples/structs.cuni examples/enums.cuni
+```
+
+Composite action (this repo): `.github/actions/cuni-exactness`  
+Docs for other repos: [`docs/CI.md`](docs/CI.md)
+
+(`cuni check` needs `python3`, `go`, and `node` on PATH.)
+
+### Playground (platform step 3)
+
+```bash
+cargo build --release
+python3 playground/server.py
+# open http://127.0.0.1:8787
+```
+
+Edit CuNi → emit py/go/js → run all three → see **exactness PASS/FAIL**. Details: [`playground/README.md`](playground/README.md).
+
 ## Language at a glance
 
 | Idea | Syntax |
@@ -73,7 +140,9 @@ cargo test
 | Escape hatch | `ext name(...) -> T do py: … go: … js: … end` |
 | Cross-program | `link Greet(name: str) -> str do … end` → handler + `*_remote` client |
 
-Full prose: [`SPEC.md`](SPEC.md). Formal EBNF: [`GRAMMAR.md`](GRAMMAR.md).
+Full prose: [`SPEC.md`](SPEC.md). Formal EBNF: [`GRAMMAR.md`](GRAMMAR.md).  
+**`link` interop tutorial:** [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md).  
+**CI / badges:** [`docs/CI.md`](docs/CI.md).
 
 ## Layout
 
@@ -84,15 +153,20 @@ src/
   codegen_{py,go,js}.rs                # three backends
   main.rs                              # CLI
 examples/                              # runnable .cuni samples
+examples/link/demo.sh                  # flagship Go server ← py/js/go clients
+playground/                            # local Studio (python3 playground/server.py)
+docs/LINK_TUTORIAL.md                  # interop walkthrough
+docs/CI.md                             # badges + exactness CI
 tests/
-  conformance.rs                       # byte-identical stdout across targets
+  conformance.rs                       # byte-identical stdout + link interop
+  check_cmd.rs                         # cuni check CLI
   typeck.rs + typeck_invalid/          # compile-or-refuse fixtures
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.1)
+## Status (v0.1.5)
 
-**Shipped:** lexer/parser, three codegens, bounded type checker, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), conformance tests.
+**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check` exactness gate, local **playground**, Exactness **CI + badge**, flagship **link demo**.
 
 **Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference, named struct fields — see SPEC.md §19.
 

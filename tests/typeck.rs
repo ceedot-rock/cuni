@@ -30,6 +30,26 @@ fn assert_rejected(source: &str, must_contain: &str) {
     let err = compile_error(source).unwrap_or_else(|| panic!("{} was expected to be rejected by the type checker, but compiled successfully", source));
     assert!(err.contains("type error"), "{} was rejected, but not by the type checker:\n{}", source, err);
     assert!(err.contains(must_contain), "{} was rejected, but the message didn't mention {:?}:\n{}", source, must_contain, err);
+    // Step 2: type errors must include file:line:col (byte span → location).
+    // e.g. cuni: tests/.../x.cuni:1:9: type error: ...
+    let has_loc = err.lines().any(|l| {
+        l.contains("type error")
+            && l.contains(".cuni:")
+            && l.split(".cuni:")
+                .nth(1)
+                .map(|rest| {
+                    let mut it = rest.split(':');
+                    let line = it.next().and_then(|s| s.parse::<u32>().ok());
+                    let col = it.next().and_then(|s| s.parse::<u32>().ok());
+                    matches!((line, col), (Some(l), Some(c)) if l >= 1 && c >= 1)
+                })
+                .unwrap_or(false)
+    });
+    assert!(
+        has_loc,
+        "{} type error missing file:line:col location:\n{}",
+        source, err
+    );
 }
 
 #[test]

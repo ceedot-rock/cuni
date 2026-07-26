@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [master, main]
   pull_request:
-    branches: [master]
+    branches: [master, main]
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,3 +37,12 @@ jobs:
 
       - name: Test
         run: cargo test --verbose
+
+      # Keep the product surface green even if someone skips the Exactness workflow.
+      - name: Exactness gate (cuni check)
+        run: |
+          cargo build --release
+          ./target/release/cuni check --timeout 120 \
+            examples/full.cuni \
+            examples/structs.cuni \
+            examples/enums.cuni

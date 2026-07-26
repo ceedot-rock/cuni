@@ -1,3 +1,27 @@
+/// Byte offset range into the originating source file.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Span {
+    pub start: usize,
+    pub end: usize,
+}
+
+impl Span {
+    pub fn new(start: usize, end: usize) -> Self {
+        Span { start, end }
+    }
+
+    pub fn union(self, other: Span) -> Span {
+        Span {
+            start: self.start.min(other.start),
+            end: self.end.max(other.end),
+        }
+    }
+
+    pub fn dummy() -> Self {
+        Span { start: 0, end: 0 }
+    }
+}
+
 #[derive(Debug)]
 pub struct Program {
     pub items: Vec<Item>,
@@ -15,19 +39,19 @@ pub enum Item {
 }
 
 /// Payload-free enum: a closed set of named variants, no attached data.
-/// Full tagged unions with payload are an open item (SPEC.md §16) — Go has no
-/// honest way to make the compiler refuse an unsealed/non-exhaustive union.
 #[derive(Debug)]
 pub struct EnumDecl {
     pub name: String,
+    #[allow(dead_code)] // reserved for future enum-related diagnostics
+    pub name_span: Span,
     pub variants: Vec<String>,
 }
 
 /// A non-portable, per-target binding: `ext name(...) -> T do py: ... go: ... end`.
-/// Each target line is captured as raw source text, not parsed as CuNi.
 #[derive(Debug)]
 pub struct ExtDecl {
     pub name: String,
+    pub name_span: Span,
     pub params: Vec<Param>,
     pub ret_type: Type,
     pub targets: Vec<(String, String)>,
@@ -36,6 +60,7 @@ pub struct ExtDecl {
 #[derive(Debug)]
 pub struct TypDecl {
     pub name: String,
+    pub name_span: Span,
     pub implements: Option<String>,
     pub fields: Vec<Param>,
 }
@@ -43,6 +68,7 @@ pub struct TypDecl {
 #[derive(Debug)]
 pub struct IfaceDecl {
     pub name: String,
+    pub name_span: Span,
     pub methods: Vec<MethodSig>,
 }
 
@@ -57,24 +83,19 @@ pub struct MethodSig {
 pub struct Param {
     pub name: String,
     pub ty: Type,
+    /// Span covering `name: type` (best-effort; starts at name).
+    pub span: Span,
 }
 
 #[derive(Debug)]
 pub struct FnDecl {
     pub name: String,
+    pub name_span: Span,
     pub generics: Vec<String>,
     pub params: Vec<Param>,
     pub ret_type: Type,
     pub fallible: bool,
     pub body: Vec<Stmt>,
-    /// True for `link` declarations (SPEC.md §16) rather than plain `def`.
-    /// A `link` is a `def` in every respect locally — same body, same
-    /// fallibility rules — plus it additionally generates a wire handler and
-    /// an always-fallible `<name>_remote` client stub per target, since a
-    /// `link` is meant to be callable both in-process and over the network
-    /// from a separately-compiled CuNi program. No generics: a wire contract
-    /// needs a concrete, enumerable shape, which a type parameter doesn't
-    /// give it.
     pub is_link: bool,
 }
 
@@ -85,26 +106,57 @@ pub enum Type {
 }
 
 #[derive(Debug)]
-pub enum Stmt {
-    Let { name: String, ty: Option<Type>, value: Expr },
-    Mut { name: String, ty: Option<Type>, value: Expr },
-    Assign { target: Expr, value: Expr },
+pub struct Stmt {
+    pub kind: StmtKind,
+    pub span: Span,
+}
+
+#[derive(Debug)]
+pub enum StmtKind {
+    Let {
+        name: String,
+        ty: Option<Type>,
+        value: Expr,
+    },
+    Mut {
+        name: String,
+        ty: Option<Type>,
+        value: Expr,
+    },
+    Assign {
+        target: Expr,
+        value: Expr,
+    },
     Ret(Option<Expr>),
-    /// `fail expr` — signals failure from a fallible (`-> T ?`) function
-    /// body, symmetric with `ret`: `ret` succeeds with a value, `fail` fails
-    /// with one. Each target picks its own idiomatic failure channel
-    /// (Python exception, Go error return, JS throw) — see codegen docs.
+    /// `fail expr` — signals failure from a fallible (`-> T ?`) function.
     Fail(Expr),
-    If { cond: Expr, then_body: Vec<Stmt>, else_body: Option<Vec<Stmt>> },
-    For { binding: (String, Option<String>), iter: Expr, body: Vec<Stmt> },
-    Whl { cond: Expr, body: Vec<Stmt> },
+    If {
+        cond: Expr,
+        then_body: Vec<Stmt>,
+        else_body: Option<Vec<Stmt>>,
+    },
+    For {
+        binding: (String, Option<String>),
+        iter: Expr,
+        body: Vec<Stmt>,
+    },
+    Whl {
+        cond: Expr,
+        body: Vec<Stmt>,
+    },
     ExprStmt(Expr),
     /// The literal `...` placeholder used as a stand-in function body.
     Todo,
 }
 
 #[derive(Debug)]
-pub enum Expr {
+pub struct Expr {
+    pub kind: ExprKind,
+    pub span: Span,
+}
+
+#[derive(Debug)]
+pub enum ExprKind {
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -114,14 +166,32 @@ pub enum Expr {
     Ident(String),
     List(Vec<Expr>),
     Map(Vec<(Expr, Expr)>),
-    Call { callee: Box<Expr>, args: Vec<Expr> },
-    Index { base: Box<Expr>, index: Box<Expr> },
-    Field { base: Box<Expr>, name: String },
-    Binary { op: BinOp, lhs: Box<Expr>, rhs: Box<Expr> },
-    Unary { op: UnOp, expr: Box<Expr> },
-    /// `expr ?? do ... end` — unwraps a fallible result or an `opt<T>`,
-    /// running `handler` (which must `ret`) when there's nothing to unwrap.
-    Unwrap { expr: Box<Expr>, handler: Vec<Stmt> },
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
+    },
+    Field {
+        base: Box<Expr>,
+        name: String,
+    },
+    Binary {
+        op: BinOp,
+        lhs: Box<Expr>,
+        rhs: Box<Expr>,
+    },
+    Unary {
+        op: UnOp,
+        expr: Box<Expr>,
+    },
+    /// `expr ?? do ... end`
+    Unwrap {
+        expr: Box<Expr>,
+        handler: Vec<Stmt>,
+    },
 }
 
 #[derive(Debug)]

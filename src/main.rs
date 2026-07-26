@@ -1,4 +1,5 @@
 mod ast;
+mod check;
 mod checks;
 mod codegen_go;
 mod codegen_js;
@@ -9,28 +10,11 @@ mod parser;
 mod token;
 mod typeck;
 
-use lexer::Lexer;
-use parser::Parser;
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 use std::process::ExitCode;
-
-fn line_col(source: &str, byte_pos: usize) -> (usize, usize) {
-    let mut line = 1;
-    let mut col = 1;
-    for (i, c) in source.char_indices() {
-        if i >= byte_pos {
-            break;
-        }
-        if c == '\n' {
-            line += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-    }
-    (line, col)
-}
+use std::time::Duration;
 
 fn print_usage() {
     eprintln!(
@@ -38,11 +22,18 @@ fn print_usage() {
 cuni — CuNi (Code:uNiTY) compiler
 
 Usage:
+  cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep]
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
   cuni --help
 
-With no --emit-* flags, prints the parsed AST (debug) after type-checking.
-`use name` loads <dir>/<name>.cuni relative to the source file.
+Commands:
+  check   Exactness gate (SPEC §2): emit py/go/js, run each, require
+          identical stdout. Exit 0 only on PASS.
+          Prints:  exactness: PASS (py/go/js)
+
+Emit mode:
+  With no --emit-* flags, prints the parsed AST (debug) after type-checking.
+  `use name` loads <dir>/<name>.cuni relative to the source file.
 "
     );
 }
@@ -58,6 +49,125 @@ fn main() -> ExitCode {
         };
     }
 
+    if args[0] == "check" {
+        return cmd_check(&args[1..]);
+    }
+
+    cmd_compile(&args)
+}
+
+fn cmd_check(args: &[String]) -> ExitCode {
+    let mut paths: Vec<PathBuf> = Vec::new();
+    let mut verbose = false;
+    let mut keep = false;
+    let mut timeout_secs: u64 = 60;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--verbose" | "-v" => {
+                verbose = true;
+                i += 1;
+            }
+            "--keep" => {
+                keep = true;
+                i += 1;
+            }
+            "--timeout" => {
+                let v = args.get(i + 1).unwrap_or_else(|| {
+                    eprintln!("cuni check: --timeout requires seconds");
+                    std::process::exit(1);
+                });
+                timeout_secs = v.parse().unwrap_or_else(|_| {
+                    eprintln!("cuni check: invalid --timeout value `{}`", v);
+                    std::process::exit(1);
+                });
+                i += 2;
+            }
+            s if s.starts_with('-') => {
+                eprintln!("cuni check: unknown flag `{}` (try --help)", s);
+                return ExitCode::FAILURE;
+            }
+            s => {
+                paths.push(PathBuf::from(s));
+                i += 1;
+            }
+        }
+    }
+
+    if paths.is_empty() {
+        eprintln!("cuni check: missing path (file.cuni or directory)");
+        print_usage();
+        return ExitCode::FAILURE;
+    }
+
+    let mut sources = Vec::new();
+    for path in &paths {
+        match check::collect_sources(path) {
+            Ok(mut s) => sources.append(&mut s),
+            Err(e) => {
+                eprintln!("cuni check: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    sources.sort();
+    sources.dedup();
+
+    let work_root = env::temp_dir().join(format!("cuni_check_{}", std::process::id()));
+    if let Err(e) = fs::create_dir_all(&work_root) {
+        eprintln!("cuni check: couldn't create temp dir: {}", e);
+        return ExitCode::FAILURE;
+    }
+
+    let timeout = Duration::from_secs(timeout_secs);
+    let mut failed = 0usize;
+    let mut passed = 0usize;
+
+    for src in &sources {
+        let work = work_root.join(
+            src.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("prog"),
+        );
+        let _ = fs::create_dir_all(&work);
+        let report = check::check_file(src, &work, timeout);
+        check::print_report(&report, verbose);
+        if report.passed() {
+            passed += 1;
+        } else {
+            failed += 1;
+        }
+        println!();
+    }
+
+    if sources.len() > 1 {
+        println!(
+            "exactness summary: {} passed, {} failed ({} files)",
+            passed,
+            failed,
+            sources.len()
+        );
+    }
+
+    if !keep {
+        let _ = fs::remove_dir_all(&work_root);
+    } else {
+        eprintln!("cuni check: kept artifacts under {}", work_root.display());
+    }
+
+    if failed == 0 {
+        if sources.len() == 1 {
+            // already printed per-file PASS
+        } else {
+            println!("exactness: PASS (all {} files)", sources.len());
+        }
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn cmd_compile(args: &[String]) -> ExitCode {
     let mut path = None;
     let mut emit_py: Option<String> = None;
     let mut emit_go: Option<String> = None;
@@ -99,53 +209,15 @@ fn main() -> ExitCode {
         }
     };
 
-    let source = match fs::read_to_string(&path) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("cuni: couldn't read {}: {}", path, e);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let tokens = match Lexer::tokenize(&source) {
-        Ok(t) => t,
-        Err(e) => {
-            let (line, col) = line_col(&source, e.pos);
-            eprintln!("{}:{}:{}: lex error: {}", path, line, col, e.message);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    let mut parser = Parser::new(tokens, &source);
-    let program = match parser.parse_program() {
+    let program = match check::load_program(std::path::Path::new(&path)) {
         Ok(p) => p,
         Err(e) => {
-            let (line, col) = line_col(&source, e.pos);
-            eprintln!("{}:{}:{}: parse error: {}", path, line, col, e.message);
+            eprintln!("cuni: {}", e);
             return ExitCode::FAILURE;
         }
     };
 
-    let program = match modules::resolve_uses(program, std::path::Path::new(&path)) {
-        Ok(p) => p,
-        Err(e) => {
-            eprintln!("{}: module error: {}", path, e.message);
-            return ExitCode::FAILURE;
-        }
-    };
-
-    if let Err(e) = typeck::check_program(&program) {
-        eprintln!("{}: type error: {}", path, e.message);
-        return ExitCode::FAILURE;
-    }
-    if let Some((name, reason)) = checks::find_bad_link_type(&program) {
-        eprintln!(
-            "cuni: refusing to compile: `link {}` has a non-scalar {} — link v1 only supports int/float/str/bool (see SPEC.md §16)",
-            name, reason
-        );
-        return ExitCode::FAILURE;
-    }
-
+    // Preserve detailed emit refuse messages for py/js collisions (same as before)
     let mut emitted_any = false;
     if let Some(out_path) = emit_py {
         if let Some(name) = checks::find_ext_collision(&program, "py") {

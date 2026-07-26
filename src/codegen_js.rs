@@ -167,20 +167,20 @@ impl Codegen {
     }
 
     fn stmt_needs_async(&self, s: &Stmt) -> bool {
-        match s {
-            Stmt::Let { value, .. } | Stmt::Mut { value, .. } => self.expr_needs_async(value),
-            Stmt::If { then_body, else_body, .. } => {
+        match &s.kind {
+            StmtKind::Let { value, .. } | StmtKind::Mut { value, .. } => self.expr_needs_async(value),
+            StmtKind::If { then_body, else_body, .. } => {
                 self.stmts_need_async(then_body) || else_body.as_ref().map_or(false, |b| self.stmts_need_async(b))
             }
-            Stmt::For { body, .. } | Stmt::Whl { body, .. } => self.stmts_need_async(body),
+            StmtKind::For { body, .. } | StmtKind::Whl { body, .. } => self.stmts_need_async(body),
             _ => false,
         }
     }
 
     fn expr_needs_async(&self, expr: &Expr) -> bool {
-        if let Expr::Unwrap { expr, .. } = expr {
-            if let Expr::Call { callee, .. } = expr.as_ref() {
-                if let Expr::Ident(name) = callee.as_ref() {
+        if let ExprKind::Unwrap { expr, .. } = &expr.kind {
+            if let ExprKind::Call { callee, .. } = &expr.kind {
+                if let ExprKind::Ident(name) = &callee.kind {
                     return self.fn_info.get(name).map_or(false, |i| i.is_async);
                 }
             }
@@ -370,30 +370,30 @@ impl Codegen {
     }
 
     fn gen_stmt(&mut self, indent: usize, stmt: &Stmt, scope: &mut HashMap<String, VarKind>) {
-        match stmt {
-            Stmt::Let { name, ty, value } => {
+        match &stmt.kind {
+            StmtKind::Let { name, ty, value } => {
                 let kind = ty.as_ref().map(kind_of_type).or_else(|| kind_of_literal(value)).unwrap_or(VarKind::Other);
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "const", name, value, scope);
             }
-            Stmt::Mut { name, ty, value } => {
+            StmtKind::Mut { name, ty, value } => {
                 let kind = ty.as_ref().map(kind_of_type).or_else(|| kind_of_literal(value)).unwrap_or(VarKind::Other);
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "let", name, value, scope);
             }
-            Stmt::Assign { target, value } => {
+            StmtKind::Assign { target, value } => {
                 self.line(indent, &format!("{} = {};", self.gen_expr(target, scope), self.gen_expr(value, scope)));
             }
-            Stmt::Ret(Some(e)) => {
+            StmtKind::Ret(Some(e)) => {
                 let text = self.gen_expr(e, scope);
                 self.line(indent, &format!("return {};", text));
             }
-            Stmt::Ret(None) => self.line(indent, "return;"),
-            Stmt::Fail(e) => {
+            StmtKind::Ret(None) => self.line(indent, "return;"),
+            StmtKind::Fail(e) => {
                 let text = self.gen_expr(e, scope);
                 self.line(indent, &format!("throw new CuNiError({});", text));
             }
-            Stmt::If { cond, then_body, else_body } => {
+            StmtKind::If { cond, then_body, else_body } => {
                 self.line(indent, &format!("if ({}) {{", self.gen_expr(cond, scope)));
                 self.gen_block(indent + 1, then_body, scope);
                 match else_body {
@@ -405,8 +405,8 @@ impl Codegen {
                     None => self.line(indent, "}"),
                 }
             }
-            Stmt::For { binding: (a, b), iter, body } => {
-                let iter_kind = if let Expr::Ident(name) = iter { scope.get(name).copied() } else { None };
+            StmtKind::For { binding: (a, b), iter, body } => {
+                let iter_kind = if let ExprKind::Ident(name) = &iter.kind { scope.get(name).copied() } else { None };
                 let header = match b {
                     Some(b) if iter_kind == Some(VarKind::Map) => {
                         format!("for (const [{}, {}] of {}) {{", a, b, self.gen_expr(iter, scope))
@@ -418,16 +418,16 @@ impl Codegen {
                 self.gen_block(indent + 1, body, scope);
                 self.line(indent, "}");
             }
-            Stmt::Whl { cond, body } => {
+            StmtKind::Whl { cond, body } => {
                 self.line(indent, &format!("while ({}) {{", self.gen_expr(cond, scope)));
                 self.gen_block(indent + 1, body, scope);
                 self.line(indent, "}");
             }
-            Stmt::ExprStmt(e) => {
+            StmtKind::ExprStmt(e) => {
                 let text = self.gen_expr(e, scope);
                 self.line(indent, &format!("{};", text));
             }
-            Stmt::Todo => {
+            StmtKind::Todo => {
                 self.line(indent, "throw new Error(\"...\"); // CuNi stub body (`...`) — not yet written");
             }
         }
@@ -445,18 +445,14 @@ impl Codegen {
     /// (`ret`), matching every example program written against the spec so
     /// far. `keyword` is `"const"` for `let` and `"let"` for `mut`.
     fn gen_binding(&mut self, indent: usize, keyword: &str, name: &str, value: &Expr, scope: &mut HashMap<String, VarKind>) {
-        if let Expr::Unwrap { expr, handler } = value {
-            let is_fallible_call = matches!(
-                expr.as_ref(),
-                Expr::Call { callee, .. } if matches!(callee.as_ref(), Expr::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.fallible))
+        if let ExprKind::Unwrap { expr, handler } = &value.kind {
+            let is_fallible_call = matches!(&expr.kind, ExprKind::Call { callee, .. } if matches!(&callee.kind, ExprKind::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.fallible))
             );
             // A `link`'s `<name>_remote` is always async (see FnInfo::is_async's
             // docs) — needs `await` here, and the enclosing function/`main()`
             // must itself be declared `async` (handled separately, at each
             // function's own declaration site, by `stmts_need_async`).
-            let is_async_call = matches!(
-                expr.as_ref(),
-                Expr::Call { callee, .. } if matches!(callee.as_ref(), Expr::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.is_async))
+            let is_async_call = matches!(&expr.kind, ExprKind::Call { callee, .. } if matches!(&callee.kind, ExprKind::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.is_async))
             );
             let inner_raw = self.gen_expr(expr, scope);
             let inner = if is_async_call { format!("await {}", inner_raw) } else { inner_raw };
@@ -483,12 +479,12 @@ impl Codegen {
     }
 
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
-        match expr {
-            Expr::Int(n) => n.to_string(),
-            Expr::Float(f) => f.to_string(),
-            Expr::Bool(b) => b.to_string(),
-            Expr::Str(s) => format!("{:?}", s),
-            Expr::InterpStr(parts) => {
+        match &expr.kind {
+            ExprKind::Int(n) => n.to_string(),
+            ExprKind::Float(f) => f.to_string(),
+            ExprKind::Bool(b) => b.to_string(),
+            ExprKind::Str(s) => format!("{:?}", s),
+            ExprKind::InterpStr(parts) => {
                 let mut s = String::from("`");
                 for p in parts {
                     match p {
@@ -503,10 +499,10 @@ impl Codegen {
                 s.push('`');
                 s
             }
-            Expr::NoneLit => "null".to_string(),
-            Expr::Ident(name) => name.clone(),
-            Expr::List(items) => format!("[{}]", items.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", ")),
-            Expr::Map(pairs) => format!(
+            ExprKind::NoneLit => "null".to_string(),
+            ExprKind::Ident(name) => name.clone(),
+            ExprKind::List(items) => format!("[{}]", items.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", ")),
+            ExprKind::Map(pairs) => format!(
                 "new Map([{}])",
                 pairs
                     .iter()
@@ -514,32 +510,32 @@ impl Codegen {
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
-            Expr::Call { callee, args } => {
+            ExprKind::Call { callee, args } => {
                 // `.len()` is a method call in CuNi but a property in JS
                 // (`.length`, no parens) — needs its own rewrite, unlike
                 // `.push`, which already matches JS's own method shape.
-                if let Expr::Field { base, name } = callee.as_ref() {
+                if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "len" {
                         return format!("{}.length", self.gen_expr(base, scope));
                     }
                 }
                 let arg_list = args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", ");
                 // JS class constructors require `new` — bare `Circle(1.5)` throws.
-                if let Expr::Ident(tname) = callee.as_ref() {
+                if let ExprKind::Ident(tname) = &callee.kind {
                     if self.typ_names.contains(tname) {
                         return format!("new {}({})", tname, arg_list);
                     }
                 }
                 format!("{}({})", self.gen_expr(callee, scope), arg_list)
             }
-            Expr::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
-            Expr::Field { base, name } => format!("{}.{}", self.gen_expr(base, scope), name),
-            Expr::Binary { op, lhs, rhs } => format!("({} {} {})", self.gen_expr(lhs, scope), js_binop(*op), self.gen_expr(rhs, scope)),
-            Expr::Unary { op, expr } => match op {
+            ExprKind::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
+            ExprKind::Field { base, name } => format!("{}.{}", self.gen_expr(base, scope), name),
+            ExprKind::Binary { op, lhs, rhs } => format!("({} {} {})", self.gen_expr(lhs, scope), js_binop(*op), self.gen_expr(rhs, scope)),
+            ExprKind::Unary { op, expr } => match op {
                 UnOp::Not => format!("(!{})", self.gen_expr(expr, scope)),
                 UnOp::Neg => format!("(-{})", self.gen_expr(expr, scope)),
             },
-            Expr::Unwrap { .. } => "null /* UNSUPPORTED: ?? outside a let/mut binding, see codegen_js.rs docs */".to_string(),
+            ExprKind::Unwrap { .. } => "null /* UNSUPPORTED: ?? outside a let/mut binding, see codegen_js.rs docs */".to_string(),
         }
     }
 }
@@ -557,9 +553,9 @@ fn kind_of_type(ty: &Type) -> VarKind {
 }
 
 fn kind_of_literal(e: &Expr) -> Option<VarKind> {
-    match e {
-        Expr::List(_) => Some(VarKind::List),
-        Expr::Map(_) => Some(VarKind::Map),
+    match &e.kind {
+        ExprKind::List(_) => Some(VarKind::List),
+        ExprKind::Map(_) => Some(VarKind::Map),
         _ => None,
     }
 }

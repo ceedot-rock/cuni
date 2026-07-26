@@ -1,0 +1,103 @@
+# Platform step 4 — public exactness gate (SPEC.md §2).
+# Badge: https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg
+name: Exactness
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CUNI_CHECK_TIMEOUT: "120"
+
+jobs:
+  exactness:
+    name: cuni check (py / go / js)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build cuni
+        run: cargo build --release
+
+      - name: Exactness — portable examples
+        run: |
+          set -euo pipefail
+          BIN=./target/release/cuni
+          "$BIN" --help | head -5
+          # Only programs that must be exact across all three v1 targets.
+          # modules.cuni intentionally refuses JS (ext collision); link needs a
+          # wired server — covered by cargo test, not this gate.
+          "$BIN" check \
+            --timeout "${CUNI_CHECK_TIMEOUT}" \
+            examples/full.cuni \
+            examples/structs.cuni \
+            examples/enums.cuni
+
+      - name: Exactness summary
+        if: always()
+        run: |
+          echo "### Exactness" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Portable examples must emit + run py/go/js with **identical stdout**." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "cuni check examples/full.cuni examples/structs.cuni examples/enums.cuni" >> "$GITHUB_STEP_SUMMARY"
+          echo "→ exactness: PASS (py/go/js)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  link-flagship:
+    name: link demo (Go server ← py/js/go clients)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build cuni
+        run: cargo build --release
+
+      - name: Flagship link demo
+        run: |
+          export CUNI_BIN="${{ github.workspace }}/target/release/cuni"
+          ./examples/link/demo.sh
+
+      - name: Link summary
+        if: always()
+        run: |
+          echo "### Flagship \`link\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "One CuNi contract · Go HTTP server · Python + JS + Go clients." >> "$GITHUB_STEP_SUMMARY"
+          echo "See [docs/LINK_TUTORIAL.md](docs/LINK_TUTORIAL.md)." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CuNi Playground</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="logo">CuNi</span>
+        <div>
+          <h1>Playground</h1>
+          <p class="tag">Write once → exact py / go / js — or refuse</p>
+        </div>
+      </div>
+      <div class="actions">
+        <label class="example-label">
+          Example
+          <select id="example"></select>
+        </label>
+        <button id="run" class="primary" type="button">Run exactness</button>
+        <span id="status" class="badge idle">idle</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="pane editor-pane">
+        <div class="pane-head">
+          <h2>Source <span class="mono">.cuni</span></h2>
+          <span class="hint">⌘/Ctrl + Enter to run</span>
+        </div>
+        <textarea id="source" spellcheck="false" autocomplete="off"></textarea>
+        <pre id="error" class="error hidden"></pre>
+      </section>
+
+      <section class="pane results">
+        <div class="pane-head">
+          <h2>Targets</h2>
+          <span id="summary" class="summary mono"></span>
+        </div>
+        <div class="tabs">
+          <button type="button" class="tab active" data-tab="py">Python</button>
+          <button type="button" class="tab" data-tab="go">Go</button>
+          <button type="button" class="tab" data-tab="js">JavaScript</button>
+          <button type="button" class="tab" data-tab="stdout">Stdout</button>
+        </div>
+        <pre id="out-py" class="code active"></pre>
+        <pre id="out-go" class="code"></pre>
+        <pre id="out-js" class="code"></pre>
+        <pre id="out-stdout" class="code"></pre>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span id="health" class="mono muted">checking toolchain…</span>
+      <span class="muted">Platform step 3 · local only · no account</span>
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

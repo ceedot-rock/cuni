@@ -64,7 +64,7 @@ use std::collections::HashMap;
 ///   (its result would be silently discarded, which is wrong — the original
 ///   backing array may or may not have been reused). It must become the
 ///   assignment `names = append(names, x)`. This is handled in `gen_stmt` for
-///   `Stmt::ExprStmt`, matching on the `.push` call shape before falling back
+///   `StmtKind::ExprStmt`, matching on the `.push` call shape before falling back
 ///   to generic expression codegen — genuinely structurally different from
 ///   both the Python (`.append` method call) and JS (`.push` method call)
 ///   mappings, and worth calling out as a real cross-language asymmetry: the
@@ -395,17 +395,17 @@ impl Codegen {
     }
 
     fn gen_stmt(&mut self, indent: usize, stmt: &Stmt, scope: &mut HashMap<String, VarKind>) {
-        match stmt {
-            Stmt::Let { name, ty, value } | Stmt::Mut { name, ty, value } => {
+        match &stmt.kind {
+            StmtKind::Let { name, ty, value } | StmtKind::Mut { name, ty, value } => {
                 let kind = ty.as_ref().map(kind_of_type).or_else(|| kind_of_literal(value)).unwrap_or(VarKind::Other);
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, name, ty, value, scope);
             }
-            Stmt::Assign { target, value } => {
+            StmtKind::Assign { target, value } => {
                 self.line(indent, &format!("{} = {}", self.gen_expr(target, scope), self.gen_expr(value, scope)));
             }
-            Stmt::Ret(value) => self.gen_ret(indent, value, scope),
-            Stmt::Fail(e) => {
+            StmtKind::Ret(value) => self.gen_ret(indent, value, scope),
+            StmtKind::Fail(e) => {
                 let text = self.gen_expr(e, scope);
                 match &self.cur_fn {
                     Some(cur) if cur.fallible => {
@@ -421,7 +421,7 @@ impl Codegen {
                     }
                 }
             }
-            Stmt::If { cond, then_body, else_body } => {
+            StmtKind::If { cond, then_body, else_body } => {
                 self.line(indent, &format!("if {} {{", self.gen_expr(cond, scope)));
                 self.gen_block(indent + 1, then_body, scope);
                 match else_body {
@@ -433,8 +433,8 @@ impl Codegen {
                     None => self.line(indent, "}"),
                 }
             }
-            Stmt::For { binding: (a, b), iter, body } => {
-                let iter_kind = if let Expr::Ident(name) = iter { scope.get(name).copied() } else { None };
+            StmtKind::For { binding: (a, b), iter, body } => {
+                let iter_kind = if let ExprKind::Ident(name) = &iter.kind { scope.get(name).copied() } else { None };
                 // Two-binding form (`for i, x in xs`) is a genuine gift: Go's
                 // `for a, b := range x` gives index+value for slices and
                 // key+value for maps with the *same* syntax, no branching
@@ -458,21 +458,21 @@ impl Codegen {
                 self.gen_block(indent + 1, body, scope);
                 self.line(indent, "}");
             }
-            Stmt::Whl { cond, body } => {
+            StmtKind::Whl { cond, body } => {
                 // Go has no `while`; a `for` with just a condition is the idiom.
                 self.line(indent, &format!("for {} {{", self.gen_expr(cond, scope)));
                 self.gen_block(indent + 1, body, scope);
                 self.line(indent, "}");
             }
-            Stmt::ExprStmt(e) => {
+            StmtKind::ExprStmt(e) => {
                 // `.push` is a Stmt-level rewrite, not an expression
                 // substitution: Go's `append` returns a *new* slice rather
                 // than mutating in place, so `names.push(x)` must become the
                 // assignment `names = append(names, x)`, never a bare
                 // expression statement (whose result would be silently
                 // dropped). See module docs.
-                if let Expr::Call { callee, args } = e {
-                    if let Expr::Field { base, name } = callee.as_ref() {
+                if let ExprKind::Call { callee, args } = &e.kind {
+                    if let ExprKind::Field { base, name } = &callee.kind {
                         if name == "push" {
                             let base_text = self.gen_expr(base, scope);
                             let args_text = args.iter().map(|a| self.gen_expr(a, scope)).collect::<Vec<_>>().join(", ");
@@ -484,7 +484,7 @@ impl Codegen {
                 let text = self.gen_expr(e, scope);
                 self.line(indent, &text);
             }
-            Stmt::Todo => match &self.cur_fn {
+            StmtKind::Todo => match &self.cur_fn {
                 Some(cur) if cur.fallible => {
                     let zero = zero_value(&cur.ret_type);
                     self.line(
@@ -636,7 +636,7 @@ impl Codegen {
         let ret_type = cur.ret_type.clone();
         let is_opt = matches!(&ret_type, Type::Generic(n, _) if n == "opt");
         match value {
-            Some(e) if is_opt && !matches!(e, Expr::NoneLit) => {
+            Some(e) if is_opt && !matches!(&e.kind, ExprKind::NoneLit) => {
                 // opt<T> is `*T`; taking the address of an arbitrary
                 // expression isn't legal Go, so the value is first bound to
                 // an addressable temp.
@@ -683,10 +683,8 @@ impl Codegen {
     /// idiom directly; unwrapping anything else is treated as `opt<T>`
     /// (`*T`), nil-checked and dereferenced.
     fn gen_binding(&mut self, indent: usize, name: &str, ty: &Option<Type>, value: &Expr, scope: &mut HashMap<String, VarKind>) {
-        if let Expr::Unwrap { expr, handler } = value {
-            let is_fallible_call = matches!(
-                expr.as_ref(),
-                Expr::Call { callee, .. } if matches!(callee.as_ref(), Expr::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.fallible))
+        if let ExprKind::Unwrap { expr, handler } = &value.kind {
+            let is_fallible_call = matches!(&expr.kind, ExprKind::Call { callee, .. } if matches!(&callee.kind, ExprKind::Ident(fname) if self.fn_info.get(fname).map_or(false, |i| i.fallible))
             );
             let inner = self.gen_expr(expr, scope);
             if is_fallible_call {
@@ -713,8 +711,8 @@ impl Codegen {
     /// literal's required element type (`[]int{...}`, never a bare `{...}`)
     /// can be taken from the annotation instead of guessed.
     fn gen_expr_hinted(&self, expr: &Expr, hint: Option<&Type>, scope: &HashMap<String, VarKind>) -> String {
-        match expr {
-            Expr::List(items) => {
+        match &expr.kind {
+            ExprKind::List(items) => {
                 let elem = hint
                     .and_then(|t| match t {
                         Type::Generic(n, args) if n == "list" => Some(go_type(&args[0])),
@@ -724,7 +722,7 @@ impl Codegen {
                     .unwrap_or_else(|| "any".to_string());
                 format!("[]{}{{{}}}", elem, items.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", "))
             }
-            Expr::Map(pairs) => {
+            ExprKind::Map(pairs) => {
                 let (k, v) = hint
                     .and_then(|t| match t {
                         Type::Generic(n, args) if n == "map" => Some((go_type(&args[0]), go_type(&args[1]))),
@@ -744,12 +742,12 @@ impl Codegen {
     }
 
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
-        match expr {
-            Expr::Int(n) => n.to_string(),
-            Expr::Float(f) => f.to_string(),
-            Expr::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
-            Expr::Str(s) => format!("{:?}", s),
-            Expr::InterpStr(parts) => {
+        match &expr.kind {
+            ExprKind::Int(n) => n.to_string(),
+            ExprKind::Float(f) => f.to_string(),
+            ExprKind::Bool(b) => if *b { "true".to_string() } else { "false".to_string() },
+            ExprKind::Str(s) => format!("{:?}", s),
+            ExprKind::InterpStr(parts) => {
                 let mut fmt_str = String::new();
                 let mut args = Vec::new();
                 for p in parts {
@@ -768,11 +766,11 @@ impl Codegen {
                     format!("fmt.Sprintf({}, {})", quoted, args.join(", "))
                 }
             }
-            Expr::NoneLit => "nil".to_string(),
-            Expr::Ident(name) => name.clone(),
-            Expr::List(_) | Expr::Map(_) => self.gen_expr_hinted(expr, None, scope),
-            Expr::Call { callee, args } => {
-                if let Expr::Field { base, name } = callee.as_ref() {
+            ExprKind::NoneLit => "nil".to_string(),
+            ExprKind::Ident(name) => name.clone(),
+            ExprKind::List(_) | ExprKind::Map(_) => self.gen_expr_hinted(expr, None, scope),
+            ExprKind::Call { callee, args } => {
+                if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "len" {
                         return format!("len({})", self.gen_expr(base, scope));
                     }
@@ -788,7 +786,7 @@ impl Codegen {
                     }
                 }
                 // Positional typ constructor `Point(1, 2)` -> `Point{x: 1, y: 2}`
-                if let Expr::Ident(tname) = callee.as_ref() {
+                if let ExprKind::Ident(tname) = &callee.kind {
                     if let Some(fields) = self.typ_fields.get(tname) {
                         let pairs: Vec<String> = fields
                             .iter()
@@ -800,25 +798,25 @@ impl Codegen {
                 }
                 format!("{}({})", self.gen_expr(callee, scope), args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", "))
             }
-            Expr::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
-            Expr::Field { base, name } => {
+            ExprKind::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
+            ExprKind::Field { base, name } => {
                 // `EnumName.Variant` -> bare `Variant`: Go's `iota` constants
                 // aren't namespaced under their type the way Python's `Enum`
                 // class or JS's frozen object are (see gen_item's Item::Enum
                 // arm and module docs).
-                if let Expr::Ident(base_name) = base.as_ref() {
+                if let ExprKind::Ident(base_name) = &base.kind {
                     if self.enum_names.contains(base_name) {
                         return name.clone();
                     }
                 }
                 format!("{}.{}", self.gen_expr(base, scope), name)
             }
-            Expr::Binary { op, lhs, rhs } => format!("({} {} {})", self.gen_expr(lhs, scope), go_binop(*op), self.gen_expr(rhs, scope)),
-            Expr::Unary { op, expr } => match op {
+            ExprKind::Binary { op, lhs, rhs } => format!("({} {} {})", self.gen_expr(lhs, scope), go_binop(*op), self.gen_expr(rhs, scope)),
+            ExprKind::Unary { op, expr } => match op {
                 UnOp::Not => format!("(!{})", self.gen_expr(expr, scope)),
                 UnOp::Neg => format!("(-{})", self.gen_expr(expr, scope)),
             },
-            Expr::Unwrap { .. } => {
+            ExprKind::Unwrap { .. } => {
                 "nil /* UNSUPPORTED: ?? outside a let/mut binding, see codegen_go.rs docs */".to_string()
             }
         }
@@ -877,9 +875,9 @@ fn kind_of_type(ty: &Type) -> VarKind {
 }
 
 fn kind_of_literal(e: &Expr) -> Option<VarKind> {
-    match e {
-        Expr::List(_) => Some(VarKind::List),
-        Expr::Map(_) => Some(VarKind::Map),
+    match &e.kind {
+        ExprKind::List(_) => Some(VarKind::List),
+        ExprKind::Map(_) => Some(VarKind::Map),
         _ => None,
     }
 }
@@ -890,29 +888,29 @@ fn kind_of_literal(e: &Expr) -> Option<VarKind> {
 /// map-vs-list loop guessing.
 fn infer_list_elem_type(items: &[Expr]) -> Option<String> {
     let first = items.first()?;
-    Some(match first {
-        Expr::Int(_) => "int".to_string(),
-        Expr::Float(_) => "float64".to_string(),
-        Expr::Bool(_) => "bool".to_string(),
-        Expr::Str(_) | Expr::InterpStr(_) => "string".to_string(),
+    Some(match &first.kind {
+        ExprKind::Int(_) => "int".to_string(),
+        ExprKind::Float(_) => "float64".to_string(),
+        ExprKind::Bool(_) => "bool".to_string(),
+        ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),
         _ => "any".to_string(),
     })
 }
 
 fn infer_map_kv_type(pairs: &[(Expr, Expr)]) -> Option<(String, String)> {
     let (k, v) = pairs.first()?;
-    let kt = match k {
-        Expr::Int(_) => "int".to_string(),
-        Expr::Float(_) => "float64".to_string(),
-        Expr::Bool(_) => "bool".to_string(),
-        Expr::Str(_) | Expr::InterpStr(_) => "string".to_string(),
+    let kt = match &k.kind {
+        ExprKind::Int(_) => "int".to_string(),
+        ExprKind::Float(_) => "float64".to_string(),
+        ExprKind::Bool(_) => "bool".to_string(),
+        ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),
         _ => "any".to_string(),
     };
-    let vt = match v {
-        Expr::Int(_) => "int".to_string(),
-        Expr::Float(_) => "float64".to_string(),
-        Expr::Bool(_) => "bool".to_string(),
-        Expr::Str(_) | Expr::InterpStr(_) => "string".to_string(),
+    let vt = match &v.kind {
+        ExprKind::Int(_) => "int".to_string(),
+        ExprKind::Float(_) => "float64".to_string(),
+        ExprKind::Bool(_) => "bool".to_string(),
+        ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),
         _ => "any".to_string(),
     };
     Some((kt, vt))

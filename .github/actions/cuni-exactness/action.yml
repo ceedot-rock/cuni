@@ -1,0 +1,44 @@
+# Composite action: build this repo's cuni binary and run exactness on paths.
+# For use inside the CuNi repository (or a monorepo that vendors it).
+#
+# Example:
+#   - uses: ./.github/actions/cuni-exactness
+#     with:
+#       paths: examples/full.cuni examples/structs.cuni
+name: CuNi exactness
+description: Build cuni and run `cuni check` (py/go/js identical stdout)
+
+inputs:
+  paths:
+    description: Space-separated .cuni files or directories to check
+    required: false
+    default: examples/full.cuni examples/structs.cuni examples/enums.cuni
+  timeout:
+    description: Per-program run timeout in seconds
+    required: false
+    default: "120"
+  release:
+    description: Build release profile (true/false)
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Build cuni
+      shell: bash
+      run: |
+        if [ "${{ inputs.release }}" = "true" ]; then
+          cargo build --release
+          echo "CUNI_BIN=${{ github.workspace }}/target/release/cuni" >> "$GITHUB_ENV"
+        else
+          cargo build
+          echo "CUNI_BIN=${{ github.workspace }}/target/debug/cuni" >> "$GITHUB_ENV"
+        fi
+
+    - name: cuni check
+      shell: bash
+      run: |
+        set -euo pipefail
+        # shellcheck disable=SC2086
+        "$CUNI_BIN" check --timeout "${{ inputs.timeout }}" ${{ inputs.paths }}
