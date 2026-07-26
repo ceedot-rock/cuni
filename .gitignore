@@ -24,3 +24,5 @@ Cargo.lock.bak
 
 # Agent host session logs
 /examples/agent/sessions/
+__pycache__/
+*.pyc
