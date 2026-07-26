@@ -26,6 +26,22 @@
 | neatmoon@zo.computer | Zo/agent tooling collaborator | sent |
 | rustaceanseditors@gmail.com | Rust Bytes tip | sent |
 
+## Press release log (2026-07-26)
+
+Full text: [`PRESS_RELEASE.md`](PRESS_RELEASE.md)
+
+| To | Outlet type | Status |
+|----|-------------|--------|
+| tips@techcrunch.com | Tech press tips | sent |
+| tips@venturebeat.com | Tech press tips | sent |
+| tips@theregister.com | Tech press tips | sent |
+| tips@arstechnica.com | Tech press tips | sent |
+| tips@zdnet.com | Tech press tips | sent |
+| news@infoworld.com | Dev press | sent |
+| editors@sdtimes.com | Software dev times | sent |
+| tips@devclass.com | Dev press | sent |
+| hello@tldr.tech | Developer newsletter | sent |
+
 ## Channels (do these too — not email)
 
 ### Hacker News — Show HN
