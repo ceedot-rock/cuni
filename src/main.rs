@@ -25,6 +25,7 @@ Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep]
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
   cuni --help
+  cuni --version
 
 Commands:
   check   Exactness gate (SPEC §2): emit py/go/js, run each, require
@@ -47,6 +48,11 @@ fn main() -> ExitCode {
         } else {
             ExitCode::SUCCESS
         };
+    }
+
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("cuni {}", env!("CARGO_PKG_VERSION"));
+        return ExitCode::SUCCESS;
     }
 
     if args[0] == "check" {
