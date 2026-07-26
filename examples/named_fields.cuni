@@ -1,0 +1,13 @@
+# Named typ constructors — Circle(r: 2.0) equivalent to Circle(2.0)
+typ Circle do
+    r: float
+end
+
+def area(c: Circle) -> float do
+    ret 3.14159 * c.r * c.r
+end
+
+let a = Circle(r: 2.0)
+let b = Circle(2.0)
+say(area(a))
+say(area(b))

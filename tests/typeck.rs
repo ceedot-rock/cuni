@@ -106,6 +106,22 @@ fn struct_constructor_wrong_arity_is_rejected() {
 /// Circle) -> float` must compile — proves `check_conformance` isn't just
 /// rejecting everything.
 #[test]
+fn named_unknown_field_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/named_unknown_field.cuni",
+        "no field `z`",
+    );
+}
+
+#[test]
+fn named_args_on_function_are_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/named_on_function.cuni",
+        "named arguments are only allowed for typ constructors",
+    );
+}
+
+#[test]
 fn valid_iface_conformance_is_accepted() {
     assert_eq!(compile_error("examples/typeck_valid_iface.cuni"), None);
 }

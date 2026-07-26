@@ -407,13 +407,26 @@ impl Codegen {
             ExprKind::Call { callee, args } => {
                 if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "push" {
-                        return format!("{}.append({})", self.gen_expr(base, scope), args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", "));
+                        return format!("{}.append({})", self.gen_expr(base, scope), args.iter().map(|a| self.gen_expr(a.expr(), scope)).collect::<Vec<_>>().join(", "));
                     }
                     if name == "len" {
                         return format!("len({})", self.gen_expr(base, scope));
                     }
                 }
-                format!("{}({})", self.gen_expr(callee, scope), args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", "))
+                // Named typ constructor -> kwargs: Circle(r=2.0)
+                if args.iter().all(|a| a.is_named()) && !args.is_empty() {
+                    let parts: Vec<String> = args
+                        .iter()
+                        .filter_map(|a| match a {
+                            CallArg::Named { name, value, .. } => {
+                                Some(format!("{}={}", name, self.gen_expr(value, scope)))
+                            }
+                            _ => None,
+                        })
+                        .collect();
+                    return format!("{}({})", self.gen_expr(callee, scope), parts.join(", "));
+                }
+                format!("{}({})", self.gen_expr(callee, scope), args.iter().map(|a| self.gen_expr(a.expr(), scope)).collect::<Vec<_>>().join(", "))
             }
             ExprKind::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
             ExprKind::Field { base, name } => format!("{}.{}", self.gen_expr(base, scope), name),

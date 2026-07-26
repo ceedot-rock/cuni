@@ -475,7 +475,7 @@ impl Codegen {
                     if let ExprKind::Field { base, name } = &callee.kind {
                         if name == "push" {
                             let base_text = self.gen_expr(base, scope);
-                            let args_text = args.iter().map(|a| self.gen_expr(a, scope)).collect::<Vec<_>>().join(", ");
+                            let args_text = args.iter().map(|a| self.gen_expr(a.expr(), scope)).collect::<Vec<_>>().join(", ");
                             self.line(indent, &format!("{} = append({}, {})", base_text, base_text, args_text));
                             return;
                         }
@@ -785,18 +785,28 @@ impl Codegen {
                         return "nil /* UNSUPPORTED: .push used as an expression, not a statement — see codegen_go.rs docs */".to_string();
                     }
                 }
-                // Positional typ constructor `Point(1, 2)` -> `Point{x: 1, y: 2}`
+                // Typ constructor: positional or named -> `Point{x: 1, y: 2}`
                 if let ExprKind::Ident(tname) = &callee.kind {
                     if let Some(fields) = self.typ_fields.get(tname) {
-                        let pairs: Vec<String> = fields
-                            .iter()
-                            .zip(args.iter())
-                            .map(|(f, a)| format!("{}: {}", f, self.gen_expr(a, scope)))
-                            .collect();
+                        let pairs: Vec<String> = if args.iter().all(|a| a.is_named()) && !args.is_empty() {
+                            // named: emit field: value for each, order preserved from field decl
+                            fields.iter().filter_map(|f| {
+                                args.iter().find_map(|a| match a {
+                                    CallArg::Named { name, value, .. } if name == f => {
+                                        Some(format!("{}: {}", f, self.gen_expr(value, scope)))
+                                    }
+                                    _ => None,
+                                })
+                            }).collect()
+                        } else {
+                            fields.iter().zip(args.iter())
+                                .map(|(f, a)| format!("{}: {}", f, self.gen_expr(a.expr(), scope)))
+                                .collect()
+                        };
                         return format!("{}{{{}}}", tname, pairs.join(", "));
                     }
                 }
-                format!("{}({})", self.gen_expr(callee, scope), args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", "))
+                format!("{}({})", self.gen_expr(callee, scope), args.iter().map(|a| self.gen_expr(a.expr(), scope)).collect::<Vec<_>>().join(", "))
             }
             ExprKind::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
             ExprKind::Field { base, name } => {

@@ -127,6 +127,8 @@ struct Codegen {
     fn_info: HashMap<String, FnInfo>,
     /// Declared `typ` names — constructors must emit `new T(...)` in JS.
     typ_names: std::collections::HashSet<String>,
+    /// Field order per typ — for named-arg constructor reordering.
+    typ_fields: HashMap<String, Vec<String>>,
     out: String,
     unwrap_counter: usize,
 }
@@ -135,6 +137,7 @@ impl Codegen {
     fn new(program: &Program) -> Self {
         let mut fn_info = HashMap::new();
         let mut typ_names = std::collections::HashSet::new();
+        let mut typ_fields = HashMap::new();
         for item in &program.items {
             match item {
                 Item::Def(f) => {
@@ -148,11 +151,21 @@ impl Codegen {
                 }
                 Item::Typ(t) => {
                     typ_names.insert(t.name.clone());
+                    typ_fields.insert(
+                        t.name.clone(),
+                        t.fields.iter().map(|f| f.name.clone()).collect(),
+                    );
                 }
                 _ => {}
             }
         }
-        Codegen { fn_info, typ_names, out: String::new(), unwrap_counter: 0 }
+        Codegen {
+            fn_info,
+            typ_names,
+            typ_fields,
+            out: String::new(),
+            unwrap_counter: 0,
+        }
     }
 
     /// Whether `stmts` directly contains a `??`-unwrap of a call to an
@@ -519,7 +532,46 @@ impl Codegen {
                         return format!("{}.length", self.gen_expr(base, scope));
                     }
                 }
-                let arg_list = args.iter().map(|e| self.gen_expr(e, scope)).collect::<Vec<_>>().join(", ");
+                // Named typ args: object literal style if we had that; JS classes use
+                // positional constructors — reorder is typeck's job only for
+                // validation; here emit `new T({field: val, ...})` only if
+                // the class is generated to accept a bag. Our codegen uses
+                // positional fields, so map named → positional declaration order
+                // when we know field names from typ_fields if present.
+                let arg_list = if args.iter().all(|a| a.is_named()) && !args.is_empty() {
+                    // Keep declaration order if typ_fields known; else name order
+                    if let ExprKind::Ident(tname) = &callee.kind {
+                        if let Some(fields) = self.typ_fields.get(tname) {
+                            fields
+                                .iter()
+                                .filter_map(|f| {
+                                    args.iter().find_map(|a| match a {
+                                        CallArg::Named { name, value, .. } if name == f => {
+                                            Some(self.gen_expr(value, scope))
+                                        }
+                                        _ => None,
+                                    })
+                                })
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        } else {
+                            args.iter()
+                                .map(|a| self.gen_expr(a.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        }
+                    } else {
+                        args.iter()
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    }
+                } else {
+                    args.iter()
+                        .map(|a| self.gen_expr(a.expr(), scope))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
                 // JS class constructors require `new` — bare `Circle(1.5)` throws.
                 if let ExprKind::Ident(tname) = &callee.kind {
                     if self.typ_names.contains(tname) {

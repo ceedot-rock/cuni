@@ -564,11 +564,28 @@ impl<'a> Checker<'a> {
             }
             ExprKind::Call { callee, args } => {
                 for a in args {
-                    self.check_expr(a, scope, generics, false)?;
+                    self.check_expr(a.expr(), scope, generics, false)?;
+                }
+                let any_named = args.iter().any(|a| a.is_named());
+                let all_named = !args.is_empty() && args.iter().all(|a| a.is_named());
+                if any_named && !all_named {
+                    return err_at(
+                        expr.span,
+                        "cannot mix positional and named arguments in one call",
+                    );
                 }
                 match &callee.kind {
                     ExprKind::Ident(fname) => {
                         if let Some(sig) = self.functions.get(fname) {
+                            if any_named {
+                                return err_at(
+                                    expr.span,
+                                    format!(
+                                        "named arguments are only allowed for typ constructors, not function `{}`",
+                                        fname
+                                    ),
+                                );
+                            }
                             if sig.params.len() != args.len() {
                                 return err_at(
                                     expr.span,
@@ -580,6 +597,10 @@ impl<'a> Checker<'a> {
                                     ),
                                 );
                             }
+                            // Call-site type checks (generic substitution + concrete match)
+                            self.check_call_arg_types(
+                                fname, sig, args, scope, generics, expr.span,
+                            )?;
                             if sig.fallible && !allow_fallible {
                                 return err_at(
                                     expr.span,
@@ -590,23 +611,18 @@ impl<'a> Checker<'a> {
                                 );
                             }
                         } else if let Some(info) = self.typs.get(fname) {
-                            if args.len() != info.field_order.len() {
-                                return err_at(
-                                    expr.span,
-                                    format!(
-                                        "`{}` expects {} field argument(s) ({}), found {}",
-                                        fname,
-                                        info.field_order.len(),
-                                        info.field_order.join(", "),
-                                        args.len()
-                                    ),
-                                );
-                            }
+                            self.check_typ_constructor(fname, info, args, expr.span)?;
                         } else {
                             return err_at(expr.span, format!("undefined function `{}`", fname));
                         }
                     }
                     ExprKind::Field { base, name } => {
+                        if any_named {
+                            return err_at(
+                                expr.span,
+                                "named arguments are not allowed on method calls",
+                            );
+                        }
                         self.check_expr(base, scope, generics, false)?;
                         if name == "push" {
                             if let ExprKind::Ident(var_name) = &base.kind {
@@ -677,6 +693,170 @@ impl<'a> Checker<'a> {
                     })
                     .collect();
                 self.check_block(handler, &mut handler_scope, generics, None)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn check_typ_constructor(
+        &self,
+        fname: &str,
+        info: &TypInfo,
+        args: &[CallArg],
+        span: Span,
+    ) -> Result<(), TypeError> {
+        if args.iter().all(|a| a.is_named()) && !args.is_empty() {
+            let mut seen = HashSet::new();
+            for a in args {
+                let CallArg::Named {
+                    name,
+                    name_span,
+                    ..
+                } = a
+                else {
+                    unreachable!()
+                };
+                if !info.fields.contains_key(name) {
+                    return err_at(
+                        *name_span,
+                        format!("`{}` has no field `{}`", fname, name),
+                    );
+                }
+                if !seen.insert(name.clone()) {
+                    return err_at(*name_span, format!("duplicate field `{}` in `{}` constructor", name, fname));
+                }
+            }
+            for f in &info.field_order {
+                if !seen.contains(f) {
+                    return err_at(
+                        span,
+                        format!(
+                            "`{}` missing field `{}` (expected: {})",
+                            fname,
+                            f,
+                            info.field_order.join(", ")
+                        ),
+                    );
+                }
+            }
+            if args.len() != info.field_order.len() {
+                return err_at(
+                    span,
+                    format!(
+                        "`{}` expects {} field(s) ({}), found {}",
+                        fname,
+                        info.field_order.len(),
+                        info.field_order.join(", "),
+                        args.len()
+                    ),
+                );
+            }
+            return Ok(());
+        }
+        // positional
+        if args.iter().any(|a| a.is_named()) {
+            return err_at(span, "cannot mix positional and named arguments in one call");
+        }
+        if args.len() != info.field_order.len() {
+            return err_at(
+                span,
+                format!(
+                    "`{}` expects {} field argument(s) ({}), found {}",
+                    fname,
+                    info.field_order.len(),
+                    info.field_order.join(", "),
+                    args.len()
+                ),
+            );
+        }
+        Ok(())
+    }
+
+    /// Match args against parameter types; bind generic params; refuse conflicts.
+    fn check_call_arg_types(
+        &self,
+        fname: &str,
+        sig: &FnSig,
+        args: &[CallArg],
+        scope: &HashMap<String, VarInfo>,
+        generics: &HashSet<String>,
+        _span: Span,
+    ) -> Result<(), TypeError> {
+        let gen_set: HashSet<String> = sig.generics.iter().cloned().collect();
+        let mut subst: HashMap<String, Type> = HashMap::new();
+        for (i, (param_ty, arg)) in sig.params.iter().zip(args.iter()).enumerate() {
+            let Some(actual) = self.infer_expr(arg.expr(), scope, generics) else {
+                continue; // uncertain — stay silent rather than false-reject
+            };
+            if matches!(param_ty, Type::Named(n) if n == "any") {
+                continue;
+            }
+            if let Type::Named(pname) = param_ty {
+                if gen_set.contains(pname) {
+                    if let Some(prev) = subst.get(pname) {
+                        if !types_eq(prev, &actual) {
+                            return err_at(
+                                arg.span(),
+                                format!(
+                                    "`{}` generic `{}` bound to both `{}` and `{}`",
+                                    fname,
+                                    pname,
+                                    type_str(prev),
+                                    type_str(&actual)
+                                ),
+                            );
+                        }
+                    } else {
+                        subst.insert(pname.clone(), actual);
+                    }
+                    continue;
+                }
+            }
+            // list<T> where T is generic: bind element type when actual is list<concrete>
+            if let (
+                Type::Generic(pn, pargs),
+                Type::Generic(an, aargs),
+            ) = (param_ty, &actual)
+            {
+                if pn == "list" && an == "list" && pargs.len() == 1 && aargs.len() == 1 {
+                    if let Type::Named(pname) = &pargs[0] {
+                        if gen_set.contains(pname) {
+                            if let Some(prev) = subst.get(pname) {
+                                if !types_eq(prev, &aargs[0]) {
+                                    return err_at(
+                                        arg.span(),
+                                        format!(
+                                            "`{}` generic `{}` bound to both `{}` and `{}`",
+                                            fname,
+                                            pname,
+                                            type_str(prev),
+                                            type_str(&aargs[0])
+                                        ),
+                                    );
+                                }
+                            } else {
+                                subst.insert(pname.clone(), aargs[0].clone());
+                            }
+                            continue;
+                        }
+                    }
+                }
+            }
+            if !types_eq(&actual, param_ty) {
+                // Skip when param is itself a free generic already handled
+                if matches!(param_ty, Type::Named(n) if gen_set.contains(n)) {
+                    continue;
+                }
+                return err_at(
+                    arg.span(),
+                    format!(
+                        "`{}` argument {} has type `{}`, expected `{}`",
+                        fname,
+                        i + 1,
+                        type_str(&actual),
+                        type_str(param_ty)
+                    ),
+                );
             }
         }
         Ok(())

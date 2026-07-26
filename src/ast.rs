@@ -155,6 +155,37 @@ pub struct Expr {
     pub span: Span,
 }
 
+/// Positional or named call argument. Named args are for typ constructors
+/// (`Circle(r: 2.0)`); function calls stay positional in v0.1.x.
+#[derive(Debug)]
+pub enum CallArg {
+    Pos(Expr),
+    Named {
+        name: String,
+        name_span: Span,
+        value: Expr,
+    },
+}
+
+impl CallArg {
+    pub fn expr(&self) -> &Expr {
+        match self {
+            CallArg::Pos(e) | CallArg::Named { value: e, .. } => e,
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match self {
+            CallArg::Pos(e) => e.span,
+            CallArg::Named { name_span, value, .. } => name_span.union(value.span),
+        }
+    }
+
+    pub fn is_named(&self) -> bool {
+        matches!(self, CallArg::Named { .. })
+    }
+}
+
 #[derive(Debug)]
 pub enum ExprKind {
     Int(i64),
@@ -168,7 +199,7 @@ pub enum ExprKind {
     Map(Vec<(Expr, Expr)>),
     Call {
         callee: Box<Expr>,
-        args: Vec<Expr>,
+        args: Vec<CallArg>,
     },
     Index {
         base: Box<Expr>,

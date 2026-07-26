@@ -1,9 +1,15 @@
 [package]
 name = "cuni"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 description = "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript)"
 license = "MIT"
+repository = "https://github.com/ceedot-rock/cuni"
+homepage = "https://github.com/ceedot-rock/cuni"
+documentation = "https://github.com/ceedot-rock/cuni/blob/master/SPEC.md"
+readme = "README.md"
+keywords = ["compiler", "transpiler", "multi-target", "python", "golang"]
+categories = ["compilers", "development-tools"]
 
 [[bin]]
 name = "cuni"

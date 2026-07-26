@@ -1,0 +1,7 @@
+name = "greet-contract"
+version = "0.1.0"
+description = "Shared Greet link contract (example package layout for the future registry)"
+license = "MIT"
+
+[exports]
+greet = "src/greet.cuni"

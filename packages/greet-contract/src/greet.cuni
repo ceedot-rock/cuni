@@ -1,0 +1,4 @@
+# Example registry package — same contract as examples/link.cuni
+link Greet(name: str, times: int) -> str do
+    ret `hello ${name} x${times}`
+end

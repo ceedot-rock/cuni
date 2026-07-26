@@ -75,5 +75,5 @@ jobs:
 Pin a tag when you care about stability:
 
 ```bash
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.4
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6
 ```

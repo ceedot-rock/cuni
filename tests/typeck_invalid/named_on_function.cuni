@@ -1,0 +1,5 @@
+def add(a: int, b: int) -> int do
+    ret a + b
+end
+
+let x = add(a: 1, b: 2)

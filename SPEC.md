@@ -382,7 +382,7 @@ end
 - **Tagged unions with payload** + exhaustive match — no honest Go mapping yet (§14, same posture as Rust's v1 deferral).
 - **Typed error hierarchy for `fail`** — currently any value; pairs with tagged unions.
 - **Streaming `link`** — long-lived connections.
-- **Named-field struct construction** — v1 is positional only.
-- **Full type inference / generic substitution** — checker stays silent when uncertain rather than false-reject.
-- **AST source spans** for type errors with line:col.
+- ~~**Named-field struct construction**~~ — `Circle(r: 2.0)` (all-named); positional still supported; no mix.
+- **Full type inference / generic substitution** — partial call-site binding for type params; still silent when uncertain.
+- ~~**AST source spans** for type errors with line:col~~ — shipped.
 - **Rust as a target** — ownership model would reshape the core (§3).

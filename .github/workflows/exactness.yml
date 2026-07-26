@@ -51,7 +51,8 @@ jobs:
             --timeout "${CUNI_CHECK_TIMEOUT}" \
             examples/full.cuni \
             examples/structs.cuni \
-            examples/enums.cuni
+            examples/enums.cuni \
+            examples/named_fields.cuni
 
       - name: Exactness summary
         if: always()

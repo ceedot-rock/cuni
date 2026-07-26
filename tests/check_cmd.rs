@@ -43,6 +43,13 @@ fn check_structs_passes() {
 }
 
 #[test]
+fn check_named_fields_passes() {
+    let (ok, stdout, _) = check(&["examples/named_fields.cuni", "--timeout", "120"]);
+    assert!(ok, "{}", stdout);
+    assert!(stdout.contains("exactness: PASS (py/go/js)"));
+}
+
+#[test]
 fn check_modules_fails_js_refuse() {
     // modules.cuni refuses JS emit — exactness must FAIL (not silent pass)
     let (ok, stdout, _) = check(&["examples/modules.cuni", "--timeout", "60"]);

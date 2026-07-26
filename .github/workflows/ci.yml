@@ -45,4 +45,5 @@ jobs:
           ./target/release/cuni check --timeout 120 \
             examples/full.cuni \
             examples/structs.cuni \
-            examples/enums.cuni
+            examples/enums.cuni \
+            examples/named_fields.cuni

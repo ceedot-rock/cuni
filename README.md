@@ -7,8 +7,8 @@
 <p align="center">
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.6"><img src="https://img.shields.io/badge/version-0.1.6-cyan.svg" alt="v0.1.6" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
-  <a href="https://github.com/ceedot-rock/cuni"><img src="https://img.shields.io/badge/version-0.1.5-cyan.svg" alt="v0.1.5" /></a>
 </p>
 
 A small, mnemonic programming language that compiles to **exact, idiomatic** Python, JavaScript, and Go from one source file.
@@ -36,7 +36,11 @@ cargo build --release
 # Python / JS / Go clients all print:  hello Cee x3
 ```
 
-Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni)
+<p align="center">
+  <img src="assets/link-demo.gif" alt="CuNi link demo: Go server, Python JS Go clients all print hello Cee x3" width="720" />
+</p>
+
+Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni) · [Release notes](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.5)
 
 ### 30s demo (exactness)
 
@@ -52,7 +56,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 
 ```bash
 # install the cuni binary onto your PATH
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.5
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6
 
 # or clone and build from source
 git clone https://github.com/ceedot-rock/cuni.git
@@ -164,11 +168,11 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.5)
+## Status (v0.1.6)
 
-**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check` exactness gate, local **playground**, Exactness **CI + badge**, flagship **link demo**.
+**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, local **playground**, Exactness **CI + badge**, flagship **link demo**, registry design sketch.
 
-**Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference, named struct fields — see SPEC.md §19.
+**Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
 
 ## Design tenets
 

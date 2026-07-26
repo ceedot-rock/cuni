@@ -572,7 +572,7 @@ impl<'a> Parser<'a> {
             match self.peek() {
                 Token::LParen => {
                     self.advance();
-                    let args = self.parse_expr_list(&Token::RParen)?;
+                    let args = self.parse_call_args()?;
                     let rparen = self.expect(&Token::RParen)?;
                     let span = Span::new(expr.span.start, rparen.end);
                     expr = self.expr(
@@ -639,6 +639,45 @@ impl<'a> Parser<'a> {
             }
         }
         Ok(items)
+    }
+
+    /// Call arguments: `expr` or `name: expr` (named, for typ constructors).
+    fn parse_call_args(&mut self) -> PResult<Vec<CallArg>> {
+        let mut args = Vec::new();
+        while !self.check(&Token::RParen) {
+            // Named: Ident ':' expr  (colon after bare name, not a full expr yet)
+            if let Token::Ident(name) = self.peek().clone() {
+                let name_start = self.peek_start();
+                let name_end = self.peek_tok_end();
+                // Look ahead: if next token after this ident is ':', it's named.
+                if self.pos + 1 < self.tokens.len()
+                    && matches!(self.tokens[self.pos + 1].kind, Token::Colon)
+                {
+                    self.advance(); // ident
+                    self.advance(); // colon
+                    let value = self.parse_expr()?;
+                    args.push(CallArg::Named {
+                        name,
+                        name_span: Span::new(name_start, name_end),
+                        value,
+                    });
+                } else {
+                    args.push(CallArg::Pos(self.parse_expr()?));
+                }
+            } else {
+                args.push(CallArg::Pos(self.parse_expr()?));
+            }
+            if self.check(&Token::Comma) {
+                self.advance();
+            } else {
+                break;
+            }
+        }
+        Ok(args)
+    }
+
+    fn peek_tok_end(&self) -> usize {
+        self.tokens[self.pos].end
     }
 
     fn parse_primary(&mut self) -> PResult<Expr> {
