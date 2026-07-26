@@ -32,6 +32,7 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parents[1]
 PLAY = Path(__file__).resolve().parent
 EXAMPLES = ROOT / "examples"
+AGENT = EXAMPLES / "agent"
 DATA = Path(os.environ.get("CUNI_PLAYGROUND_DATA", str(PLAY / "data")))
 DEFAULT_PORT = int(os.environ.get("CUNI_PLAYGROUND_PORT", "8787"))
 TIMEOUT = int(os.environ.get("CUNI_PLAYGROUND_TIMEOUT", "45"))
@@ -39,9 +40,19 @@ MAX_SOURCE = int(os.environ.get("CUNI_PLAYGROUND_MAX_SOURCE", "200000"))
 MAX_CONCURRENT = int(os.environ.get("CUNI_PLAYGROUND_MAX_CONCURRENT", "2"))
 # Hosted default: bind all interfaces. Local-only: set CUNI_PLAYGROUND_HOST=127.0.0.1
 DEFAULT_HOST = os.environ.get("CUNI_PLAYGROUND_HOST", "0.0.0.0")
+HTTP_BASE = os.environ.get("CUNI_AGENT_HTTP_BASE", "https://cuni-studio.fly.dev")
 
 _run_sem = threading.Semaphore(MAX_CONCURRENT)
 _store_lock = threading.Lock()
+
+# Agent pack (examples/agent) — optional if tree incomplete
+sys_path_agent = str(PLAY)
+if sys_path_agent not in __import__("sys").path:
+    __import__("sys").path.insert(0, sys_path_agent)
+try:
+    import agent_lib
+except ImportError:
+    agent_lib = None  # type: ignore
 
 
 def find_cuni() -> Path:
@@ -81,9 +92,11 @@ def stage_source(workdir: Path, source: str) -> Path:
     main = workdir / "main.cuni"
     main.write_text(source, encoding="utf-8")
     for m in re.findall(r"(?m)^\s*use\s+([A-Za-z_][A-Za-z0-9_]*)\s*$", source):
-        cand = EXAMPLES / f"{m}.cuni"
-        if cand.is_file():
-            shutil.copy(cand, workdir / f"{m}.cuni")
+        for base in (AGENT, EXAMPLES):
+            cand = base / f"{m}.cuni"
+            if cand.is_file():
+                shutil.copy(cand, workdir / f"{m}.cuni")
+                break
     return main
 
 
@@ -442,10 +455,24 @@ class Handler(SimpleHTTPRequestHandler):
                         "notelog": len(_load_book("notelog.json").get("entries", [])),
                         "critic": len(_load_book("criticbook.json").get("entries", [])),
                     },
+                    "agent": bool(agent_lib and agent_lib.agent_available()),
+                    "studio": "https://cuni-studio.fly.dev/",
                 },
             )
         if path == "/api/examples":
             return self._json(200, {"examples": list_examples()})
+        if path == "/api/agent/skills":
+            if not agent_lib or not agent_lib.agent_available():
+                return self._json(503, {"ok": False, "error": "agent pack not available"})
+            return self._json(
+                200,
+                {
+                    "ok": True,
+                    "thesis": "Speech routes; law is CuNi; exactness is citizenship.",
+                    "skills": agent_lib.list_skills(),
+                    "manifest": agent_lib.load_manifest(),
+                },
+            )
         if path == "/api/notelog":
             return self._json(200, _load_book("notelog.json"))
         if path == "/api/criticbook":
@@ -527,6 +554,129 @@ class Handler(SimpleHTTPRequestHandler):
                 _load_book("criticbook.json").get("entries", [])
             )
             return self._json(200, result)
+
+        if path == "/api/agent/run":
+            if not agent_lib or not agent_lib.agent_available():
+                return self._json(503, {"ok": False, "error": "agent pack not available"})
+            if not _run_sem.acquire(blocking=False):
+                return self._json(503, {"ok": False, "error": "server busy"})
+            try:
+                skill = data.get("skill")
+                message = data.get("message") or ""
+                host = data.get("host") or "py"
+                if host not in ("py", "go", "js"):
+                    host = "py"
+                params = data.get("params") if isinstance(data.get("params"), dict) else {}
+                if message and not skill:
+                    hint, parsed = agent_lib.parse_message_params(message)
+                    skill = hint or "mind"
+                    params = {**parsed, **params}
+                if not skill:
+                    skill = "mind"
+                cuni = find_cuni()
+                result = agent_lib.run_skill(
+                    cuni,
+                    skill,
+                    params=params,
+                    host=host,
+                    timeout=TIMEOUT,
+                    http_base=HTTP_BASE,
+                )
+                append_note(
+                    f"[agent:{skill}] {result.get('summary') or result.get('exactness')}",
+                    kind="run",
+                    meta={"skill": skill, "ok": result.get("ok")},
+                )
+                if not result.get("ok"):
+                    append_critique(
+                        result.get("error") or result.get("summary") or "agent fail",
+                        severity="error",
+                        category="exactness",
+                        source="auto",
+                        meta={"skill": skill},
+                    )
+                return self._json(200, result)
+            except FileNotFoundError as e:
+                return self._json(503, {"ok": False, "error": str(e)})
+            except subprocess.TimeoutExpired:
+                return self._json(504, {"ok": False, "error": f"timeout after {TIMEOUT}s"})
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"ok": False, "error": f"internal: {e}"})
+            finally:
+                _run_sem.release()
+
+        if path == "/api/agent/propose":
+            # Skill writer: check proposed law; do not adopt
+            if not agent_lib:
+                return self._json(503, {"ok": False, "error": "agent_lib missing"})
+            source = data.get("source")
+            if not isinstance(source, str) or not source.strip():
+                return self._json(400, {"ok": False, "error": "missing source"})
+            if len(source) > MAX_SOURCE:
+                return self._json(400, {"ok": False, "error": "source too large"})
+            if not _run_sem.acquire(blocking=False):
+                return self._json(503, {"ok": False, "error": "server busy"})
+            try:
+                cuni = find_cuni()
+                result = agent_lib.check_source(cuni, source, TIMEOUT)
+                append_note(
+                    f"[propose] {result.get('summary')}",
+                    kind="run",
+                    meta={"ok": result.get("ok")},
+                )
+                if not result.get("ok"):
+                    append_critique(
+                        result.get("summary") or "propose exactness FAIL",
+                        severity="error",
+                        category="exactness",
+                        source="auto",
+                    )
+                # quarantine raw proposals
+                qdir = DATA / "quarantine"
+                qdir.mkdir(parents=True, exist_ok=True)
+                qid = str(uuid.uuid4())[:8]
+                (qdir / f"{qid}.cuni").write_text(source, encoding="utf-8")
+                (qdir / f"{qid}.json").write_text(
+                    json.dumps(
+                        {
+                            "id": qid,
+                            "ok": result.get("ok"),
+                            "summary": result.get("summary"),
+                            "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        },
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+                result["quarantine_id"] = qid
+                result["adopted"] = False
+                return self._json(200, result)
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"ok": False, "error": str(e)})
+            finally:
+                _run_sem.release()
+
+        if path == "/api/agent/adopt":
+            if not agent_lib:
+                return self._json(503, {"ok": False, "error": "agent_lib missing"})
+            source = data.get("source")
+            name = data.get("name") or "skill"
+            if not isinstance(source, str) or not source.strip():
+                return self._json(400, {"ok": False, "error": "missing source"})
+            if not _run_sem.acquire(blocking=False):
+                return self._json(503, {"ok": False, "error": "server busy"})
+            try:
+                cuni = find_cuni()
+                result = agent_lib.adopt_skill(DATA, str(name), source, cuni, TIMEOUT)
+                append_note(
+                    f"[adopt:{name}] {result.get('summary')} adopted={result.get('adopted')}",
+                    kind="system",
+                )
+                return self._json(200, result)
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"ok": False, "error": str(e)})
+            finally:
+                _run_sem.release()
 
         if path == "/api/notelog":
             body = data.get("body")

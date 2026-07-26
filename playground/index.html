@@ -111,6 +111,10 @@
         </div>
       </div>
       <div class="actions">
+        <div class="mode-tabs" role="tablist" aria-label="Studio mode">
+          <button type="button" class="mode-tab active" data-mode="play">Playground</button>
+          <button type="button" class="mode-tab" data-mode="agent">Agent</button>
+        </div>
         <a
           class="btn-link"
           href="https://github.com/ceedot-rock/cuni"
@@ -118,18 +122,47 @@
           rel="noopener"
           >GitHub</a
         >
-        <label class="example-label">
-          Example
-          <select id="example" aria-label="Load example program"></select>
-        </label>
-        <button id="emit" type="button" title="cuni --emit-py/go/js">Emit</button>
-        <button id="check" type="button" title="cuni check">Check</button>
-        <button id="run" class="primary" type="button" title="emit + check + stdout">
-          Run exactness
-        </button>
         <span id="status" class="badge idle" aria-live="polite">idle</span>
       </div>
     </header>
+
+    <div id="mode-play" class="mode-bar">
+      <label class="example-label">
+        Example
+        <select id="example" aria-label="Load example program"></select>
+      </label>
+      <button id="emit" type="button" title="cuni --emit-py/go/js">Emit</button>
+      <button id="check" type="button" title="cuni check">Check</button>
+      <button id="run" class="primary" type="button" title="emit + check + stdout">
+        Run exactness
+      </button>
+    </div>
+
+    <div id="mode-agent" class="mode-bar hidden">
+      <label class="example-label">
+        Skill
+        <select id="agent-skill" aria-label="Agent skill"></select>
+      </label>
+      <label class="example-label grow">
+        Speech
+        <input id="agent-message" type="text" placeholder="spend 4 cap 5 · echo hi · get /api/health" />
+      </label>
+      <label class="example-label">
+        Host
+        <select id="agent-host">
+          <option value="py">py</option>
+          <option value="go">go</option>
+          <option value="js">js</option>
+        </select>
+      </label>
+      <button id="agent-run" class="primary" type="button">Run skill</button>
+      <button id="agent-propose" type="button" title="Check proposed law (quarantine)">
+        Propose law
+      </button>
+      <button id="agent-adopt" type="button" title="Adopt only if exactness PASS">
+        Adopt if PASS
+      </button>
+    </div>
 
     <main class="layout studio">
       <section class="pane editor-pane" aria-label="CuNi source editor">

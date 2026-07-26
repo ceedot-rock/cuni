@@ -22,7 +22,8 @@ Cargo.lock.bak
 # Playground books (Notelog + Critic Book)
 /playground/data/
 
-# Agent host session logs
+# Agent host session logs + adopted skills
 /examples/agent/sessions/
+/examples/agent/adopted/
 __pycache__/
 *.pyc

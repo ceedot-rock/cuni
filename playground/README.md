@@ -10,6 +10,7 @@ Hosted Studio:
 2. **Check / Run** — `cuni check` exactness (+ optional per-target stdout)
 3. **Notelog** — chronological lab notes (auto on every run + manual)
 4. **Critic Book** — structured critiques (auto from typeck/exactness + manual)
+5. **Agent mode** — speech → CuNi skill (exactness gate) → py/go/js; propose/adopt law
 
 ## Local
 

@@ -19,6 +19,14 @@ const els = {
   criticSeverity: $("critic-severity"),
   criticCategory: $("critic-category"),
   bookRefresh: $("book-refresh"),
+  agentSkill: $("agent-skill"),
+  agentMessage: $("agent-message"),
+  agentHost: $("agent-host"),
+  agentRun: $("agent-run"),
+  agentPropose: $("agent-propose"),
+  agentAdopt: $("agent-adopt"),
+  modePlay: $("mode-play"),
+  modeAgent: $("mode-agent"),
   out: {
     py: $("out-py"),
     go: $("out-go"),
@@ -29,6 +37,8 @@ const els = {
 
 let examples = [];
 let running = false;
+let mode = "play";
+let lastProposeSource = "";
 
 const DEFAULT_SOURCE = `def greet(name: str) -> str do
     ret \`hello \${name}\`
@@ -271,14 +281,179 @@ async function invoke(path, label) {
   }
 }
 
+function setMode(next) {
+  mode = next;
+  document.querySelectorAll(".mode-tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.mode === next);
+  });
+  els.modePlay.classList.toggle("hidden", next !== "play");
+  els.modeAgent.classList.toggle("hidden", next !== "agent");
+}
+
+async function loadAgentSkills() {
+  try {
+    const r = await fetch("/api/agent/skills");
+    const j = await r.json();
+    if (!j.ok && !j.skills) {
+      els.agentSkill.innerHTML = `<option value="">(agent pack offline)</option>`;
+      return;
+    }
+    els.agentSkill.innerHTML = "";
+    for (const s of j.skills || []) {
+      const o = document.createElement("option");
+      o.value = s.id;
+      o.textContent = `${s.id} — ${s.description || s.entry}`;
+      els.agentSkill.appendChild(o);
+    }
+  } catch (e) {
+    els.agentSkill.innerHTML = `<option value="">(failed to load)</option>`;
+  }
+}
+
+async function agentRun() {
+  if (running) return;
+  running = true;
+  els.agentRun.disabled = true;
+  setStatus("run", "agent…");
+  showError("");
+  try {
+    const r = await fetch("/api/agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        skill: els.agentSkill.value || undefined,
+        message: els.agentMessage.value || "",
+        host: els.agentHost.value || "py",
+      }),
+    });
+    const data = await r.json();
+    if (data.source) els.source.value = data.source;
+    setOutputs({
+      py: data.py,
+      go: data.go,
+      js: data.js,
+      stdout: { py: data.stdout, go: data.stdout, js: data.stdout },
+      check_log:
+        (data.check_log || "") +
+        (data.host_tool
+          ? "\n--- host tool ---\n" + JSON.stringify(data.host_tool, null, 2)
+          : "") +
+        (data.run_error ? "\n--- run error ---\n" + data.run_error : ""),
+    });
+    await refreshBooks();
+    if (data.ok && data.exactness === "PASS") {
+      setStatus("pass", `agent ${data.skill}`);
+      els.summary.textContent = data.summary || "skill PASS";
+      els.summary.className = "summary mono pass";
+      selectTab("stdout");
+    } else {
+      setStatus("fail", "agent refuse");
+      showError(data.error || data.summary || "failed");
+      els.summary.textContent = data.summary || "FAIL";
+      els.summary.className = "summary mono fail";
+      selectTab("stdout");
+      selectBook("critic");
+    }
+  } catch (e) {
+    setStatus("fail", "error");
+    showError(String(e));
+  } finally {
+    running = false;
+    els.agentRun.disabled = false;
+    void loadHealth();
+  }
+}
+
+async function agentPropose() {
+  if (running) return;
+  running = true;
+  setStatus("run", "propose…");
+  showError("");
+  lastProposeSource = els.source.value;
+  try {
+    const r = await fetch("/api/agent/propose", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: els.source.value }),
+    });
+    const data = await r.json();
+    await refreshBooks();
+    setOutputs({
+      py: "",
+      go: "",
+      js: "",
+      stdout: {},
+      check_log: data.check_log || data.error || "",
+    });
+    if (data.ok) {
+      setStatus("pass", "propose PASS");
+      els.summary.textContent = `quarantine ${data.quarantine_id} — exactness PASS (adopt optional)`;
+      els.summary.className = "summary mono pass";
+    } else {
+      setStatus("fail", "propose FAIL");
+      showError(data.error || data.summary || "exactness FAIL — not a citizen");
+      els.summary.textContent = data.summary || "refuse";
+      els.summary.className = "summary mono fail";
+      selectBook("critic");
+    }
+    selectTab("stdout");
+  } catch (e) {
+    setStatus("fail", "error");
+    showError(String(e));
+  } finally {
+    running = false;
+    void loadHealth();
+  }
+}
+
+async function agentAdopt() {
+  if (running) return;
+  const source = els.source.value || lastProposeSource;
+  const name = prompt("Adopt skill name (alnum/_):", "my_skill");
+  if (!name) return;
+  running = true;
+  setStatus("run", "adopt…");
+  try {
+    const r = await fetch("/api/agent/adopt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source, name }),
+    });
+    const data = await r.json();
+    await refreshBooks();
+    if (data.adopted) {
+      setStatus("pass", "adopted");
+      els.summary.textContent = `adopted ${data.meta?.name} — citizen`;
+      els.summary.className = "summary mono pass";
+    } else {
+      setStatus("fail", "not adopted");
+      showError(data.error || "exactness FAIL — refuse adopt");
+      els.summary.className = "summary mono fail";
+    }
+  } catch (e) {
+    showError(String(e));
+  } finally {
+    running = false;
+    void loadHealth();
+  }
+}
+
 function wire() {
+  document.querySelectorAll(".mode-tab").forEach((t) => {
+    t.addEventListener("click", () => {
+      setMode(t.dataset.mode);
+      if (t.dataset.mode === "agent") void loadAgentSkills();
+    });
+  });
+
   els.run.addEventListener("click", () => void invoke("/api/run", "running"));
   els.emit.addEventListener("click", () => void invoke("/api/emit", "emitting"));
   els.check.addEventListener("click", () => void invoke("/api/check", "checking"));
   els.source.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();
-      void invoke("/api/run", "running");
+      if (mode === "agent") void agentRun();
+      else void invoke("/api/run", "running");
     }
   });
   els.example.addEventListener("change", () => {
@@ -297,6 +472,16 @@ function wire() {
     t.addEventListener("click", () => selectBook(t.dataset.book));
   });
   els.bookRefresh.addEventListener("click", () => void refreshBooks());
+
+  els.agentRun.addEventListener("click", () => void agentRun());
+  els.agentPropose.addEventListener("click", () => void agentPropose());
+  els.agentAdopt.addEventListener("click", () => void agentAdopt());
+  els.agentMessage.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") {
+      ev.preventDefault();
+      void agentRun();
+    }
+  });
 
   els.notelogForm.addEventListener("submit", async (ev) => {
     ev.preventDefault();
@@ -336,3 +521,4 @@ wire();
 void loadHealth();
 void loadExamples();
 void refreshBooks();
+void loadAgentSkills();
