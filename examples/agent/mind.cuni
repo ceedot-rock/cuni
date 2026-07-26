@@ -1,0 +1,22 @@
+use budget
+use text
+use score
+
+# Agent identity: pure CuNi law — exact stdout on py/go/js
+# Speech (LLM) may choose *which* law to run; this file *is* the mind.
+
+let spend = allow_spend(3)
+let blocked = allow_spend(9)
+let capped = clamp_spend(12, 5)
+let line = tag_line("CuNi")
+let bag = join_two("law", "speech")
+let best = prefer(7, 11)
+let ok = score_ok(150)
+
+say(spend)
+say(blocked)
+say(capped)
+say(line)
+say(bag)
+say(best)
+say(ok)

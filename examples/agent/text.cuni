@@ -1,0 +1,8 @@
+# Portable string law
+def tag_line(name: str) -> str do
+    ret `speak:${name}`
+end
+
+def join_two(a: str, b: str) -> str do
+    ret `${a}|${b}`
+end

@@ -21,3 +21,6 @@ Cargo.lock.bak
 
 # Playground books (Notelog + Critic Book)
 /playground/data/
+
+# Agent host session logs
+/examples/agent/sessions/

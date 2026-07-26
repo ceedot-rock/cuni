@@ -1,0 +1,5 @@
+use text
+
+# Entrypoint: string law only
+say(tag_line("CuNi"))
+say(join_two("law", "speech"))

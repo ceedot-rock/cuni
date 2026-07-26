@@ -1,0 +1,17 @@
+# Portable "tool" law — same contract shape on every host.
+# Real HTTP tools use `link` later; this is exact string IO law an agent can call.
+
+def tool_echo(msg: str) -> str do
+    ret `tool:echo:${msg}`
+end
+
+def tool_ok(code: int) -> int do
+    if code == 0 do
+        ret 1
+    end
+    ret 0
+end
+
+say(tool_echo("ping"))
+say(tool_ok(0))
+say(tool_ok(7))

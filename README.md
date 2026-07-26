@@ -24,6 +24,19 @@ A small, mnemonic programming language that compiles to **exact, idiomatic** Pyt
 
 **[CuNi Studio](https://cuni-studio.fly.dev/)** — hosted playground: edit CuNi → **emit** py/go/js → **`cuni check`** exactness → Notelog + Critic Book.
 
+### Agent mind = CuNi
+
+AI **speech** routes (stub or LLM); **law** is CuNi and must pass exactness before it runs on py/go/js:
+
+```bash
+python3 examples/agent/host/run_agent.py --check-all
+python3 examples/agent/host/run_agent.py --message "spend 4 cap 5" --host go
+python3 examples/agent/host/run_agent.py --loop --message "echo hi" --message "score 2 8"
+python3 examples/agent/host/run_agent.py --repl
+```
+
+Design: [`docs/AI_IS_CUNI.md`](docs/AI_IS_CUNI.md) · pack: [`examples/agent/`](examples/agent/)
+
 ### Two proofs that matter
 
 | Proof | How | What it shows |

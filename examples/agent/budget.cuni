@@ -1,0 +1,14 @@
+# Portable policy law — exact on py/go/js
+def allow_spend(usd: int) -> int do
+    if usd > 5 do
+        ret 0
+    end
+    ret usd
+end
+
+def clamp_spend(usd: int, cap: int) -> int do
+    if usd > cap do
+        ret cap
+    end
+    ret usd
+end

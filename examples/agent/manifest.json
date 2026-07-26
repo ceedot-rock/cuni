@@ -1,0 +1,43 @@
+{
+  "name": "cuni-agent-mind",
+  "version": "0.3.0",
+  "thesis": "Speech routes; law is CuNi; exactness is citizenship.",
+  "skills": [
+    {
+      "id": "mind",
+      "entry": "mind.cuni",
+      "modules": ["budget.cuni", "text.cuni", "score.cuni"],
+      "description": "Full composed identity (all law packs)"
+    },
+    {
+      "id": "budget",
+      "entry": "entry_budget.cuni",
+      "modules": ["budget.cuni"],
+      "description": "Policy: allow_spend / clamp_spend (params: usd, cap)"
+    },
+    {
+      "id": "text",
+      "entry": "entry_text.cuni",
+      "modules": ["text.cuni"],
+      "description": "Strings: tag_line / join_two (params: name, a, b)"
+    },
+    {
+      "id": "score",
+      "entry": "entry_score.cuni",
+      "modules": ["score.cuni"],
+      "description": "Ranking: prefer / score_ok (params: a, b, n)"
+    },
+    {
+      "id": "tool_echo",
+      "entry": "entry_tool_echo.cuni",
+      "modules": [],
+      "description": "Portable tool echo (params: msg)"
+    },
+    {
+      "id": "tool_plan_get",
+      "entry": "entry_tool_plan_get.cuni",
+      "modules": [],
+      "description": "Plan GET path; host may fetch if CUNI_AGENT_HTTP_BASE set (params: path)"
+    }
+  ]
+}

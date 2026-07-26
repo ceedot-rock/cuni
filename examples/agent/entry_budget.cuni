@@ -1,0 +1,6 @@
+use budget
+
+# Entrypoint: policy law only
+say(allow_spend(3))
+say(allow_spend(9))
+say(clamp_spend(12, 5))

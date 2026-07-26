@@ -1,0 +1,17 @@
+# Portable ranking law
+def prefer(a: int, b: int) -> int do
+    if a >= b do
+        ret a
+    end
+    ret b
+end
+
+def score_ok(n: int) -> int do
+    if n < 0 do
+        ret 0
+    end
+    if n > 100 do
+        ret 100
+    end
+    ret n
+end

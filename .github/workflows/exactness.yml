@@ -54,15 +54,29 @@ jobs:
             examples/enums.cuni \
             examples/named_fields.cuni
 
+      - name: Exactness — agent mind (AI runs off CuNi)
+        run: |
+          set -euo pipefail
+          BIN=./target/release/cuni
+          # All agent skill entrypoints must be exact citizens
+          "$BIN" check --timeout "${CUNI_CHECK_TIMEOUT}" \
+            examples/agent/mind.cuni \
+            examples/agent/entry_budget.cuni \
+            examples/agent/entry_text.cuni \
+            examples/agent/entry_score.cuni \
+            examples/agent/entry_tool_echo.cuni \
+            examples/agent/entry_tool_plan_get.cuni
+          python3 examples/agent/host/run_agent.py --check-all
+
       - name: Exactness summary
         if: always()
         run: |
           echo "### Exactness" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Portable examples must emit + run py/go/js with **identical stdout**." >> "$GITHUB_STEP_SUMMARY"
+          echo "Portable examples + **agent skills** must emit + run py/go/js with **identical stdout**." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "cuni check examples/full.cuni examples/structs.cuni examples/enums.cuni" >> "$GITHUB_STEP_SUMMARY"
+          echo "cuni check examples/full.cuni … + examples/agent/*" >> "$GITHUB_STEP_SUMMARY"
           echo "→ exactness: PASS (py/go/js)" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 

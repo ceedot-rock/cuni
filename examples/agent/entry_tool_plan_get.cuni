@@ -1,0 +1,6 @@
+# Static default plan — host may inject path via lawgen
+def plan_get(p: str) -> str do
+    ret `GET ${p}`
+end
+
+say(plan_get("/health"))
