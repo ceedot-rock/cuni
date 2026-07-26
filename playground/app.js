@@ -4,10 +4,21 @@ const els = {
   source: $("source"),
   example: $("example"),
   run: $("run"),
+  emit: $("emit"),
+  check: $("check"),
   status: $("status"),
   error: $("error"),
   summary: $("summary"),
   health: $("health"),
+  notelogList: $("notelog-list"),
+  criticList: $("critic-list"),
+  notelogForm: $("notelog-form"),
+  notelogInput: $("notelog-input"),
+  criticForm: $("critic-form"),
+  criticInput: $("critic-input"),
+  criticSeverity: $("critic-severity"),
+  criticCategory: $("critic-category"),
+  bookRefresh: $("book-refresh"),
   out: {
     py: $("out-py"),
     go: $("out-go"),
@@ -56,7 +67,7 @@ function setOutputs(data) {
     } else if (data.run_errors && data.run_errors[k]) {
       parts.push(`ERROR: ${data.run_errors[k]}`);
     } else {
-      parts.push("(n/a)");
+      parts.push("(n/a — use Run for stdout)");
     }
     parts.push("");
   }
@@ -76,6 +87,82 @@ function selectTab(name) {
   $(map[name]).classList.add("active");
 }
 
+function selectBook(name) {
+  document.querySelectorAll(".book-tab").forEach((t) => {
+    t.classList.toggle("active", t.dataset.book === name);
+  });
+  document.querySelectorAll(".book-panel").forEach((p) => p.classList.remove("active"));
+  $(name === "notelog" ? "panel-notelog" : "panel-critic").classList.add("active");
+}
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderNotelog(entries) {
+  const list = [...(entries || [])].reverse();
+  if (!list.length) {
+    els.notelogList.innerHTML = `<div class="book-empty">No notes yet. Run exactness or add a note.</div>`;
+    return;
+  }
+  els.notelogList.innerHTML = list
+    .map(
+      (e) => `
+    <article class="book-entry kind-${esc(e.kind || "manual")}">
+      <header>
+        <time>${esc(e.ts || "")}</time>
+        <span class="pill">${esc(e.kind || "manual")}</span>
+      </header>
+      <pre class="book-body">${esc(e.body || "")}</pre>
+    </article>`
+    )
+    .join("");
+}
+
+function renderCritic(entries) {
+  const list = [...(entries || [])].reverse();
+  if (!list.length) {
+    els.criticList.innerHTML = `<div class="book-empty">No critiques yet. Failures auto-log; add design notes anytime.</div>`;
+    return;
+  }
+  els.criticList.innerHTML = list
+    .map((e) => {
+      const loc =
+        e.line != null
+          ? `main.cuni:${e.line}${e.col != null ? ":" + e.col : ""}`
+          : "";
+      return `
+    <article class="book-entry sev-${esc(e.severity || "note")}">
+      <header>
+        <time>${esc(e.ts || "")}</time>
+        <span class="pill sev">${esc(e.severity || "note")}</span>
+        <span class="pill cat">${esc(e.category || "")}</span>
+        <span class="pill src">${esc(e.source || "")}</span>
+        ${loc ? `<span class="pill loc mono">${esc(loc)}</span>` : ""}
+      </header>
+      <pre class="book-body">${esc(e.body || "")}</pre>
+    </article>`;
+    })
+    .join("");
+}
+
+async function refreshBooks() {
+  try {
+    const [n, c] = await Promise.all([
+      fetch("/api/notelog").then((r) => r.json()),
+      fetch("/api/criticbook").then((r) => r.json()),
+    ]);
+    renderNotelog(n.entries);
+    renderCritic(c.entries);
+  } catch (e) {
+    console.warn("books refresh", e);
+  }
+}
+
 async function loadHealth() {
   try {
     const r = await fetch("/api/health");
@@ -84,13 +171,14 @@ async function loadHealth() {
       els.health.textContent = `toolchain: cuni missing — ${j.error || "build with cargo"}`;
       return;
     }
-    const bits = [
-      `cuni: ${j.cuni}`,
+    els.health.textContent = [
+      `cuni: ok`,
       `py: ${j.python ? "ok" : "missing"}`,
       `go: ${j.go ? "ok" : "missing"}`,
       `node: ${j.node ? "ok" : "missing"}`,
-    ];
-    els.health.textContent = bits.join(" · ");
+      `notes: ${j.books?.notelog ?? 0}`,
+      `critiques: ${j.books?.critic ?? 0}`,
+    ].join(" · ");
   } catch (e) {
     els.health.textContent = `health check failed: ${e}`;
   }
@@ -111,7 +199,6 @@ async function loadExamples() {
     o.textContent = ex.name;
     els.example.appendChild(o);
   }
-  // Prefer full.cuni if present
   const full = examples.find((e) => e.id === "full");
   if (full) {
     els.example.value = "full";
@@ -121,17 +208,19 @@ async function loadExamples() {
   }
 }
 
-async function run() {
+async function invoke(path, label) {
   if (running) return;
   running = true;
-  els.run.disabled = true;
-  setStatus("run", "running…");
+  [els.run, els.emit, els.check].forEach((b) => {
+    b.disabled = true;
+  });
+  setStatus("run", `${label}…`);
   showError("");
   els.summary.textContent = "";
   els.summary.className = "summary mono";
 
   try {
-    const r = await fetch("/api/run", {
+    const r = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ source: els.source.value }),
@@ -142,13 +231,20 @@ async function run() {
     }
 
     setOutputs(data);
+    await refreshBooks();
+    void loadHealth();
 
-    if (data.phase === "compile" || (data.error && !data.py && !data.go)) {
-      setStatus("fail", "compile error");
-      showError(data.error || data.summary || "compile failed");
-      els.summary.textContent = data.summary || "compile failed";
+    if (data.phase === "emit" && data.ok) {
+      setStatus("pass", "emit ok");
+      els.summary.textContent = data.summary || "emit: ok";
+      els.summary.classList.add("pass");
+    } else if (data.phase === "emit" || data.phase === "compile") {
+      setStatus("fail", "emit error");
+      showError(data.error || data.summary || "emit failed");
+      els.summary.textContent = data.summary || "emit failed";
       els.summary.classList.add("fail");
       selectTab("stdout");
+      selectBook("critic");
     } else if (data.exactness === "PASS" || data.ok) {
       setStatus("pass", "exactness PASS");
       showError("");
@@ -160,6 +256,7 @@ async function run() {
       els.summary.textContent = data.summary || "exactness: FAIL";
       els.summary.classList.add("fail");
       selectTab("stdout");
+      selectBook("critic");
     }
   } catch (e) {
     setStatus("fail", "error");
@@ -168,16 +265,20 @@ async function run() {
     els.summary.classList.add("fail");
   } finally {
     running = false;
-    els.run.disabled = false;
+    [els.run, els.emit, els.check].forEach((b) => {
+      b.disabled = false;
+    });
   }
 }
 
 function wire() {
-  els.run.addEventListener("click", () => void run());
+  els.run.addEventListener("click", () => void invoke("/api/run", "running"));
+  els.emit.addEventListener("click", () => void invoke("/api/emit", "emitting"));
+  els.check.addEventListener("click", () => void invoke("/api/check", "checking"));
   els.source.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();
-      void run();
+      void invoke("/api/run", "running");
     }
   });
   els.example.addEventListener("change", () => {
@@ -192,8 +293,46 @@ function wire() {
   document.querySelectorAll(".tab").forEach((t) => {
     t.addEventListener("click", () => selectTab(t.dataset.tab));
   });
+  document.querySelectorAll(".book-tab").forEach((t) => {
+    t.addEventListener("click", () => selectBook(t.dataset.book));
+  });
+  els.bookRefresh.addEventListener("click", () => void refreshBooks());
+
+  els.notelogForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const body = els.notelogInput.value.trim();
+    if (!body) return;
+    await fetch("/api/notelog", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
+    els.notelogInput.value = "";
+    await refreshBooks();
+    void loadHealth();
+  });
+
+  els.criticForm.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const body = els.criticInput.value.trim();
+    if (!body) return;
+    await fetch("/api/criticbook", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        body,
+        severity: els.criticSeverity.value,
+        category: els.criticCategory.value,
+      }),
+    });
+    els.criticInput.value = "";
+    await refreshBooks();
+    void loadHealth();
+    selectBook("critic");
+  });
 }
 
 wire();
 void loadHealth();
 void loadExamples();
+void refreshBooks();

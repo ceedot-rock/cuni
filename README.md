@@ -5,6 +5,11 @@
 </p>
 
 <p align="center">
+  <a href="https://cuni-studio.fly.dev/"><img src="https://img.shields.io/badge/Studio-try%20in%20browser-5b9dff?style=for-the-badge" alt="Open CuNi Studio" /></a>
+</p>
+
+<p align="center">
+  <a href="https://cuni-studio.fly.dev/"><img src="https://img.shields.io/badge/playground-live-3dd68c.svg" alt="Playground live" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.6"><img src="https://img.shields.io/badge/version-0.1.6-cyan.svg" alt="v0.1.6" /></a>
@@ -15,11 +20,15 @@ A small, mnemonic programming language that compiles to **exact, idiomatic** Pyt
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
 
+### Try it (no install)
+
+**[CuNi Studio](https://cuni-studio.fly.dev/)** — hosted playground: edit CuNi → **emit** py/go/js → **`cuni check`** exactness → Notelog + Critic Book.
+
 ### Two proofs that matter
 
-| Proof | Command | What it shows |
-|-------|---------|----------------|
-| **Exactness** | `cuni check examples/full.cuni` | One program → py/go/js → **same stdout** |
+| Proof | How | What it shows |
+|-------|-----|----------------|
+| **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → py/go/js → **same stdout** |
 | **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
 
 ### Flagship: one `link`, three languages
@@ -118,15 +127,19 @@ Docs for other repos: [`docs/CI.md`](docs/CI.md)
 
 (`cuni check` needs `python3`, `go`, and `node` on PATH.)
 
-### Playground (platform step 3)
+### Studio (hosted playground — current focus)
 
 ```bash
 cargo build --release
 python3 playground/server.py
-# open http://127.0.0.1:8787
+# open http://127.0.0.1:8787  (binds 0.0.0.0 by default)
 ```
 
-Edit CuNi → emit py/go/js → run all three → see **exactness PASS/FAIL**. Details: [`playground/README.md`](playground/README.md).
+**Live:** https://cuni-studio.fly.dev/  
+
+**Emit** (`cuni --emit-*`) · **Check/Run** (`cuni check`) · **Notelog** · **Critic Book**.  
+Details: [`playground/README.md`](playground/README.md) · freeze: [`docs/FREEZE.md`](docs/FREEZE.md).  
+Redeploy: `flyctl deploy --config fly.toml --remote-only` (repo root).
 
 ## Language at a glance
 
@@ -158,7 +171,7 @@ src/
   main.rs                              # CLI
 examples/                              # runnable .cuni samples
 examples/link/demo.sh                  # flagship Go server ← py/js/go clients
-playground/                            # local Studio (python3 playground/server.py)
+playground/                            # hosted Studio: emit + check + Notelog + Critic Book
 docs/LINK_TUTORIAL.md                  # interop walkthrough
 docs/CI.md                             # badges + exactness CI
 tests/
@@ -170,7 +183,7 @@ assets/logo.png                        # brand mark
 
 ## Status (v0.1.6)
 
-**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, local **playground**, Exactness **CI + badge**, flagship **link demo**, registry design sketch.
+**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with Notelog + Critic Book, Exactness **CI + badge**, flagship **link demo**, registry design sketch.
 
 **Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
 

@@ -1,5 +1,7 @@
 # Flagship tutorial: one `link`, three languages
 
+**Try exactness first (no install):** [CuNi Studio](https://cuni-studio.fly.dev/) → example `full` → **Run exactness**.
+
 **Story in one line:** write a typed contract once in CuNi; run the **server in Go** and call it from **Python** and **JavaScript** — same JSON, same path, same answer.
 
 ```
@@ -17,7 +19,7 @@ examples/link.cuni
 ```
 
 This is **cross-program interop** (SPEC.md §16), not just “same file runs on three backends.”  
-For **same-file exactness** (stdout matches), use `cuni check examples/full.cuni` instead.
+For **same-file exactness** (stdout matches), use [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni`.
 
 ---
 
@@ -160,4 +162,4 @@ cuni check examples/full.cuni   # same program, three local runs, same stdout
 ## Next platform steps after this tutorial
 
 - Publish a short cast/gif of `demo.sh` output next to the 30s exactness demo.
-- Optional: playground “Link” mode that shells to `demo.sh` (heavier; keep CLI demo as source of truth).
+- Hosted Studio is for exactness/emit; keep `./examples/link/demo.sh` as the source of truth for `link` interop.

@@ -21,14 +21,16 @@ Strategy without shipped actions is failure. Every session must end with **done 
 
 ## Product truth (never invent features)
 
+- **Primary CTA (always first):** https://cuni-studio.fly.dev/ — free hosted Studio (emit + `cuni check` + Notelog + Critic Book)  
 - Repo: https://github.com/ceedot-rock/cuni  
 - Latest: v0.1.6 · MIT · exact multi-target → Python / Go / JavaScript  
-- Pitch: *Write once → identical behavior on py/go/js, or the compiler refuses.*  
-- Proof: `cuni check` (exactness), `./examples/link/demo.sh` (Go server ← py/js/go clients)  
+- Pitch: *Write once → identical behavior on py/go/js, or the compiler refuses. Try free in the browser.*  
+- Proof: Studio **Run exactness**, or CLI `cuni check`; `./examples/link/demo.sh` (Go server ← py/js/go clients)  
 - Install: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6`  
-- Docs: `docs/LINK_TUTORIAL.md`, `docs/OUTREACH.md`, `docs/PRESS_RELEASE.md`, `docs/CI.md`  
+- Docs: `docs/LINK_TUTORIAL.md`, `docs/OUTREACH.md`, `docs/PRESS_RELEASE.md`, `docs/growth/posts-studio-launch-2026-07-26.md`  
 - Contact: ceedotrock@gmail.com · GitHub: ceedot-rock  
 
+**Convert path:** Studio → repo → install → link tutorial. Every post/email leads with Studio.  
 If unsure, read those files. **Never overclaim** production maturity (v0.1).
 
 ## Operating rules
@@ -50,12 +52,13 @@ If unsure, read those files. **Never overclaim** production maturity (v0.1).
 
 ## Priority playbook (order)
 
-1. Show HN + r/ProgrammingLanguages (if not done this week)  
-2. This Week in Rust PR (writeup link, not bare repo)  
-3. Warm intros / collaborator emails  
-4. Newsletter tip inboxes that accept tips  
-5. Follow-ups on prior press tips  
-6. Content: short thread, GIF, release note amplification  
+1. Drive traffic to **https://cuni-studio.fly.dev/** (every channel)  
+2. Show HN + r/ProgrammingLanguages (use `docs/growth/posts-studio-launch-2026-07-26.md`)  
+3. This Week in Rust PR (Studio + release notes, not bare repo)  
+4. Warm intros / collaborator emails with Studio link  
+5. Newsletter tip inboxes that accept tips  
+6. Follow-ups on prior press tips (new angle: hosted playground)  
+7. Content: short thread, GIF, Studio demo  
 
 ## Output contract (every run)
 

@@ -1,16 +1,25 @@
 # CuNi user-growth outreach
 
 **Owner:** Corey (ceedotrock@gmail.com)  
-**Product:** https://github.com/ceedot-rock/cuni · tag `v0.1.6`
+**Product:** https://github.com/ceedot-rock/cuni · tag `v0.1.6`  
+**Primary CTA (always first):** https://cuni-studio.fly.dev/
 
 ## Positioning (one line)
 
-> Write once in CuNi → identical Python, Go, and JavaScript behavior — or the compiler refuses.
+> Write once in CuNi → identical Python, Go, and JavaScript — or refuse. Try free: cuni-studio.fly.dev
+
+## Convert path (order)
+
+1. **Studio** — https://cuni-studio.fly.dev/ (no install)  
+2. **Repo** — https://github.com/ceedot-rock/cuni  
+3. **Install** — `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6`  
+4. **Link tutorial** — deeper interop  
 
 ## Proof links
 
 | Proof | Link / command |
 |-------|----------------|
+| **Studio (primary)** | https://cuni-studio.fly.dev/ |
 | Repo | https://github.com/ceedot-rock/cuni |
 | Release | https://github.com/ceedot-rock/cuni/releases/tag/v0.1.6 |
 | Exactness CI | https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml |
@@ -59,7 +68,7 @@ Full text: [`PRESS_RELEASE.md`](PRESS_RELEASE.md)
 ## Channels (do these too — not email)
 
 ### Hacker News — Show HN
-**Title:** `Show HN: CuNi – one source to exact Python, Go, and JS (or refuse)`
+**Title:** `Show HN: CuNi Studio – exact Python/Go/JS from one source (try in browser)`
 
 **Text:**
 ```
@@ -67,18 +76,30 @@ CuNi is a small language that compiles to Python, Go, and JavaScript with an
 "exactness" contract: same program, same behavior on all three targets, or
 the compiler refuses.
 
-cuni check emits and runs all three and requires identical stdout.
+No install: open the hosted Studio, pick an example, hit Run exactness.
+It runs the real cuni check path (emit + run py/go/js, require identical stdout).
+Also has a Notelog and Critic Book for lab notes and type/exactness critiques.
 
-There's also link for cross-language HTTP contracts (one .cuni file → Go
-server + Python/JS clients).
+Try: https://cuni-studio.fly.dev/
+Repo: https://github.com/ceedot-rock/cuni
+Link interop tutorial: https://github.com/ceedot-rock/cuni/blob/master/docs/LINK_TUTORIAL.md
 
-https://github.com/ceedot-rock/cuni
-https://github.com/ceedot-rock/cuni/blob/master/docs/LINK_TUTORIAL.md
-
-Install: cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6
+CLI: cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6
 ```
 
 Post at: https://news.ycombinator.com/submit
+
+### Short social (X / LinkedIn / Discord)
+
+```
+CuNi Studio is live — free playground for exact multi-target compile.
+
+Write once → Python + Go + JS with identical stdout, or refuse.
+Notelog + Critic Book built in. No install.
+
+https://cuni-studio.fly.dev/
+https://github.com/ceedot-rock/cuni
+```
 
 ### Reddit
 - r/rust — tooling update framing (honest: compiler *written in* Rust, targets py/go/js)
@@ -211,6 +232,19 @@ Other: ptasz13@hotmail.com, neatmoon@zo.computer, rustaceanseditors@gmail.com
 | GH Discussion Announcements | https://github.com/ceedot-rock/cuni/discussions/1 |
 | GH Discussion Show and tell | https://github.com/ceedot-rock/cuni/discussions/2 |
 | Tracking issue | https://github.com/ceedot-rock/cuni/issues/3 |
+| **CuNi Studio (live)** | https://cuni-studio.fly.dev/ |
+
+## Studio launch SEO (2026-07-26)
+
+| Surface | Action |
+|---------|--------|
+| GitHub homepage | set to https://cuni-studio.fly.dev/ |
+| GitHub description | includes Studio CTA |
+| Studio meta | OG / Twitter / JSON-LD / robots / sitemap |
+| Press | `docs/PRESS_RELEASE.md` Studio-first |
+| Posts | `docs/growth/posts-studio-launch-2026-07-26.md` |
+| Convert path | Studio → repo → install → link tutorial |
 | This Week in Rust PR | https://github.com/rust-lang/this-week-in-rust/pull/8468 |
 
 **Blocked without human login session:** Show HN, Reddit posts/comments, X organic replies.
+| Press release gist | https://gist.github.com/ceedot-rock/16e9cf29feb28ef3e088048e68ede52d |

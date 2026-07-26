@@ -1,0 +1,13 @@
+# CuNi Studio — https://cuni-studio.fly.dev/
+User-agent: *
+Allow: /
+Allow: /api/health
+Allow: /api/examples
+Disallow: /api/run
+Disallow: /api/emit
+Disallow: /api/check
+Disallow: /api/notelog
+Disallow: /api/criticbook
+Disallow: /data
+
+Sitemap: https://cuni-studio.fly.dev/sitemap.xml

@@ -1,5 +1,10 @@
 # CuNi agent notes
 
+## Freeze (current)
+
+**Only build** hosted Studio: `playground/` (emit + `cuni check` + Notelog + Critic Book).  
+See `docs/FREEZE.md`. Do not expand language/registry/pump/side projects unless Studio is blocked.
+
 ## Growth agents (wired)
 
 When the user wants **users, marketing, distribution, or conversation mining** for CuNi:

@@ -3,83 +3,243 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CuNi Playground — exact Python, Go &amp; JavaScript from one source</title>
+    <title>CuNi Studio — Try exact Python, Go &amp; JavaScript from one source</title>
     <meta
       name="description"
-      content="CuNi playground: write once, check exactness across Python, Go, and JavaScript. Compile-or-refuse multi-target language with link interop."
+      content="Free CuNi playground: write once, run cuni check exactness across Python, Go, and JavaScript. Notelog and Critic Book included. No install required."
     />
-    <meta name="keywords" content="CuNi, multi-target compiler, Python, Go, JavaScript, exactness, programming language" />
+    <meta
+      name="keywords"
+      content="CuNi, playground, multi-target compiler, Python, Go, JavaScript, exactness, programming language, polyglot, agent coding, cuni check"
+    />
     <meta name="author" content="CuNi contributors" />
-    <meta name="robots" content="index,follow" />
-    <link rel="canonical" href="https://github.com/ceedot-rock/cuni" />
+    <meta name="robots" content="index,follow,max-image-preview:large" />
+    <meta name="theme-color" content="#0b1020" />
+    <link rel="canonical" href="https://cuni-studio.fly.dev/" />
+    <link rel="alternate" hreflang="en" href="https://cuni-studio.fly.dev/" />
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="CuNi Playground" />
+    <meta property="og:site_name" content="CuNi Studio" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://cuni-studio.fly.dev/" />
+    <meta property="og:title" content="CuNi Studio — exact py / go / js playground" />
     <meta
       property="og:description"
-      content="Write CuNi once. Exact py / go / js — or refuse. Local playground for the exactness contract."
+      content="Write CuNi once. Emit Python, Go, and JavaScript. Exactness PASS or refuse. Free hosted playground with Notelog and Critic Book."
     />
-    <meta property="og:image" content="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png" />
-    <meta property="og:url" content="https://github.com/ceedot-rock/cuni" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="CuNi Playground" />
+    <meta
+      property="og:image"
+      content="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png"
+    />
+    <meta property="og:image:alt" content="CuNi — Code uNiTY logo" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="CuNi Studio — try exact multi-target compile" />
     <meta
       name="twitter:description"
-      content="Exact multi-target CuNi: Python, Go, JavaScript from one source."
+      content="One source → identical Python, Go, JS — or the compiler refuses. Free playground: https://cuni-studio.fly.dev/"
     />
-    <meta name="twitter:image" content="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png" />
-    <link rel="icon" href="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png" />
+    <meta
+      name="twitter:image"
+      content="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png"
+    />
+
+    <link
+      rel="icon"
+      href="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png"
+    />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "CuNi Studio",
+        "url": "https://cuni-studio.fly.dev/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Web",
+        "description": "Hosted playground for CuNi: emit and exactness-check Python, Go, and JavaScript from one source, with Notelog and Critic Book.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "creator": {
+          "@type": "Organization",
+          "name": "CuNi",
+          "url": "https://github.com/ceedot-rock/cuni"
+        },
+        "softwareHelp": {
+          "@type": "CreativeWork",
+          "url": "https://github.com/ceedot-rock/cuni#readme"
+        },
+        "featureList": [
+          "cuni emit to Python, Go, JavaScript",
+          "cuni check exactness gate",
+          "Notelog lab journal",
+          "Critic Book structured critiques"
+        ]
+      }
+    </script>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "CuNi (Code:uNiTY)",
+        "codeRepository": "https://github.com/ceedot-rock/cuni",
+        "programmingLanguage": ["Rust", "CuNi"],
+        "runtimePlatform": ["Python", "Go", "JavaScript"],
+        "license": "https://github.com/ceedot-rock/cuni/blob/master/LICENSE",
+        "url": "https://cuni-studio.fly.dev/"
+      }
+    </script>
+
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="top">
       <div class="brand">
-        <span class="logo">CuNi</span>
+        <span class="logo" aria-hidden="true">CuNi</span>
         <div>
-          <h1>Playground</h1>
-          <p class="tag">Write once → exact py / go / js — or refuse</p>
+          <h1>Studio</h1>
+          <p class="tag">
+            Free playground · emit ·
+            <span class="mono">cuni check</span> · notelog · critic book
+          </p>
         </div>
       </div>
       <div class="actions">
+        <a
+          class="btn-link"
+          href="https://github.com/ceedot-rock/cuni"
+          target="_blank"
+          rel="noopener"
+          >GitHub</a
+        >
         <label class="example-label">
           Example
-          <select id="example"></select>
+          <select id="example" aria-label="Load example program"></select>
         </label>
-        <button id="run" class="primary" type="button">Run exactness</button>
-        <span id="status" class="badge idle">idle</span>
+        <button id="emit" type="button" title="cuni --emit-py/go/js">Emit</button>
+        <button id="check" type="button" title="cuni check">Check</button>
+        <button id="run" class="primary" type="button" title="emit + check + stdout">
+          Run exactness
+        </button>
+        <span id="status" class="badge idle" aria-live="polite">idle</span>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="pane editor-pane">
+    <main class="layout studio">
+      <section class="pane editor-pane" aria-label="CuNi source editor">
         <div class="pane-head">
           <h2>Source <span class="mono">.cuni</span></h2>
-          <span class="hint">⌘/Ctrl + Enter to run</span>
+          <span class="hint">⌘/Ctrl+Enter run · no install needed</span>
         </div>
-        <textarea id="source" spellcheck="false" autocomplete="off"></textarea>
-        <pre id="error" class="error hidden"></pre>
+        <textarea
+          id="source"
+          spellcheck="false"
+          autocomplete="off"
+          aria-label="CuNi source code"
+        ></textarea>
+        <pre id="error" class="error hidden" role="alert"></pre>
       </section>
 
-      <section class="pane results">
+      <section class="pane results" aria-label="Emitted targets">
         <div class="pane-head">
           <h2>Targets</h2>
           <span id="summary" class="summary mono"></span>
         </div>
-        <div class="tabs">
-          <button type="button" class="tab active" data-tab="py">Python</button>
-          <button type="button" class="tab" data-tab="go">Go</button>
-          <button type="button" class="tab" data-tab="js">JavaScript</button>
-          <button type="button" class="tab" data-tab="stdout">Stdout</button>
+        <div class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="py" role="tab">Python</button>
+          <button type="button" class="tab" data-tab="go" role="tab">Go</button>
+          <button type="button" class="tab" data-tab="js" role="tab">JavaScript</button>
+          <button type="button" class="tab" data-tab="stdout" role="tab">Stdout / check</button>
         </div>
         <pre id="out-py" class="code active"></pre>
         <pre id="out-go" class="code"></pre>
         <pre id="out-js" class="code"></pre>
         <pre id="out-stdout" class="code"></pre>
       </section>
+
+      <section class="pane books-pane" aria-label="Notelog and Critic Book">
+        <div class="pane-head books-head">
+          <div class="book-tabs">
+            <button type="button" class="book-tab active" data-book="notelog">
+              Notelog
+            </button>
+            <button type="button" class="book-tab" data-book="critic">
+              Critic Book
+            </button>
+          </div>
+          <button type="button" id="book-refresh" class="ghost" title="Refresh">
+            ↻
+          </button>
+        </div>
+
+        <div id="panel-notelog" class="book-panel active">
+          <p class="book-blurb">
+            Lab notebook: every emit/check/run appends here. Add your own notes.
+          </p>
+          <div id="notelog-list" class="book-list"></div>
+          <form id="notelog-form" class="book-form">
+            <textarea
+              id="notelog-input"
+              rows="2"
+              placeholder="Note… (what changed, hypothesis, next try)"
+            ></textarea>
+            <button type="submit" class="primary">Add note</button>
+          </form>
+        </div>
+
+        <div id="panel-critic" class="book-panel">
+          <p class="book-blurb">
+            Structured critiques: typeck/exactness auto-entries + your design notes.
+          </p>
+          <div id="critic-list" class="book-list"></div>
+          <form id="critic-form" class="book-form">
+            <div class="critic-meta">
+              <select id="critic-severity" aria-label="Severity">
+                <option value="note">note</option>
+                <option value="warn">warn</option>
+                <option value="error">error</option>
+              </select>
+              <select id="critic-category" aria-label="Category">
+                <option value="design">design</option>
+                <option value="style">style</option>
+                <option value="exactness">exactness</option>
+                <option value="typeck">typeck</option>
+                <option value="runtime">runtime</option>
+              </select>
+            </div>
+            <textarea
+              id="critic-input"
+              rows="2"
+              placeholder="Critique… (why this fails exactness, API smell, etc.)"
+            ></textarea>
+            <button type="submit" class="primary">Add critique</button>
+          </form>
+        </div>
+      </section>
     </main>
 
     <footer class="foot">
       <span id="health" class="mono muted">checking toolchain…</span>
-      <span class="muted">Platform step 3 · local only · no account</span>
+      <span class="muted">
+        <a href="https://github.com/ceedot-rock/cuni" target="_blank" rel="noopener"
+          >github.com/ceedot-rock/cuni</a
+        >
+        ·
+        <a
+          href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.6"
+          target="_blank"
+          rel="noopener"
+          >v0.1.6</a
+        >
+        ·
+        <a href="https://cuni-studio.fly.dev/" rel="canonical">cuni-studio.fly.dev</a>
+      </span>
     </footer>
 
     <script src="/app.js"></script>

@@ -1,0 +1,14 @@
+target/
+.git/
+**/.git/
+playground/data/
+assets/pump/
+assets/*.gif
+assets/*.mp4
+docs/growth/
+.grok/
+**/*.md
+!README.md
+tests/
+**/.DS_Store
+**/node_modules/

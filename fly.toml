@@ -1,0 +1,30 @@
+# Deploy from repo root:
+#   flyctl deploy --config fly.toml --remote-only
+app = "cuni-studio"
+primary_region = "iad"
+
+[build]
+  dockerfile = "playground/Dockerfile"
+
+[env]
+  CUNI_PLAYGROUND_HOST = "0.0.0.0"
+  CUNI_PLAYGROUND_PORT = "8787"
+  CUNI_PLAYGROUND_DATA = "/data"
+  CUNI_PLAYGROUND_TIMEOUT = "45"
+  CUNI_PLAYGROUND_MAX_CONCURRENT = "2"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[mounts]
+  source = "cuni_studio_data"
+  destination = "/data"

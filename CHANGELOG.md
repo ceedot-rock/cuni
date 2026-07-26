@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] — Studio host + SEO
+
+### Added
+- **Hosted CuNi Studio:** https://cuni-studio.fly.dev/ (Fly.io)
+- Studio **Notelog** + **Critic Book** (persist on volume)
+- Studio SEO: Open Graph, Twitter cards, JSON-LD, `robots.txt`, `sitemap.xml`
+- Primary CTA across README / press / outreach → Studio URL
+
 ## [0.1.6] — 2026-07-26
 
 ### Added

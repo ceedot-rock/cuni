@@ -71,6 +71,7 @@ cuni check .                    # exactness over project + deps
 
 **Near-term:** document packages as git subtrees / monorepo `packages/` until demand justifies API hosting.
 
-## Relation to playground
+## Relation to Studio
 
-Playground loads **local** examples only. A later mode can “Open from registry” once publish exists.
+**Hosted Studio:** https://cuni-studio.fly.dev/ — loads **local** `examples/*.cuni` only.  
+A later mode can “Open from registry” once publish exists.
