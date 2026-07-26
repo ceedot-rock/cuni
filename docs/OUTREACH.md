@@ -42,6 +42,20 @@ Full text: [`PRESS_RELEASE.md`](PRESS_RELEASE.md)
 | tips@devclass.com | Dev press | sent |
 | hello@tldr.tech | Developer newsletter | sent |
 
+## Pipeline wiring (2026-07-26)
+
+| Component | Path / name |
+|-----------|-------------|
+| Growth agent | `.grok/agents/cuni-growth-exec.md` · spawn `cuni-growth-exec` |
+| Scout agent | `.grok/agents/cuni-conversation-scout.md` · spawn `cuni-conversation-scout` |
+| Workflow | `.grok/workflows/cuni-growth-pipeline.rhai` · `/cuni-growth-pipeline` |
+| Skill | `.grok/skills/cuni-growth/SKILL.md` · `/cuni-growth` |
+| Shell entry | `./scripts/run-growth-pipeline.sh` |
+| Project rules | `AGENTS.md` |
+| Action queue | `docs/growth/action-queue-YYYY-MM-DD.md` |
+
+**Flow:** scout writes opportunities → growth merges action-queue + posts-ready → human submits → resume growth with URLs.
+
 ## Channels (do these too — not email)
 
 ### Hacker News — Show HN
