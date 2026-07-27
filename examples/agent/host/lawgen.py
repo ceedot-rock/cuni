@@ -34,6 +34,15 @@ say(score_ok({int(n)}))
 """
 
 
+def gen_learn(*, topic: str = "exactness") -> str:
+    topic = _s(topic).lower() or "exactness"
+    return f"""use learn
+
+say(lesson_line("{topic}"))
+say(mini_example("{topic}"))
+"""
+
+
 def gen_tool_echo(*, msg: str = "ping") -> str:
     msg = _s(msg)
     return f"""def tool_echo(m: str) -> str do
@@ -103,6 +112,7 @@ GENERATORS = {
     "budget": gen_budget,
     "text": gen_text,
     "score": gen_score,
+    "learn": gen_learn,
     "tool_echo": gen_tool_echo,
     "tool_plan_get": gen_tool_plan_get,
     "mind": lambda **_: gen_mind(),
