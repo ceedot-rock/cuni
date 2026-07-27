@@ -43,6 +43,19 @@ python3 examples/agent/host/run_agent.py --repl
 
 Design: [`docs/AI_IS_CUNI.md`](docs/AI_IS_CUNI.md) · pack: [`examples/agent/`](examples/agent/)
 
+### CuNi + Agent-Rider
+
+CuNi provides the exact multi-runtime language and verification.  
+Agent-Rider provides the coordination layer (identity, messaging, multi-agent workflows).
+
+They fit together like this:
+
+1. Write critical agent policies and skills in CuNi (inside the Studio).
+2. Verify them with the exactness checker — the same logic produces the same results on every supported runtime.
+3. Deploy into Agent-Rider. Rider uses CuNi `link` contracts as the standard interop mechanism and requires exactness before a policy can run.
+
+Result: agents can be implemented in the language that is most convenient, while the parts that matter for consistency and trust remain portable and verified.
+
 ### Two proofs that matter
 
 | Proof | How | What it shows |
