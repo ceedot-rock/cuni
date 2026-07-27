@@ -1,0 +1,62 @@
+# Portable learning law — teach CuNi concepts with exact examples
+# Speech may ask "what is let" / "explain link" / "show mut example"
+
+def topic_blurb(topic: str) -> str do
+    if topic == "let" do
+        ret "let binds an immutable name. Use mut when the value must change."
+    end
+    if topic == "mut" do
+        ret "mut marks a binding as mutable. Targets differ on enforcement; CuNi makes it explicit."
+    end
+    if topic == "def" do
+        ret "def name(params) -> type do ... ret expr end defines a function."
+    end
+    if topic == "link" do
+        ret "link declares a typed contract callable in-process and across programs over HTTP+JSON."
+    end
+    if topic == "exactness" do
+        ret "Exactness: one CuNi source must produce identical behavior on py/go/js, or the compiler refuses."
+    end
+    if topic == "typ" do
+        ret "typ Name do fields end defines a struct. Construct with Name(a, b) in field order."
+    end
+    if topic == "fail" do
+        ret "Fallible functions use -> T ? and signal errors with fail. Callers unwrap with ??."
+    end
+    if topic == "do" do
+        ret "Blocks open with do and close with end. No braces, no significant whitespace."
+    end
+    ret `topic:${topic} — try let, mut, def, link, exactness, typ, fail, do`
+end
+
+def mini_example(topic: str) -> str do
+    if topic == "let" do
+        ret "let x = 5"
+    end
+    if topic == "mut" do
+        ret "mut y = 1\ny = y + 1"
+    end
+    if topic == "def" do
+        ret "def add(a: int, b: int) -> int do\n    ret a + b\nend"
+    end
+    if topic == "link" do
+        ret "link Greet(name: str) -> str do\n    ret `hello ${name}`\nend"
+    end
+    if topic == "exactness" do
+        ret "cuni check file.cuni  # PASS only if py/go/js stdout match"
+    end
+    if topic == "typ" do
+        ret "typ Point do\n    x: int\n    y: int\nend\nlet p = Point(3, 4)"
+    end
+    if topic == "fail" do
+        ret "def parse(s: str) -> int ? do\n    if s == \"\" do\n        fail \"empty\"\n    end\n    ret 42\nend"
+    end
+    if topic == "do" do
+        ret "if x > 0 do\n    say(\"pos\")\nels\n    say(\"neg\")\nend"
+    end
+    ret "say(\"pick a topic\")"
+end
+
+def lesson_line(topic: str) -> str do
+    ret `learn:${topic}|${topic_blurb(topic)}`
+end
