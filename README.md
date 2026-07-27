@@ -16,13 +16,19 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
 </p>
 
-**CuNi (Code:uNiTY)** is a small language for **exact multi-target** code: one source → **identical** Python, JavaScript, and Go—or the compiler **refuses**. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + **Agent mode**). Open source, MIT, v0.1.6.
+**One source. Identical Python, JavaScript, and Go — or the compiler refuses.**
 
-> **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**. No approximate mode.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, MIT, v0.1.6.
 
-### Try it (no install) — primary
+> **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
-**[CuNi Studio](https://cuni-studio.fly.dev/)** — edit → emit py/go/js → **`cuni check`** exactness → **Agent** skills (speech routes; law is CuNi) → Notelog + Critic Book.
+### Try it in under 90 seconds (no install)
+
+1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)**
+2. Load the `full` example (or write a few lines)
+3. Hit **Run exactness**
+
+You will see the same program emit and run as Python, Go, and JavaScript — or a clear refusal. That is the entire product promise.
 
 ### Agent mind = CuNi
 
