@@ -1,19 +1,19 @@
 {
   "name": "cuni-agent-mind",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "thesis": "Speech routes; law is CuNi; exactness is citizenship.",
   "skills": [
-    {
-      "id": "mind",
-      "entry": "mind.cuni",
-      "modules": ["budget.cuni", "text.cuni", "score.cuni"],
-      "description": "Full composed identity (all law packs)"
-    },
     {
       "id": "spend",
       "entry": "entry_spend.cuni",
       "modules": ["spend_control.cuni"],
       "description": "Flagship: can_spend / CheckSpend (params: amount, cap) — Studio default law"
+    },
+    {
+      "id": "mind",
+      "entry": "mind.cuni",
+      "modules": ["budget.cuni", "text.cuni", "score.cuni"],
+      "description": "Full composed identity (all law packs)"
     },
     {
       "id": "budget",
