@@ -11,16 +11,16 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Progress
-**v0.1.7 is tagged.** Publish → register loop live. Redeploy polish landed.
+**v0.1.7 is tagged.** Publish → register loop live.
 
 - Studio: Progress + Publish; defaults to spend-control
-- Agent `spend` first in dropdown; speech → exactness → multi-runtime
-- Rider **Studio stub only** (real Rider deferred)
-- Investor update sent to Bob
+- Agent `spend` first; speech → exactness → multi-runtime
+- Rider **Studio stub only**
+- **Demo script:** [`docs/DEMO.md`](DEMO.md) · CLI: `./examples/demo.sh`
 
 ## Still open (optional)
-- Screenshot/GIF of full path for next investor note
-- Next Sunday investor follow-up (outline ready)
+- Capture Studio GIF when convenient
+- Sunday investor follow-up (outline ready)
 
 ## How we work
 Rolling 10 Steps. External feedback paused. CuNi primary; MidPoint subordinate.
