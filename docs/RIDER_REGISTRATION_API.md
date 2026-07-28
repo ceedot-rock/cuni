@@ -1,6 +1,6 @@
 # Rider Registration API (v0)
 
-**Status**: Design complete. Studio-side stub **implemented** in `playground/rider_stub.py` (wire into `server.py` on next deploy).
+**Status**: Design complete. Studio-side stub **implemented and mounted** in `server.py` (`POST /api/rider/register`, `GET /api/rider/registered`; publish auto-registers).
 
 ## Purpose
 Accept a verified CuNi `link` contract (the metadata produced by the publish prototype) and make it available for cross-language calls inside Agent-Rider.

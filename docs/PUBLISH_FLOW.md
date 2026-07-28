@@ -16,7 +16,8 @@ Exactness-gated path from authoring in CuNi Studio to metadata that Agent-Rider 
    - `exactness.passed`, `checkedAt`, `targets`, `stdoutMatch`
    - `publishedAt`, `publisher: "studio"`
 6. The JSON is stored under the Studio data volume and shown in the Python tab for copy/paste.
-7. Next step (when Rider registration exists): `POST` that metadata to Rider’s registration endpoint.
+7. Studio **auto-registers** into the local Rider stub (`POST /api/rider/register` equivalent) and returns `registration.id`.
+8. List contracts: `GET /api/rider/registered`. Real Rider later: `POST /api/v0/contracts`.
 
 ## CLI prototype (same contract)
 

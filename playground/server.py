@@ -54,6 +54,12 @@ try:
 except ImportError:
     agent_lib = None  # type: ignore
 
+try:
+    from rider_stub import handle_list_registered, handle_register
+except ImportError:
+    handle_register = None  # type: ignore
+    handle_list_registered = None  # type: ignore
+
 
 def find_cuni() -> Path:
     env = os.environ.get("CUNI_BIN")
@@ -477,6 +483,11 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json(200, _load_book("notelog.json"))
         if path == "/api/criticbook":
             return self._json(200, _load_book("criticbook.json"))
+        # Studio-side Rider registration stub (list)
+        if path == "/api/rider/registered":
+            if not handle_list_registered:
+                return self._json(503, {"ok": False, "error": "rider_stub not available"})
+            return self._json(*handle_list_registered(DATA))
         if path in ("/", ""):
             self.path = "/index.html"
             return super().do_GET()
@@ -762,13 +773,20 @@ class Handler(SimpleHTTPRequestHandler):
                     kind="system",
                     meta={"sourceHash": source_hash, "ok": True},
                 )
+                # Auto-register into Studio-side Rider stub when available
+                registration = None
+                if handle_register:
+                    _code, registration = handle_register(
+                        {"meta": meta}, DATA, append_note
+                    )
                 return self._json(
                     200,
                     {
                         "ok": True,
                         "meta": meta,
                         "stored": str(out_path.name),
-                        "next": "POST to Rider /api/v0/contracts when available",
+                        "registration": registration,
+                        "next": "POST /api/rider/register with the returned meta (auto-done when stub mounted)",
                         "docs": "docs/PUBLISH_PROTOTYPE.md + docs/RIDER_REGISTRATION_API.md",
                     },
                 )
@@ -780,6 +798,12 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json(500, {"ok": False, "error": f"internal: {e}"})
             finally:
                 _run_sem.release()
+
+        # Studio-side Rider registration stub (register)
+        if path == "/api/rider/register":
+            if not handle_register:
+                return self._json(503, {"ok": False, "error": "rider_stub not available"})
+            return self._json(*handle_register(data, DATA, append_note))
 
         return self._json(404, {"ok": False, "error": "not found"})
 
@@ -802,7 +826,8 @@ def main() -> None:
     print("  POST /api/run    emit + cuni check + stdout")
     print("  POST /api/emit   emit only")
     print("  POST /api/check  emit + cuni check")
-    print("  POST /api/publish  exactness gate → Rider metadata JSON")
+    print("  POST /api/publish  exactness gate → Rider metadata JSON (+ auto-register stub)")
+    print("  POST /api/rider/register  |  GET /api/rider/registered  (Studio Rider stub)")
     print("  GET/POST /api/notelog   |  /api/criticbook")
     try:
         httpd.serve_forever()

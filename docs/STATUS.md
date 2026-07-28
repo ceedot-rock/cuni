@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-07-28 (morning)
+**Last updated**: 2026-07-28 (afternoon)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -13,19 +13,22 @@ Exact multi-runtime agents, coordinated.
 ## Progress
 - Studio live: Progress + Publish, defaults to spend-control
 - Agent `spend` skill: speech → exactness → multi-runtime
-- `playground/rider_stub.py` implements register + list (ready to mount)
-- **Next**: wire rider_stub into server.py (~4 lines) + redeploy
+- `playground/rider_stub.py` **mounted** in `server.py`:
+  - `POST /api/rider/register`
+  - `GET /api/rider/registered`
+  - `/api/publish` auto-registers into the stub after exactness PASS
+- **Next**: smoke-test on Fly after redeploy; real Agent-Rider `/api/v0/contracts` later
 
 ## What is live / in the repo
 - [CuNi Studio](https://cuni-studio.fly.dev/)
 - Agent skill `spend` (CheckSpend)
 - Publish flow docs + refusal examples + technical candidates
-- Rider stub module: [`playground/rider_stub.py`](../playground/rider_stub.py)
-- Wire-up instructions: [`docs/RIDER_REGISTRATION_API.md`](RIDER_REGISTRATION_API.md)
+- Rider stub: [`playground/rider_stub.py`](../playground/rider_stub.py) + routes in `server.py`
+- API design: [`docs/RIDER_REGISTRATION_API.md`](RIDER_REGISTRATION_API.md)
 
 ## Still open
-- Mount rider_stub in server.py + redeploy (needs FLY_API_TOKEN or manual flyctl)
-- Smoke-test full publish → register → list loop
+- Smoke-test full publish → register → list on live Studio
+- Real Rider service (replace stub with `POST /api/v0/contracts`)
 - Multi-step speech polish (optional)
 
 ## How we work

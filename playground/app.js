@@ -461,17 +461,25 @@ async function publishToRider() {
     }
     setStatus("ok", "published");
     const h = (data.meta && data.meta.sourceHash) || "";
-    els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}`;
+    const reg = data.registration || {};
+    const regBit = reg.id
+      ? ` · registered ${reg.id}${reg.idempotent ? " (idempotent)" : ""}`
+      : "";
+    els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}${regBit}`;
     els.summary.className = "summary mono pass";
     showError("");
-    // surface JSON in stdout tab for copy/paste into Rider
+    // surface JSON in stdout tab for copy/paste / Rider stub
     setOutputs({
       py: data.meta ? JSON.stringify(data.meta, null, 2) : "",
-      go: data.next || "",
+      go: data.registration
+        ? JSON.stringify(data.registration, null, 2)
+        : data.next || "",
       js: data.docs || "",
       stdout: {
         py: "publish metadata (also in Python tab as JSON)",
-        go: data.next || "",
+        go: reg.id
+          ? `rider stub registered id=${reg.id} — GET /api/rider/registered`
+          : data.next || "",
         js: "",
       },
     });
