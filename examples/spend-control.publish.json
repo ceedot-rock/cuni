@@ -1,0 +1,17 @@
+{
+  "version": "0.1",
+  "source": "# Flagship Agent-mode example: spend control\n# Demonstrates \u201claw is CuNi\u201d \u2013 exact multi-runtime decision\n\ndef can_spend(amount: int, cap: int) -> bool do\n    ret amount <= cap\nend\n\nlink CheckSpend(amount: int, cap: int) -> bool do\n    ret can_spend(amount, cap)\nend\n",
+  "sourceHash": "4afc506dab3ad615317a7167463525ddfc4f80a700b156cfac852974df5371ff",
+  "exactness": {
+    "passed": true,
+    "checkedAt": "2026-07-28T01:33:59Z",
+    "targets": [
+      "py",
+      "go",
+      "js"
+    ],
+    "stdoutMatch": true
+  },
+  "publishedAt": "2026-07-28T01:33:59Z",
+  "publisher": "prototype-script"
+}

@@ -23,8 +23,19 @@ If exactness passes, it writes `examples/spend-control.publish.json` containing:
 2. If exactness **fails**, it refuses to publish.
 3. If exactness **passes**, it writes the metadata JSON defined in the publish shape.
 
+## Studio UI
+
+In [CuNi Studio](https://cuni-studio.fly.dev/) (Play mode):
+
+1. Load or write a program (e.g. example **spend-control**).
+2. Click **Publish**.
+3. Exactness must **PASS** or publish is refused.
+4. Metadata is stored on the Studio volume and shown as JSON (copy for Rider).
+
+API: `POST /api/publish` with `{ "source": "..." }`.
+
 ## Next
-- Wire this into the Studio UI as a “Publish” button.
-- Point the output at the Rider registration API once it exists.
+- Point Studio/CLI output at Rider `POST /api/v0/contracts` once implemented.
+- Optional: download button for `.publish.json`.
 
 See also: [RIDER_REGISTRATION_API.md](RIDER_REGISTRATION_API.md)

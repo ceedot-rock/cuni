@@ -6,6 +6,7 @@ const els = {
   run: $("run"),
   emit: $("emit"),
   check: $("check"),
+  publish: $("publish"),
   status: $("status"),
   error: $("error"),
   summary: $("summary"),
@@ -438,6 +439,52 @@ async function agentAdopt() {
   }
 }
 
+async function publishToRider() {
+  if (running) return;
+  running = true;
+  setStatus("busy", "publishing");
+  showError("");
+  try {
+    const r = await fetch("/api/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source: els.source.value }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) {
+      setStatus("fail", "publish refused");
+      showError(data.error || data.exactness || "publish failed");
+      els.summary.textContent = data.exactness || data.error || "FAIL";
+      els.summary.className = "summary mono fail";
+      return;
+    }
+    setStatus("ok", "published");
+    const h = (data.meta && data.meta.sourceHash) || "";
+    els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}`;
+    els.summary.className = "summary mono pass";
+    showError("");
+    // surface JSON in stdout tab for copy/paste into Rider
+    setOutputs({
+      py: data.meta ? JSON.stringify(data.meta, null, 2) : "",
+      go: data.next || "",
+      js: data.docs || "",
+      stdout: {
+        py: "publish metadata (also in Python tab as JSON)",
+        go: data.next || "",
+        js: "",
+      },
+    });
+    selectTab("py");
+    await refreshBooks();
+  } catch (e) {
+    setStatus("fail", "error");
+    showError(String(e));
+  } finally {
+    running = false;
+    void loadHealth();
+  }
+}
+
 function wire() {
   document.querySelectorAll(".mode-tab").forEach((t) => {
     t.addEventListener("click", () => {
@@ -449,6 +496,9 @@ function wire() {
   els.run.addEventListener("click", () => void invoke("/api/run", "running"));
   els.emit.addEventListener("click", () => void invoke("/api/emit", "emitting"));
   els.check.addEventListener("click", () => void invoke("/api/check", "checking"));
+  if (els.publish) {
+    els.publish.addEventListener("click", () => void publishToRider());
+  }
   els.source.addEventListener("keydown", (ev) => {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();

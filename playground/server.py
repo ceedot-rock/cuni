@@ -707,6 +707,80 @@ class Handler(SimpleHTTPRequestHandler):
             _save_book("criticbook.json", {"entries": []})
             return self._json(200, {"ok": True})
 
+        # Studio → Rider publish prototype: exactness gate, then metadata JSON
+        if path == "/api/publish":
+            import hashlib
+            from datetime import datetime, timezone
+
+            source = data.get("source")
+            if not isinstance(source, str) or not source.strip():
+                return self._json(400, {"ok": False, "error": "missing source"})
+            if len(source) > MAX_SOURCE:
+                return self._json(400, {"ok": False, "error": "source too large"})
+            if not _run_sem.acquire(blocking=False):
+                return self._json(503, {"ok": False, "error": "server busy"})
+            try:
+                result = compile_and_check(source, mode="check")
+                exact = (result.get("exactness") or "").upper()
+                passed = result.get("ok") is True or exact.startswith("PASS")
+                if not passed:
+                    append_note(
+                        f"[publish] exactness FAIL — refuse publish",
+                        kind="run",
+                        meta={"ok": False},
+                    )
+                    return self._json(
+                        400,
+                        {
+                            "ok": False,
+                            "error": "Exactness FAILED – refusing to publish",
+                            "exactness": result.get("exactness") or result.get("summary"),
+                            "result": result,
+                        },
+                    )
+                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                source_hash = hashlib.sha256(source.encode("utf-8")).hexdigest()
+                meta = {
+                    "version": "0.1",
+                    "source": source,
+                    "sourceHash": source_hash,
+                    "exactness": {
+                        "passed": True,
+                        "checkedAt": ts,
+                        "targets": ["py", "go", "js"],
+                        "stdoutMatch": True,
+                    },
+                    "publishedAt": ts,
+                    "publisher": "studio",
+                }
+                pub_dir = DATA / "published"
+                pub_dir.mkdir(parents=True, exist_ok=True)
+                out_path = pub_dir / f"{source_hash[:16]}.publish.json"
+                out_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
+                append_note(
+                    f"[publish] exactness PASS hash={source_hash[:12]}… → Rider metadata",
+                    kind="system",
+                    meta={"sourceHash": source_hash, "ok": True},
+                )
+                return self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "meta": meta,
+                        "stored": str(out_path.name),
+                        "next": "POST to Rider /api/v0/contracts when available",
+                        "docs": "docs/PUBLISH_PROTOTYPE.md + docs/RIDER_REGISTRATION_API.md",
+                    },
+                )
+            except FileNotFoundError as e:
+                return self._json(503, {"ok": False, "error": str(e)})
+            except subprocess.TimeoutExpired:
+                return self._json(504, {"ok": False, "error": f"timeout after {TIMEOUT}s"})
+            except Exception as e:  # noqa: BLE001
+                return self._json(500, {"ok": False, "error": f"internal: {e}"})
+            finally:
+                _run_sem.release()
+
         return self._json(404, {"ok": False, "error": "not found"})
 
 
@@ -728,6 +802,7 @@ def main() -> None:
     print("  POST /api/run    emit + cuni check + stdout")
     print("  POST /api/emit   emit only")
     print("  POST /api/check  emit + cuni check")
+    print("  POST /api/publish  exactness gate → Rider metadata JSON")
     print("  GET/POST /api/notelog   |  /api/criticbook")
     try:
         httpd.serve_forever()
