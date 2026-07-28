@@ -11,24 +11,25 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Progress
-This morning’s focus: Studio defaults to spend-control, Agent-mode `spend` skill (speech → exactness → multi-runtime), publish flow docs, refusal examples. External feedback temporarily paused.
+- Studio live: Progress + Publish, defaults to spend-control
+- Agent `spend` skill: speech → exactness → multi-runtime
+- `playground/rider_stub.py` implements register + list (ready to mount)
+- **Next**: wire rider_stub into server.py (~4 lines) + redeploy
 
 ## What is live / in the repo
-- [CuNi Studio](https://cuni-studio.fly.dev/) — Progress + Publish live; defaults to spend-control
-- Agent skill `spend` (CheckSpend / can_spend) — speech `spend 4 cap 5` works across py/go/js
-- Publish prototype + artifact + [PUBLISH_FLOW.md](PUBLISH_FLOW.md)
-- [EXACTNESS_REFUSAL_EXAMPLES.md](EXACTNESS_REFUSAL_EXAMPLES.md)
-- [TECHNICAL_IMPROVEMENT_CANDIDATES.md](TECHNICAL_IMPROVEMENT_CANDIDATES.md)
-- Rider registration design + Studio-side stub path documented
+- [CuNi Studio](https://cuni-studio.fly.dev/)
+- Agent skill `spend` (CheckSpend)
+- Publish flow docs + refusal examples + technical candidates
+- Rider stub module: [`playground/rider_stub.py`](../playground/rider_stub.py)
+- Wire-up instructions: [`docs/RIDER_REGISTRATION_API.md`](RIDER_REGISTRATION_API.md)
 
-## Still open (highest leverage)
-- Live `/api/rider/register` stub in server.py + redeploy
-- Registered-contracts list/view
-- Multi-step speech edge cases
-- Sunday investor outline (in progress)
+## Still open
+- Mount rider_stub in server.py + redeploy (needs FLY_API_TOKEN or manual flyctl)
+- Smoke-test full publish → register → list loop
+- Multi-step speech polish (optional)
 
 ## How we work
-Rolling 10 Steps to Success. External feedback steps paused for now.
+Rolling 10 Steps. External feedback paused.
 
 ---
 CuNi + Agent-Rider — exact multi-runtime agents, coordinated.
