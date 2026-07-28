@@ -10,7 +10,7 @@
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
-| 1 | **Studio Publish button live** | in progress | `/api/publish` + UI → Rider metadata; deploy with playground paths |
+| 1 | **Studio Publish button live** | **done** | `/api/publish` + UI live; smoke OK 2026-07-28 |
 | 2 | **Rider `POST /api/v0/contracts` v0 implement** | open | Design in `RIDER_REGISTRATION_API.md`; implement in Agent-Rider |
 | 3 | **Wire publish output → Rider register** | open | After #2: Studio or CLI posts metadata to Rider |
 | 4 | **spend-control end-to-end demo** | open | Studio check → publish → register → call `CheckSpend` from Rider host |
