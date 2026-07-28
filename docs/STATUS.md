@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-07-28 (morning — register loop live)
+**Last updated**: 2026-07-28 (morning — post investor email)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -11,28 +11,24 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Progress
-**Publish → register loop is live and smoke-tested.**
+**Publish → register loop is live.** Investor update sent to Bob.
 
-- Studio: Progress + Publish, defaults to spend-control
-- Agent `spend` skill: speech → exactness → multi-runtime
-- Rider stub mounted and deployed:
-  - `POST /api/rider/register`
-  - `GET /api/rider/registered` (live count ≥ 1)
-  - `/api/publish` auto-registers after exactness PASS
+- Studio: Progress + Publish; defaults to spend-control
+- Agent `spend` skill first in dropdown; speech → exactness → multi-runtime
+- Rider **Studio stub only** for now (real Rider deferred until needed)
+  - `POST /api/rider/register` · `GET /api/rider/registered`
+  - Publish auto-registers after exactness PASS
 
-## What is live
-- [CuNi Studio](https://cuni-studio.fly.dev/)
-- Agent skill `spend` (CheckSpend)
-- Rider stub endpoints + publish auto-register
-- Publish flow / refusal examples / technical candidates
+## Decision (2026-07-28)
+Keep the Studio-side Rider stub. Do **not** start a separate Rider service yet. Scaffold remains in `docs/RIDER_SERVICE_SCAFFOLD.md` when the need is real.
 
-## Still open (optional / next)
-- Multi-step speech polish
-- Real Agent-Rider service (`POST /api/v0/contracts`)
-- Sunday investor email (draft ready)
+## Still open
+- Redeploy for: health `rider` field, footer `registered: N`, Publish tooltip, spend-first dropdown
+- Tag v0.1.7 when ready (`docs/RELEASE_NOTES_v0.1.7.md`)
+- Screenshot/GIF of full path for next investor note
 
 ## How we work
-Rolling 10 Steps. External feedback paused.
+Rolling 10 Steps. External feedback paused. CuNi primary; MidPoint subordinate.
 
 ---
 CuNi + Agent-Rider — exact multi-runtime agents, coordinated.
