@@ -22,13 +22,15 @@ CuNi is a small language with a hard exactness contract: a program either produc
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
-### Try it in under 90 seconds (no install)
+### Try the flagship example (no install)
 
-1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)**
-2. Load the `full` example (or write a few lines)
-3. Hit **Run exactness**
+1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)** — it loads `spend-control.cuni` by default
+2. Hit **Run exactness**
+3. See identical Python / Go / JavaScript output (or a clear refusal)
 
-You will see the same program emit and run as Python, Go, and JavaScript — or a clear refusal. That is the entire product promise.
+That is the entire product promise in under 30 seconds.
+
+Flagship source: [`examples/spend-control.cuni`](examples/spend-control.cuni)
 
 ### Agent mind = CuNi
 
