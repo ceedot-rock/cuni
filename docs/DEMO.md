@@ -3,7 +3,8 @@
 **Goal:** show the product promise in under a minute, then optional deeper paths.
 
 **Live Studio:** https://cuni-studio.fly.dev/  
-**Release:** [v0.1.7](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7)
+**Release:** [v0.1.7](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7)  
+**Plain English (non-technical):** [DEMO_PLAIN.md](DEMO_PLAIN.md)
 
 ---
 
@@ -73,4 +74,4 @@ In Studio, paste a tiny non-portable snippet or see
 3. Agent: `spend 4 cap 5`.  
 4. Point at Progress / README CuNi + Agent-Rider section.
 
-Outline for next note: `references/investor-outline-2026-08-03.md` (local skill refs).
+Use [DEMO_PLAIN.md](DEMO_PLAIN.md) when walking someone non-technical through the same steps.
