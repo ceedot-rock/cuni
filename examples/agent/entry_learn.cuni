@@ -1,0 +1,7 @@
+use learn
+
+# Default lesson entry — speech injects topic via lawgen
+say(lesson_line("exactness"))
+say(mini_example("exactness"))
+say(lesson_line("let"))
+say(mini_example("let"))

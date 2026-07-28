@@ -6,6 +6,7 @@
   python3 examples/agent/host/run_agent.py --message "spend 4 cap 5" --host go
   python3 examples/agent/host/run_agent.py --repl
   python3 examples/agent/host/run_agent.py --loop --message "echo hi" --message "score 3 9"
+  python3 examples/agent/host/run_agent.py --plan --message "spend 3; echo ok; explain exactness"
 """
 
 from __future__ import annotations
@@ -33,7 +34,11 @@ MANIFEST_PATH = AGENT / "manifest.json"
 SESSION_DIR = Path(
     os.environ.get("CUNI_AGENT_SESSION_DIR", str(AGENT / "sessions"))
 )
+QUARANTINE_DIR = Path(
+    os.environ.get("CUNI_AGENT_QUARANTINE", str(AGENT / "quarantine"))
+)
 TIMEOUT = int(os.environ.get("CUNI_AGENT_TIMEOUT", "45"))
+MEMORY_TURNS = int(os.environ.get("CUNI_AGENT_MEMORY_TURNS", "6"))
 
 
 def find_cuni() -> Path:
@@ -84,11 +89,10 @@ def exactness_gate(cuni: Path, entry: Path) -> str:
 
 
 def parse_params(message: str) -> dict:
-    """Extract simple args from speech: spend 4, cap 5, score 3 9, echo hi, get /path"""
+    """Extract simple args from speech."""
     p: dict = {}
     m = message.strip()
 
-    # spend N  /  budget N
     mo = re.search(r"\b(?:spend|budget|usd|allow)\s+(-?\d+)\b", m, re.I)
     if mo:
         p["usd"] = int(mo.group(1))
@@ -96,7 +100,6 @@ def parse_params(message: str) -> dict:
     mo = re.search(r"\bcap\s+(-?\d+)\b", m, re.I)
     if mo:
         p["cap"] = int(mo.group(1))
-    # "spend 12 cap 5" already handled; "clamp 12 5"
     mo = re.search(r"\bclamp\s+(-?\d+)\s+(-?\d+)\b", m, re.I)
     if mo:
         p["usd"] = int(mo.group(1))
@@ -129,11 +132,43 @@ def parse_params(message: str) -> dict:
         p["a"] = mo.group(1)
         p["b"] = mo.group(2)
 
+    # learn topics
+    mo = re.search(
+        r"\b(?:explain|what is|whats|what's|teach|lesson|learn)\s+(\w+)",
+        m,
+        re.I,
+    )
+    if mo:
+        p["topic"] = mo.group(1).lower()
+    else:
+        for t in (
+            "exactness",
+            "let",
+            "mut",
+            "def",
+            "link",
+            "typ",
+            "fail",
+            "do",
+            "enum",
+            "iface",
+        ):
+            if re.search(rf"\b{t}\b", m, re.I) and any(
+                w in m.lower()
+                for w in ("explain", "what", "teach", "learn", "lesson", "mean")
+            ):
+                p["topic"] = t
+                break
+
     return p
 
 
-def speech_stub(message: str) -> str:
+def speech_stub(message: str, mode: str = "execute") -> str:
     m = message.lower()
+    if mode == "learn" or any(
+        w in m for w in ("explain", "what is", "whats", "teach", "lesson", "learn")
+    ):
+        return "learn"
     if any(w in m for w in ("get ", "fetch ", "path ", "plan_get", "http")):
         return "tool_plan_get"
     if any(w in m for w in ("echo", "ping", "tool")):
@@ -149,18 +184,34 @@ def speech_stub(message: str) -> str:
     return "mind"
 
 
-def speech_llm(message: str, skill_ids: list[str]) -> str:
+def speech_llm(
+    message: str,
+    skill_ids: list[str],
+    *,
+    mode: str = "execute",
+    memory: list[dict] | None = None,
+) -> str:
     url = os.environ.get(
         "CUNI_AGENT_LLM_URL", "https://api.openai.com/v1/chat/completions"
     )
     key = os.environ.get("CUNI_AGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
     model = os.environ.get("CUNI_AGENT_LLM_MODEL", "gpt-4o-mini")
     if not key:
-        return speech_stub(message)
+        return speech_stub(message, mode=mode)
+
+    mem_lines = []
+    for rec in (memory or [])[-MEMORY_TURNS:]:
+        mem_lines.append(
+            f"user:{rec.get('message', '')} → skill:{rec.get('skill', '')}"
+        )
+    mem_block = "\n".join(mem_lines) if mem_lines else "(none)"
 
     system = (
         "Route user intent to ONE CuNi skill id. "
         f"Allowed: {', '.join(skill_ids)}. "
+        f"Chat mode: {mode}. If mode is learn, prefer skill `learn`. "
+        "Recent session memory:\n"
+        f"{mem_block}\n"
         "Reply with only the id."
     )
     body = {
@@ -187,23 +238,76 @@ def speech_llm(message: str, skill_ids: list[str]) -> str:
         for name in skill_ids:
             if text == name or name in text.replace("`", " ").split():
                 return name
-        return speech_stub(message)
+        return speech_stub(message, mode=mode)
     except Exception as e:  # noqa: BLE001
         print(f"(LLM fallback: {e})", file=sys.stderr)
-        return speech_stub(message)
+        return speech_stub(message, mode=mode)
+
+
+def plan_messages(message: str) -> list[str]:
+    """Split a goal into ordered speech steps.
+
+    Stub planner: split on `;` or ` then ` / ` and then `.
+    LLM path (optional): if CUNI_AGENT_LLM_KEY set, ask for JSON list of steps.
+    """
+    key = os.environ.get("CUNI_AGENT_LLM_KEY") or os.environ.get("OPENAI_API_KEY")
+    if key and len(message) > 12 and ";" not in message:
+        url = os.environ.get(
+            "CUNI_AGENT_LLM_URL", "https://api.openai.com/v1/chat/completions"
+        )
+        model = os.environ.get("CUNI_AGENT_LLM_MODEL", "gpt-4o-mini")
+        system = (
+            "You are a planner for CuNi agent skills. "
+            "Break the user goal into 1-5 short executable speech steps. "
+            "Each step should map to one skill (budget/text/score/learn/echo/get). "
+            "Reply ONLY a JSON array of strings. Example: "
+            '["spend 3 cap 5", "echo ok", "explain exactness"]'
+        )
+        body = {
+            "model": model,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": message},
+            ],
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode(),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {key}",
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.loads(resp.read().decode())
+            text = data["choices"][0]["message"]["content"].strip()
+            # extract JSON array
+            mo = re.search(r"\[.*\]", text, re.S)
+            if mo:
+                steps = json.loads(mo.group(0))
+                if isinstance(steps, list) and steps:
+                    return [str(s).strip() for s in steps if str(s).strip()][:5]
+        except Exception as e:  # noqa: BLE001
+            print(f"(plan LLM fallback: {e})", file=sys.stderr)
+
+    # deterministic split
+    parts = re.split(r"\s*;\s*|\s+then\s+|\s+and then\s+", message, flags=re.I)
+    steps = [p.strip() for p in parts if p.strip()]
+    return steps if steps else [message]
 
 
 def build_entry_source(skill_id: str, params: dict, skill: dict) -> str:
     """Prefer static entry file when no params; else generate from lawgen."""
     gen = lawgen.GENERATORS.get(skill_id)
     if gen and (params or skill_id != "mind"):
-        # always generate for parametric skills when we have a generator
         if skill_id == "mind" and not params:
             return (AGENT / skill["entry"]).read_text(encoding="utf-8")
         try:
             return gen(**params)
         except TypeError:
-            # filter unexpected keys
             import inspect
 
             sig = inspect.signature(gen)
@@ -227,17 +331,8 @@ def stage_and_run(
     try:
         for mod in skill.get("modules") or []:
             shutil.copy(AGENT / mod, work / mod)
-        # also copy module files referenced by generators (use X)
-        for extra in ("budget.cuni", "text.cuni", "score.cuni"):
-            src = AGENT / extra
-            if src.is_file() and not (work / extra).exists():
-                # only if entry needs it
-                pass
-        for mod in skill.get("modules") or []:
-            pass  # already copied
 
         entry_src = build_entry_source(skill_id, params, skill)
-        # ensure modules for generated use lines
         for name in re.findall(r"(?m)^\s*use\s+([A-Za-z_][A-Za-z0-9_]*)\s*$", entry_src):
             mod = AGENT / f"{name}.cuni"
             if mod.is_file():
@@ -284,7 +379,6 @@ def host_side_effects(skill_id: str, stdout: str, params: dict) -> str | None:
     """Optional non-exact host tools after law (e.g. real HTTP)."""
     if skill_id != "tool_plan_get":
         return None
-    # parse first line GET /path
     line = (stdout.strip().splitlines() or [""])[0].strip()
     mo = re.match(r"GET\s+(\S+)", line)
     if not mo:
@@ -312,6 +406,39 @@ def append_session(record: dict) -> Path:
     return path
 
 
+def load_recent_memory(limit: int | None = None) -> list[dict]:
+    """Load recent session turns for speech context."""
+    limit = limit or MEMORY_TURNS
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    files = sorted(SESSION_DIR.glob("session-*.jsonl"))
+    rows: list[dict] = []
+    for path in files[-3:]:
+        try:
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    rows.append(json.loads(line))
+        except (OSError, json.JSONDecodeError):
+            continue
+    return rows[-limit:]
+
+
+def quarantine_source(source: str, label: str = "propose") -> Path:
+    """Write proposed law into quarantine dir (not live skills)."""
+    QUARANTINE_DIR.mkdir(parents=True, exist_ok=True)
+    ts = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    safe = re.sub(r"[^a-zA-Z0-9_]", "_", label)[:32] or "propose"
+    path = QUARANTINE_DIR / f"{ts}_{safe}.cuni"
+    path.write_text(source, encoding="utf-8")
+    meta = {
+        "path": str(path),
+        "ts": ts,
+        "label": label,
+        "status": "quarantine",
+    }
+    path.with_suffix(".json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
+    return path
+
+
 def run_turn(
     cuni: Path,
     manifest: dict,
@@ -322,16 +449,21 @@ def run_turn(
     use_llm: bool,
     skip_check: bool,
     quiet_check: bool = False,
+    mode: str = "execute",
 ) -> dict:
     skill_ids = [s["id"] for s in manifest["skills"]]
+    memory = load_recent_memory()
     params = parse_params(message)
     skill_id = skill_force or (
-        speech_llm(message, skill_ids) if use_llm else speech_stub(message)
+        speech_llm(message, skill_ids, mode=mode, memory=memory)
+        if use_llm
+        else speech_stub(message, mode=mode)
     )
     skill = skill_by_id(manifest, skill_id)
 
     print("== speech ==")
     print(f"user:   {message}")
+    print(f"mode:   {mode}")
     print(f"route:  {skill_id}")
     print(f"params: {params or '{}'}")
     print(f"law:    {skill.get('description', skill_id)}\n")
@@ -360,6 +492,7 @@ def run_turn(
     rec = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "message": message,
+        "mode": mode,
         "skill": skill_id,
         "params": params,
         "host": host,
@@ -374,7 +507,6 @@ def run_turn(
 
 def check_all(cuni: Path, manifest: dict) -> None:
     print("== check-all (static entries + generated defaults) ==")
-    # static entries on disk
     for s in manifest["skills"]:
         entry = AGENT / s["entry"]
         if entry.is_file():
@@ -383,7 +515,6 @@ def check_all(cuni: Path, manifest: dict) -> None:
             for ln in out.splitlines():
                 if "exactness:" in ln:
                     print(f"  {ln.strip()}")
-    # generated default params for parametric skills
     print("\n--- generated defaults ---")
     for skill_id, gen in lawgen.GENERATORS.items():
         if skill_id == "mind":
@@ -409,8 +540,9 @@ def check_all(cuni: Path, manifest: dict) -> None:
 
 
 def repl(cuni: Path, manifest: dict, host: str, use_llm: bool) -> None:
-    print("CuNi agent REPL — law is CuNi. Commands: skills | host py|go|js | quit")
-    print("Examples: spend 4 cap 5 | echo hi | score 3 9 80 | tag Agent | get /health\n")
+    print("CuNi agent REPL — law is CuNi. Commands: skills | host py|go|js | mode learn|execute|code | quit")
+    print("Examples: spend 4 cap 5 | echo hi | explain exactness | score 3 9 80\n")
+    mode = "execute"
     while True:
         try:
             line = input("cuni> ").strip()
@@ -433,6 +565,20 @@ def repl(cuni: Path, manifest: dict, host: str, use_llm: bool) -> None:
             else:
                 print("host must be py|go|js")
             continue
+        if line.startswith("mode "):
+            m = line.split(None, 1)[1].strip()
+            if m in ("learn", "execute", "code"):
+                mode = m
+                print(f"mode = {mode}")
+            else:
+                print("mode must be learn|execute|code")
+            continue
+        if mode == "code":
+            # treat free text as proposed law body → quarantine after check
+            qpath = quarantine_source(line if "def " in line or "say(" in line else f"say(`{line}`)\n")
+            print(f"quarantine draft: {qpath}")
+            print("(use write_skill.py propose/adopt to promote)")
+            continue
         try:
             run_turn(
                 cuni,
@@ -442,6 +588,7 @@ def repl(cuni: Path, manifest: dict, host: str, use_llm: bool) -> None:
                 skill_force=None,
                 use_llm=use_llm,
                 skip_check=False,
+                mode=mode,
             )
             print()
         except SystemExit as e:
@@ -471,6 +618,17 @@ def main() -> None:
         action="store_true",
         help="run all --message steps in sequence (session log)",
     )
+    ap.add_argument(
+        "--plan",
+        action="store_true",
+        help="expand each --message into a multi-step plan then execute",
+    )
+    ap.add_argument(
+        "--mode",
+        choices=("execute", "learn", "code"),
+        default="execute",
+        help="chat mode bias for speech routing",
+    )
     args = ap.parse_args()
 
     if args.list:
@@ -481,6 +639,7 @@ def main() -> None:
     print("AI runs off CuNi — speech routes; law is exact CuNi\n")
     print(f"cuni: {cuni}")
     print(f"host: {args.host}")
+    print(f"mode: {args.mode}")
     print(f"skills: {', '.join(skill_ids)}\n")
 
     if args.check_all:
@@ -492,8 +651,19 @@ def main() -> None:
         return
 
     messages = args.messages or ["run the full agent mind"]
+    if args.plan:
+        expanded: list[str] = []
+        for msg in messages:
+            steps = plan_messages(msg)
+            print(f"== plan for: {msg!r} ==")
+            for i, s in enumerate(steps, 1):
+                print(f"  {i}. {s}")
+            print()
+            expanded.extend(steps)
+        messages = expanded
+        args.loop = True
+
     if not args.loop and len(messages) > 1:
-        # still allow multi without flag
         args.loop = True
 
     for i, msg in enumerate(messages):
@@ -507,6 +677,7 @@ def main() -> None:
             skill_force=args.skill,
             use_llm=args.llm,
             skip_check=args.skip_check,
+            mode=args.mode,
         )
 
     print("\n== done ==")

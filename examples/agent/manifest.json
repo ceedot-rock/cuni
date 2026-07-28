@@ -1,6 +1,6 @@
 {
   "name": "cuni-agent-mind",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "thesis": "Speech routes; law is CuNi; exactness is citizenship.",
   "skills": [
     {
@@ -26,6 +26,12 @@
       "entry": "entry_score.cuni",
       "modules": ["score.cuni"],
       "description": "Ranking: prefer / score_ok (params: a, b, n)"
+    },
+    {
+      "id": "learn",
+      "entry": "entry_learn.cuni",
+      "modules": ["learn.cuni"],
+      "description": "Teach CuNi: topic blurb + mini example (params: topic)"
     },
     {
       "id": "tool_echo",

@@ -2,6 +2,7 @@
 
 Speech routes to skills; law is CuNi; exactness is citizenship.
 Skill writer: propose → quarantine until PASS → optional adopt.
+Chat modes: execute | learn | code.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -20,7 +22,6 @@ ROOT = Path(__file__).resolve().parents[1]
 AGENT = ROOT / "examples" / "agent"
 HOST_DIR = AGENT / "host"
 
-# import lawgen from agent host
 if str(HOST_DIR) not in sys.path:
     sys.path.insert(0, str(HOST_DIR))
 try:
@@ -55,10 +56,6 @@ def list_skills() -> list[dict]:
             }
         )
     return out
-
-
-def _find_cuni(find_cuni_fn) -> Path:
-    return find_cuni_fn()
 
 
 def _run(cmd: list[str], cwd: Path | None, timeout: int) -> subprocess.CompletedProcess:
@@ -120,7 +117,6 @@ def run_skill(
     if not skill:
         return {"ok": False, "error": f"unknown skill {skill_id}"}
 
-    # build source
     if lawgen and skill_id in getattr(lawgen, "GENERATORS", {}):
         gen = lawgen.GENERATORS[skill_id]
         try:
@@ -131,11 +127,10 @@ def run_skill(
             source = gen(**filtered) if filtered or skill_id != "mind" else gen()
             if skill_id == "mind" and not params:
                 source = (AGENT / skill["entry"]).read_text(encoding="utf-8")
+            gen_err = None
         except Exception as e:  # noqa: BLE001
             source = (AGENT / skill["entry"]).read_text(encoding="utf-8")
             gen_err = str(e)
-        else:
-            gen_err = None
     else:
         source = (AGENT / skill["entry"]).read_text(encoding="utf-8")
         gen_err = None
@@ -246,38 +241,63 @@ def run_skill(
         }
 
 
-def parse_message_params(message: str) -> tuple[str | None, dict]:
+def parse_message_params(message: str, mode: str = "execute") -> tuple[str | None, dict]:
     """Return (hint_skill, params) from free text."""
-    import re as _re
-
     p: dict = {}
     m = message.strip()
-    mo = _re.search(r"\b(?:spend|budget|usd|allow)\s+(-?\d+)\b", m, _re.I)
+    mo = re.search(r"\b(?:spend|budget|usd|allow)\s+(-?\d+)\b", m, re.I)
     if mo:
         p["usd"] = int(mo.group(1))
-    mo = _re.search(r"\bcap\s+(-?\d+)\b", m, _re.I)
+    mo = re.search(r"\bcap\s+(-?\d+)\b", m, re.I)
     if mo:
         p["cap"] = int(mo.group(1))
-    mo = _re.search(r"\bscore\s+(-?\d+)(?:\s+(-?\d+))?(?:\s+(-?\d+))?\b", m, _re.I)
+    mo = re.search(r"\bscore\s+(-?\d+)(?:\s+(-?\d+))?(?:\s+(-?\d+))?\b", m, re.I)
     if mo:
         p["a"] = int(mo.group(1))
         if mo.group(2):
             p["b"] = int(mo.group(2))
         if mo.group(3):
             p["n"] = int(mo.group(3))
-    mo = _re.search(r"\b(?:echo|ping)\s+(\S+)", m, _re.I)
+    mo = re.search(r"\b(?:echo|ping)\s+(\S+)", m, re.I)
     if mo:
         p["msg"] = mo.group(1)
-    mo = _re.search(r"\b(?:get|fetch|path)\s+(\S+)", m, _re.I)
+    mo = re.search(r"\b(?:get|fetch|path)\s+(\S+)", m, re.I)
     if mo:
         p["path"] = mo.group(1)
-    mo = _re.search(r"\btag\s+(\S+)", m, _re.I)
+    mo = re.search(r"\btag\s+(\S+)", m, re.I)
     if mo:
         p["name"] = mo.group(1)
 
+    mo = re.search(
+        r"\b(?:explain|what is|whats|what's|teach|lesson|learn)\s+(\w+)",
+        m,
+        re.I,
+    )
+    if mo:
+        p["topic"] = mo.group(1).lower()
+
     ml = m.lower()
     skill = None
-    if any(w in ml for w in ("get ", "fetch ", "path ")):
+    if mode == "learn" or any(
+        w in ml for w in ("explain", "what is", "teach", "lesson", "learn ")
+    ):
+        skill = "learn"
+        if "topic" not in p:
+            for t in (
+                "exactness",
+                "let",
+                "mut",
+                "def",
+                "link",
+                "typ",
+                "fail",
+                "do",
+            ):
+                if re.search(rf"\b{t}\b", ml):
+                    p["topic"] = t
+                    break
+            p.setdefault("topic", "exactness")
+    elif any(w in ml for w in ("get ", "fetch ", "path ")):
         skill = "tool_plan_get"
     elif any(w in ml for w in ("echo", "ping")):
         skill = "tool_echo"
@@ -290,6 +310,76 @@ def parse_message_params(message: str) -> tuple[str | None, dict]:
     elif "mind" in ml or "full" in ml:
         skill = "mind"
     return skill, p
+
+
+def plan_steps(message: str) -> list[str]:
+    parts = re.split(r"\s*;\s*|\s+then\s+|\s+and then\s+", message, flags=re.I)
+    steps = [p.strip() for p in parts if p.strip()]
+    return steps if steps else [message]
+
+
+def chat_turn(
+    cuni: Path,
+    message: str,
+    *,
+    mode: str = "execute",
+    host: str = "py",
+    timeout: int = 45,
+    http_base: str | None = None,
+    plan: bool = False,
+) -> dict:
+    """High-level chat: optional multi-step plan → run each skill."""
+    steps = plan_steps(message) if plan or ";" in message else [message]
+    results = []
+    for step in steps:
+        hint, params = parse_message_params(step, mode=mode)
+        skill = hint or ("learn" if mode == "learn" else "mind")
+        if mode == "code":
+            # propose path: treat message as source draft
+            chk = check_source(cuni, step if "def " in step or "say(" in step else f'say(`{step}`)\n', timeout)
+            results.append(
+                {
+                    "step": step,
+                    "mode": "code",
+                    "ok": chk.get("ok"),
+                    "exactness": chk.get("exactness"),
+                    "check_log": chk.get("check_log"),
+                    "summary": chk.get("summary"),
+                    "note": "quarantine — adopt only after PASS",
+                }
+            )
+            continue
+        r = run_skill(
+            cuni,
+            skill,
+            params=params,
+            host=host,
+            timeout=timeout,
+            http_base=http_base,
+        )
+        r["step"] = step
+        r["mode"] = mode
+        results.append(r)
+
+    ok = all(x.get("ok") for x in results)
+    last = results[-1] if results else {}
+    return {
+        "ok": ok,
+        "mode": mode,
+        "steps": results,
+        "count": len(results),
+        "skill": last.get("skill"),
+        "source": last.get("source"),
+        "stdout": last.get("stdout"),
+        "py": last.get("py"),
+        "go": last.get("go"),
+        "js": last.get("js"),
+        "check_log": last.get("check_log"),
+        "exactness": last.get("exactness"),
+        "summary": f"chat {mode}: {len(results)} step(s), ok={ok}",
+        "host_tool": last.get("host_tool"),
+        "error": None if ok else (last.get("error") or "one or more steps failed"),
+    }
 
 
 def adopt_skill(data_dir: Path, name: str, source: str, cuni: Path, timeout: int) -> dict:
@@ -311,7 +401,7 @@ def adopt_skill(data_dir: Path, name: str, source: str, cuni: Path, timeout: int
         "name": name,
         "path": str(path),
         "exactness": "PASS",
-        "ts": __import__("time").strftime("%Y-%m-%dT%H:%M:%SZ", __import__("time").gmtime()),
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     (dest_dir / f"{name}.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     return {"ok": True, "adopted": True, "meta": meta, **chk}
