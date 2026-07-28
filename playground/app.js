@@ -449,6 +449,26 @@ async function agentAdopt() {
   }
 }
 
+/** Trigger browser download of publish metadata (.publish.json). */
+function downloadPublishJson(meta, storedName) {
+  if (!meta || typeof meta !== "object") return;
+  const name =
+    (typeof storedName === "string" && storedName.endsWith(".publish.json") && storedName) ||
+    `${(meta.sourceHash || "meta").toString().slice(0, 16)}.publish.json`;
+  const blob = new Blob([JSON.stringify(meta, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function publishToRider() {
   if (running) return;
   running = true;
@@ -474,9 +494,11 @@ async function publishToRider() {
     const regBit = reg.id
       ? ` · registered ${reg.id}${reg.idempotent ? " (idempotent)" : ""}`
       : "";
-    els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}${regBit}`;
+    els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}${regBit} · download started`;
     els.summary.className = "summary mono pass";
     showError("");
+    // Client-side download of .publish.json (server already stores under /data/published)
+    if (data.meta) downloadPublishJson(data.meta, data.stored);
     setOutputs({
       py: data.meta ? JSON.stringify(data.meta, null, 2) : "",
       go: data.registration
@@ -484,7 +506,7 @@ async function publishToRider() {
         : data.next || "",
       js: data.docs || "",
       stdout: {
-        py: "publish metadata (also in Python tab as JSON)",
+        py: "publish metadata JSON (downloaded as .publish.json + Python tab)",
         go: reg.id
           ? `rider stub registered id=${reg.id} — GET /api/rider/registered`
           : data.next || "",
