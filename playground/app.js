@@ -41,13 +41,7 @@ let running = false;
 let mode = "play";
 let lastProposeSource = "";
 
-const DEFAULT_SOURCE = `def greet(name: str) -> str do
-    ret \`hello \${name}\`
-end
-
-say(greet("CuNi"))
-say(1 + 2 * 3)
-`;
+const DEFAULT_SOURCE = `def greet(name: str) -> str do\n    ret \\`hello \\${name}\\`\nend\n\nsay(greet("CuNi"))\nsay(1 + 2 * 3)\n`;
 
 function setStatus(kind, text) {
   els.status.className = `badge ${kind}`;
@@ -111,7 +105,7 @@ function esc(s) {
     .replace(/&/g, "&")
     .replace(/</g, "<")
     .replace(/>/g, ">")
-    .replace(/"/g, """);
+    .replace(/"/g, "\"");
 }
 
 function renderNotelog(entries) {
@@ -176,20 +170,35 @@ async function refreshBooks() {
 
 async function loadHealth() {
   try {
-    const r = await fetch("/api/health");
+    const [r, regR] = await Promise.all([
+      fetch("/api/health"),
+      fetch("/api/rider/registered").catch(() => null),
+    ]);
     const j = await r.json();
+    let regCount = null;
+    if (regR && regR.ok) {
+      try {
+        const reg = await regR.json();
+        if (reg && typeof reg.count === "number") regCount = reg.count;
+      } catch (_) {
+        /* ignore */
+      }
+    }
     if (!j.ok) {
       els.health.textContent = `toolchain: cuni missing — ${j.error || "build with cargo"}`;
       return;
     }
-    els.health.textContent = [
+    const parts = [
       `cuni: ok`,
       `py: ${j.python ? "ok" : "missing"}`,
       `go: ${j.go ? "ok" : "missing"}`,
       `node: ${j.node ? "ok" : "missing"}`,
       `notes: ${j.books?.notelog ?? 0}`,
       `critiques: ${j.books?.critic ?? 0}`,
-    ].join(" · ");
+    ];
+    if (regCount != null) parts.push(`registered: ${regCount}`);
+    else if (j.rider) parts.push(`rider: ${j.rider.register ? "ok" : "off"}`);
+    els.health.textContent = parts.join(" · ");
   } catch (e) {
     els.health.textContent = `health check failed: ${e}`;
   }
@@ -210,7 +219,7 @@ async function loadExamples() {
     o.textContent = ex.name;
     els.example.appendChild(o);
   }
-  // Prefer flagship spend-control for immediate exactness demo (step 5)
+  // Prefer flagship spend-control for immediate exactness demo
   const preferred = examples.find((e) => e.id === "spend-control") || examples.find((e) => e.id === "full");
   if (preferred) {
     els.example.value = preferred.id;
@@ -468,7 +477,6 @@ async function publishToRider() {
     els.summary.textContent = `publish OK · ${h.slice(0, 12)}… · ${data.stored || "meta"}${regBit}`;
     els.summary.className = "summary mono pass";
     showError("");
-    // surface JSON in stdout tab for copy/paste / Rider stub
     setOutputs({
       py: data.meta ? JSON.stringify(data.meta, null, 2) : "",
       go: data.registration
