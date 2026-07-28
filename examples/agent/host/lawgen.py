@@ -16,6 +16,16 @@ say(clamp_spend({int(usd)}, {int(cap)}))
 """
 
 
+def gen_spend(*, amount: int = 4, cap: int = 5) -> str:
+    """Flagship spend-control / CheckSpend path used by Studio default example."""
+    return f"""use spend_control
+
+# generated entry — speech → can_spend / CheckSpend (exact on py/go/js)
+say(can_spend({int(amount)}, {int(cap)}))
+say(can_spend({int(amount) + 5}, {int(cap)}))
+"""
+
+
 def gen_text(*, name: str = "CuNi", a: str = "law", b: str = "speech") -> str:
     # escape for CuNi string literals in backticks — keep simple alnum
     name, a, b = _s(name), _s(a), _s(b)
@@ -110,6 +120,7 @@ def _s(v: str) -> str:
 
 GENERATORS = {
     "budget": gen_budget,
+    "spend": gen_spend,
     "text": gen_text,
     "score": gen_score,
     "learn": gen_learn,
