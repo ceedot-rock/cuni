@@ -10,16 +10,16 @@
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
-| 1 | **Studio Publish button live** | **done** | `/api/publish` + UI live; smoke OK 2026-07-28 |
-| 2 | **Rider `POST /api/v0/contracts` v0 implement** | open | Design in `RIDER_REGISTRATION_API.md`; implement in Agent-Rider |
-| 3 | **Wire publish output → Rider register** | open | After #2: Studio or CLI posts metadata to Rider |
-| 4 | **spend-control end-to-end demo** | open | Studio check → publish → register → call `CheckSpend` from Rider host |
-| 5 | **Getting Started linked from Studio UI** | open | Header or empty-state link to Getting Started + spend-control example default |
-| 6 | **Quota env live on Fly** | open | Confirm `CUNI_PLAYGROUND_FREE_DAILY` / agent daily in Fly env + docs |
-| 7 | **Agent Chat polish (stable UX)** | open | Chat panel + voice skeleton shipped; harden errors / quotas messaging |
-| 8 | **daily-dev-report habit** | open | Log significant work in `docs/steps/daily-dev-report/` |
-| 9 | **Sunday investor note to Bob** | open | `tazzski41@gmail.com` — weekly; next due Sunday morning |
-| 10 | **Organic distribution (Studio CTA)** | open | X @CoreXeroC / Show HN — human; no tip desks |
+| 1 | **Rider `POST /api/v0/contracts` v0 implement** | open | Design in `RIDER_REGISTRATION_API.md`; implement in Agent-Rider |
+| 2 | **Wire publish output → Rider register** | open | Studio/CLI POST metadata to Rider after #1 |
+| 3 | **spend-control end-to-end demo** | open | Studio → publish → register → call `CheckSpend` from Rider |
+| 4 | **Getting Started linked from Studio UI** | open | Header/empty-state + default spend-control example |
+| 5 | **Quota env live on Fly** | open | Confirm free/agent daily caps in Fly env |
+| 6 | **Agent Chat polish (stable UX)** | open | Harden errors / quota messaging |
+| 7 | **daily-dev-report habit** | open | Keep logging under `docs/steps/daily-dev-report/` |
+| 8 | **Sunday investor note to Bob** | open | `tazzski41@gmail.com` — next Sunday morning |
+| 9 | **Organic distribution (Studio CTA)** | open | X @CoreXeroC / Show HN — human; no tip desks |
+| 10 | **Publish download / share UX** | open | Download `.publish.json` from Studio after PASS |
 
 ## Recently completed (archive — not counted in the 10)
 
@@ -34,7 +34,12 @@
 | Progress header link | Studio → `#cuni--agent-rider` |
 | Auto Fly deploy workflow | `.github/workflows/deploy-studio.yml` |
 | **FLY_API_TOKEN in GH secrets** | set 2026-07-28 |
-| **Deploy Studio with Progress live** | fly deploy 2026-07-28 |
+| **Deploy Studio with Progress live** | fly + GH Actions deploy 2026-07-28 |
+| **Studio Publish button live** | `/api/publish` smoke OK 2026-07-28 |
+
+## Open count note
+
+Step 1 just completed. Open list temporarily 9 until next batch — on next `s2s go`, either promote a new step into the 10 or wait until 6 done for a full roll.
 
 ## Roll rule
 
