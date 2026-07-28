@@ -245,9 +245,12 @@ def parse_message_params(message: str, mode: str = "execute") -> tuple[str | Non
     """Return (hint_skill, params) from free text."""
     p: dict = {}
     m = message.strip()
-    mo = re.search(r"\b(?:spend|budget|usd|allow)\s+(-?\d+)\b", m, re.I)
+    # amount / usd (prefer amount for spend skill)
+    mo = re.search(r"\b(?:amount|spend|budget|usd|allow)\s+(-?\d+)\b", m, re.I)
     if mo:
-        p["usd"] = int(mo.group(1))
+        val = int(mo.group(1))
+        p["amount"] = val
+        p["usd"] = val
     mo = re.search(r"\bcap\s+(-?\d+)\b", m, re.I)
     if mo:
         p["cap"] = int(mo.group(1))
@@ -301,7 +304,9 @@ def parse_message_params(message: str, mode: str = "execute") -> tuple[str | Non
         skill = "tool_plan_get"
     elif any(w in ml for w in ("echo", "ping")):
         skill = "tool_echo"
-    elif any(w in ml for w in ("spend", "budget", "cap", "usd")):
+    elif any(w in ml for w in ("spend", "check spend", "can_spend", "checkspend")):
+        skill = "spend"  # flagship Studio default law
+    elif any(w in ml for w in ("budget", "usd", "allow_spend", "clamp")):
         skill = "budget"
     elif any(w in ml for w in ("tag", "join", "text", "speak")):
         skill = "text"
