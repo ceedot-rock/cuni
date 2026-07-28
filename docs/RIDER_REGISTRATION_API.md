@@ -1,6 +1,6 @@
 # Rider Registration API (v0)
 
-**Status**: Design complete. Ready for implementation.
+**Status**: Design complete. Studio-side stub available for end-to-end testing.
 
 ## Purpose
 Accept a verified CuNi `link` contract (the metadata produced by the publish prototype) and make it available for cross-language calls inside Agent-Rider.
@@ -53,6 +53,24 @@ Content-Type: application/json
   ]
 }
 ```
+
+## Studio-side stub (available now)
+
+Until a real Agent-Rider service exists, the Studio provides a stand-in:
+
+```
+POST /api/rider/register
+Content-Type: application/json
+```
+
+Body: the same publish metadata object (or `{ "meta": { ... } }`).
+
+Behavior:
+- Rejects if `exactness.passed` is not true.
+- Stores the record under the Studio data volume (`registered/`).
+- Returns `{ "ok": true, "id": "...", "status": "registered_stub" }`.
+
+This lets the full Studio → publish → register loop be exercised today without a separate Rider process.
 
 ## Client helpers (future)
 Rider can later expose generated client stubs or import paths so agents in any of the three languages can call the contract with the existing `*_remote` pattern.
