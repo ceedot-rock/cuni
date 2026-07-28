@@ -108,10 +108,10 @@ function selectBook(name) {
 
 function esc(s) {
   return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/&/g, "&")
+    .replace(/</g, "<")
+    .replace(/>/g, ">")
+    .replace(/"/g, """);
 }
 
 function renderNotelog(entries) {
@@ -210,10 +210,11 @@ async function loadExamples() {
     o.textContent = ex.name;
     els.example.appendChild(o);
   }
-  const full = examples.find((e) => e.id === "full");
-  if (full) {
-    els.example.value = "full";
-    els.source.value = full.source;
+  // Prefer flagship spend-control for immediate exactness demo (step 5)
+  const preferred = examples.find((e) => e.id === "spend-control") || examples.find((e) => e.id === "full");
+  if (preferred) {
+    els.example.value = preferred.id;
+    els.source.value = preferred.source;
   } else {
     els.source.value = DEFAULT_SOURCE;
   }
