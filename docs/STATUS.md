@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-07-28 (morning — post investor email)
+**Last updated**: 2026-07-28 (redeploy confirmed)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -11,20 +11,18 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Progress
-**Publish → register loop is live.** Investor update sent to Bob.
+**Publish → register loop live. Redeploy polish landed.**
 
 - Studio: Progress + Publish; defaults to spend-control
-- Agent `spend` skill first in dropdown; speech → exactness → multi-runtime
-- Rider **Studio stub only** for now (real Rider deferred until needed)
+- Agent `spend` first in dropdown; speech → exactness → multi-runtime
+- Rider **Studio stub only** (real Rider deferred)
   - `POST /api/rider/register` · `GET /api/rider/registered`
   - Publish auto-registers after exactness PASS
+- Footer may show `registered: N`; health may expose `rider` flags
+- Investor update sent to Bob
 
-## Decision (2026-07-28)
-Keep the Studio-side Rider stub. Do **not** start a separate Rider service yet. Scaffold remains in `docs/RIDER_SERVICE_SCAFFOLD.md` when the need is real.
-
-## Still open
-- Redeploy for: health `rider` field, footer `registered: N`, Publish tooltip, spend-first dropdown
-- Tag v0.1.7 when ready (`docs/RELEASE_NOTES_v0.1.7.md`)
+## Still open (optional)
+- Tag v0.1.7 (`docs/RELEASE_NOTES_v0.1.7.md`)
 - Screenshot/GIF of full path for next investor note
 
 ## How we work
