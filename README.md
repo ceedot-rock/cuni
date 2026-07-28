@@ -22,13 +22,14 @@ CuNi is a small language with a hard exactness contract: a program either produc
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
-**Current focus:** Studio → Rider publish path + Agent-mode `spend` skill (speech → exactness → multi-runtime). Status: [`docs/STATUS.md`](docs/STATUS.md).
+**Current focus:** Studio → Rider publish/register loop is live; Agent-mode `spend` skill (speech → exactness → multi-runtime). Status: [`docs/STATUS.md`](docs/STATUS.md).
 
 ### Try the flagship example (no install)
 
 1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)** — it loads `spend-control.cuni` by default
 2. Hit **Run exactness**
 3. See identical Python / Go / JavaScript output (or a clear refusal)
+4. Optional: **Publish** — exactness PASS → metadata + Studio-side Rider registration
 
 That is the entire product promise in under 30 seconds.
 
@@ -53,6 +54,13 @@ Design: [`docs/AI_IS_CUNI.md`](docs/AI_IS_CUNI.md) · pack: [`examples/agent/`](
 
 CuNi provides the exact multi-runtime language and verification.  
 Agent-Rider provides the coordination layer (identity, messaging, multi-agent workflows).
+
+**End-to-end path (live today):**
+
+1. Write a policy in [CuNi Studio](https://cuni-studio.fly.dev/) (default: spend-control).
+2. **Run exactness** — refuse unless py/go/js match.
+3. **Publish** — metadata is stored and auto-registered into the Studio-side Rider stub.
+4. Inspect: `GET /api/rider/registered` · design for real Rider: [`docs/RIDER_V0_CONTRACTS.md`](docs/RIDER_V0_CONTRACTS.md)
 
 They fit together like this:
 
@@ -175,7 +183,7 @@ python3 playground/server.py
 
 **Live:** https://cuni-studio.fly.dev/  
 
-**Emit** (`cuni --emit-*`) · **Check/Run** (`cuni check`) · **Notelog** · **Critic Book**.  
+**Emit** · **Check/Run** · **Publish** (exactness → Rider stub) · **Notelog** · **Critic Book**.  
 Details: [`playground/README.md`](playground/README.md) · freeze: [`docs/FREEZE.md`](docs/FREEZE.md).  
 Redeploy: `flyctl deploy --config fly.toml --remote-only` (repo root).
 
@@ -221,7 +229,7 @@ assets/logo.png                        # brand mark
 
 ## Status (v0.1.6)
 
-**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with Notelog + Critic Book, Exactness **CI + badge**, flagship **link demo**, registry design sketch.
+**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with Notelog + Critic Book, Exactness **CI + badge**, flagship **link demo**, Studio → Rider publish/register stub, Agent `spend` skill.
 
 **Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
 
