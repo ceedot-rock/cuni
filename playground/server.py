@@ -463,6 +463,10 @@ class Handler(SimpleHTTPRequestHandler):
                     },
                     "agent": bool(agent_lib and agent_lib.agent_available()),
                     "studio": "https://cuni-studio.fly.dev/",
+                    "rider": {
+                        "register": bool(handle_register),
+                        "list": bool(handle_list_registered),
+                    },
                 },
             )
         if path == "/api/examples":
