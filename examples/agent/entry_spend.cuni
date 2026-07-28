@@ -1,0 +1,6 @@
+use spend_control
+
+# Entrypoint: flagship spend-control law (exact on py/go/js)
+# Demonstrates speech → exactness → multi-runtime for the Studio default example
+say(can_spend(4, 5))
+say(can_spend(9, 5))
