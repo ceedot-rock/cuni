@@ -22,6 +22,8 @@ CuNi is a small language with a hard exactness contract: a program either produc
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
+**Current focus:** Studio → Rider publish path + Agent-mode `spend` skill (speech → exactness → multi-runtime). Status: [`docs/STATUS.md`](docs/STATUS.md).
+
 ### Try the flagship example (no install)
 
 1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)** — it loads `spend-control.cuni` by default
@@ -30,7 +32,7 @@ CuNi is a small language with a hard exactness contract: a program either produc
 
 That is the entire product promise in under 30 seconds.
 
-Flagship source: [`examples/spend-control.cuni`](examples/spend-control.cuni)
+Flagship source: [`examples/spend-control.cuni`](examples/spend-control.cuni) · Refusal examples: [`docs/EXACTNESS_REFUSAL_EXAMPLES.md`](docs/EXACTNESS_REFUSAL_EXAMPLES.md)
 
 ### Agent mind = CuNi
 
@@ -42,6 +44,8 @@ python3 examples/agent/host/run_agent.py --message "spend 4 cap 5" --host go
 python3 examples/agent/host/run_agent.py --loop --message "echo hi" --message "score 2 8"
 python3 examples/agent/host/run_agent.py --repl
 ```
+
+In Studio Agent mode, try speech `spend 4 cap 5` — it routes to the flagship CheckSpend law.
 
 Design: [`docs/AI_IS_CUNI.md`](docs/AI_IS_CUNI.md) · pack: [`examples/agent/`](examples/agent/)
 
