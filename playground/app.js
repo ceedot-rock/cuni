@@ -358,8 +358,19 @@ async function agentRun() {
       els.summary.className = "summary mono pass";
       selectTab("stdout");
     } else {
-      setStatus("fail", "agent refuse");
-      showError(data.error || data.summary || "failed");
+      setStatus("fail", "agent refused");
+      {
+        const raw = data.error || data.summary || "agent refused";
+        const hint =
+          /busy|concurrent/i.test(String(raw))
+            ? " — server busy (soft limit: max concurrent runs); retry shortly"
+            : /timeout/i.test(String(raw))
+              ? " — timed out; try a shorter speech or retry"
+              : /exactness|FAIL/i.test(String(raw))
+                ? " — exactness gate refused the generated law"
+                : "";
+        showError(String(raw) + hint);
+      }
       els.summary.textContent = data.summary || "FAIL";
       els.summary.className = "summary mono fail";
       selectTab("stdout");
