@@ -17,12 +17,15 @@ say(clamp_spend({int(usd)}, {int(cap)}))
 
 
 def gen_spend(*, amount: int = 4, cap: int = 5) -> str:
-    """Flagship spend-control / CheckSpend path used by Studio default example."""
+    """Flagship spend-control / CheckSpend path used by Studio default example.
+
+    Print via as_flag (0/1): Python say(bool) is True/False; Go/JS true/false.
+    """
     return f"""use spend_control
 
 # generated entry — speech → can_spend / CheckSpend (exact on py/go/js)
-say(can_spend({int(amount)}, {int(cap)}))
-say(can_spend({int(amount) + 5}, {int(cap)}))
+say(as_flag(can_spend({int(amount)}, {int(cap)})))
+say(as_flag(can_spend({int(amount) + 5}, {int(cap)})))
 """
 
 

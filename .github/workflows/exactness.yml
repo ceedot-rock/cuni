@@ -64,6 +64,7 @@ jobs:
             examples/agent/entry_budget.cuni \
             examples/agent/entry_text.cuni \
             examples/agent/entry_score.cuni \
+            examples/agent/entry_spend.cuni \
             examples/agent/entry_tool_echo.cuni \
             examples/agent/entry_tool_plan_get.cuni
           python3 examples/agent/host/run_agent.py --check-all

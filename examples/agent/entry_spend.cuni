@@ -2,5 +2,6 @@ use spend_control
 
 # Entrypoint: flagship spend-control law (exact on py/go/js)
 # Speech → exactness → multi-runtime path for the Studio default example
-say(can_spend(4, 5))
-say(can_spend(9, 5))
+# Uses as_flag so stdout is 1/0 on all three targets (not True vs true).
+say(as_flag(can_spend(4, 5)))
+say(as_flag(can_spend(9, 5)))

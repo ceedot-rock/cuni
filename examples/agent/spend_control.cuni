@@ -5,6 +5,14 @@ def can_spend(amount: int, cap: int) -> bool do
     ret amount <= cap
 end
 
+# Portable 0/1 for say(): Python bool prints True/False; Go/JS print true/false
+def as_flag(ok: bool) -> int do
+    if ok do
+        ret 1
+    end
+    ret 0
+end
+
 link CheckSpend(amount: int, cap: int) -> bool do
     ret can_spend(amount, cap)
 end
