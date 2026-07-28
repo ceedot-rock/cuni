@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-07-28 (redeploy confirmed)
+**Last updated**: 2026-07-28 · **v0.1.7 tagged**
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -11,19 +11,16 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Progress
-**Publish → register loop live. Redeploy polish landed.**
+**v0.1.7 is tagged.** Publish → register loop live. Redeploy polish landed.
 
 - Studio: Progress + Publish; defaults to spend-control
 - Agent `spend` first in dropdown; speech → exactness → multi-runtime
 - Rider **Studio stub only** (real Rider deferred)
-  - `POST /api/rider/register` · `GET /api/rider/registered`
-  - Publish auto-registers after exactness PASS
-- Footer may show `registered: N`; health may expose `rider` flags
 - Investor update sent to Bob
 
 ## Still open (optional)
-- Tag v0.1.7 (`docs/RELEASE_NOTES_v0.1.7.md`)
 - Screenshot/GIF of full path for next investor note
+- Next Sunday investor follow-up (outline ready)
 
 ## How we work
 Rolling 10 Steps. External feedback paused. CuNi primary; MidPoint subordinate.
