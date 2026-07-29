@@ -27,3 +27,12 @@ Cargo.lock.bak
 /examples/agent/adopted/
 __pycache__/
 *.pyc
+
+# Pump.fun / trading runtime (secrets + ephemeral status — never commit)
+assets/pump/mint-*.json
+assets/pump/*.log
+assets/pump/LAST_*.json
+assets/pump/*_STATUS.md
+assets/pump/AUTO_BUYBACK.log
+assets/pump/LIVE_STATUS.md
+assets/pump/BUYBACK_STATUS.md
