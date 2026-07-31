@@ -55,6 +55,17 @@ Design: [`docs/AI_IS_CUNI.md`](docs/AI_IS_CUNI.md) · pack: [`examples/agent/`](
 CuNi provides the exact multi-runtime language and verification.  
 Agent-Rider provides the coordination layer (identity, messaging, multi-agent workflows).
 
+### Related projects
+
+| Project | Role |
+|---------|------|
+| [Agent-Rider](https://github.com/ceedot-rock/Agent-Rider) | Multi-agent coordination · [live](https://agentrider.vercel.app) |
+| [quikgater](https://github.com/ceedot-rock/quikgater) | Pay-per-fact fetch for agents (x402 / USDC) |
+| [SlidPhi](https://github.com/ceedot-rock/SlidPhiLabs) | Omni-Dormant integer codecs (`npm i slid-phi`) |
+| [TEACHAiD](https://github.com/ceedot-rock/teachaid) | Interactive beginner school app |
+
+Packaging draft (Homebrew / cargo-binstall): [`docs/PACKAGING.md`](docs/PACKAGING.md).
+
 **End-to-end path (live today):**
 
 1. Write a policy in [CuNi Studio](https://cuni-studio.fly.dev/) (default: spend-control).
@@ -112,6 +123,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 ```bash
 # install the cuni binary onto your PATH
 cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.7
+# packaging options (draft): docs/PACKAGING.md · packaging/homebrew/cuni.rb
 
 # or clone and build from source
 git clone https://github.com/ceedot-rock/cuni.git
