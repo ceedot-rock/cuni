@@ -1,5 +1,7 @@
 # CuNi (Code:uNiTY)
 
+<p align="center"><img src="https://raw.githubusercontent.com/ceedot-rock/splabs-brand/main/assets/brand/logos/logo-cuni.jpg" alt="product logo" width="280"/></p>
+
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
 </p>
