@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-07-28 · **v0.1.7 tagged**
+**Last updated**: 2026-08-04 · **v0.1.7 tagged**
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -10,33 +10,28 @@ Exact multi-runtime agents, coordinated.
 2. Exactness as the trust / verification gate  
 3. Shared authoring + progressive deployment (Studio → Rider)
 
-## Progress
-**v0.1.7 is tagged.** Publish → register loop live on Studio stub.
+## Live today
+- **Studio**: https://cuni-studio.fly.dev/ — Progress + Publish; spend-control default; Agent `spend` skill  
+- **Exactness CI**: green on every push (examples + cargo test)  
+- **Publish → register**: Studio-side Rider stub live (`/api/rider/register`, `/api/rider/registered`)  
+- **Flagship proofs**: exactness (py/go/js identical stdout) + `link` interop demo  
+- **Packaging**: draft only — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
+  Preferred install today: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.7`
 
-- Studio: https://cuni-studio.fly.dev/ — Progress + Publish; spend-control default  
-- Agent `spend` first; speech → exactness → multi-runtime  
-- Rider **Studio stub only** (`/api/rider/register`, `/api/rider/registered`, health.rider.*)  
-- Demo: [`docs/DEMO.md`](DEMO.md) · `./examples/demo.sh`
+## Highest-leverage open (CuNi S2S focus)
+1. **Packaging** — ship real Homebrew formula + cargo-binstall / release assets (one-command install)  
+2. **Full Agent-Rider cutover** — replace Studio publish stub with real Rider identity + messaging  
+3. **Studio first-impression** — additional flagship examples + short guided tour  
+4. **Examples gallery** — clear index of spend-control / link / agent skills  
+5. **CLI / Studio error polish** — concrete fix-its on type and exactness failures  
+6. **CI matrix expansion** — more targets / benchmarks when release assets exist  
 
-## S2S ownership (Notion board)
-- **Host:** docs / UX copy / board hygiene / MidPoint local  
-- **Other Grok:** live health drift, Fly quota, Rider beyond stub, CheckSpend E2E  
-- Comms: **Notion only** (`Notes for Grok`)
-
-## Open product (from `docs/steps/10-STEPS.md`)
-1. Rider contracts API beyond Studio stub  
-2. spend-control E2E → CheckSpend  
-3. Quota env verified on Fly  
-4. Agent Chat polish  
-5. Publish download / share UX  
-6. Getting Started from empty-state  
-7. Organic distribution (human only)  
-8. daily-dev-report habit  
-9. Studio demo GIF  
-10. **Free-to-try clarity** (pay-as-you-go Fly limits documented in UI)
+## Portfolio context
+Classic rolling 10-Steps (daily focus) and S2S50 (broader) live in the collaborative work system.  
+CuNi remains primary with Agent-Rider; SlidPhi elevated for commercial track.
 
 ## Paused
-- Sunday investor email to Bob unless Corey re-enables
+- Sunday investor email to Bob unless re-enabled
 
 ---
 CuNi + Agent-Rider — exact multi-runtime agents, coordinated.
