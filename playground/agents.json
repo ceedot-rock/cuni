@@ -19,6 +19,17 @@
     "github": "https://github.com/ceedot-rock/cuni",
     "agent_rider": "https://agentrider.vercel.app/.well-known/agent.json",
     "lab_commerce": "https://www.slidphilabs.com/api/agent",
-    "one_liner": "CuNi Studio: https://cuni-studio.fly.dev/ · exact multi-runtime · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent"
+    "one_liner": "CuNi Studio · exact multi-runtime · Lab dual surface: humans https://www.slidphilabs.com/humans · agents GET https://www.slidphilabs.com/api/agent · map https://www.slidphilabs.com/platform.json",
+    "lab_platform": "https://www.slidphilabs.com/platform.json",
+    "lab_welcome": "https://www.slidphilabs.com/api/welcome",
+    "lab_humans": "https://www.slidphilabs.com/humans",
+    "lab_agents": "https://www.slidphilabs.com/agents",
+    "lab_openapi": "https://www.slidphilabs.com/openapi.yaml"
+  },
+  "platform": {
+    "slogan": "One mission · two attack vectors · one team",
+    "parent_lab": "https://www.slidphilabs.com",
+    "pub_facing": "https://www.slidphilabs.com/humans",
+    "agentic_minded": "https://www.slidphilabs.com/agents"
   }
 }

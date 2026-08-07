@@ -15,3 +15,11 @@
 ## Humans
 - Studio: https://cuni-studio.fly.dev/
 - Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md
+
+
+## Parent lab (Slid Phi Labs)
+- Dual surface map: https://www.slidphilabs.com/platform.json
+- Welcome: https://www.slidphilabs.com/api/welcome
+- Humans: https://www.slidphilabs.com/humans
+- Agents: https://www.slidphilabs.com/agents
+- Commerce: https://www.slidphilabs.com/api/agent
