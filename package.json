@@ -1,0 +1,54 @@
+{
+  "name": "cuni",
+  "version": "0.1.6",
+  "private": true,
+  "description": "CuNi (Code:uNiTY) \u2014 exact multi-target compiler (Python, Go, JavaScript)",
+  "homepage": "https://cuni-studio.fly.dev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ceedot-rock/cuni"
+  },
+  "keywords": [
+    "cuni",
+    "exactness",
+    "multi-target",
+    "compiler",
+    "agent-rider",
+    "x402",
+    "agentic-commerce",
+    "agents.txt",
+    "llms.txt",
+    "mcp",
+    "slid-phi-labs"
+  ],
+  "funding": {
+    "type": "individual",
+    "url": "https://www.slidphilabs.com/api/agent"
+  },
+  "agentic": {
+    "discovery": "https://cuni-studio.fly.dev/agents.json",
+    "studio": "https://cuni-studio.fly.dev/",
+    "agents_txt": "https://cuni-studio.fly.dev/agents.txt",
+    "llms_txt": "https://cuni-studio.fly.dev/llms.txt",
+    "agent_rider": "https://agentrider.vercel.app/.well-known/agent.json",
+    "mcp": "https://agentrider.vercel.app/api/mcp",
+    "lab_commerce": "https://www.slidphilabs.com/api/agent",
+    "networks": [
+      "solana-mainnet-beta",
+      "eip155:8453"
+    ],
+    "payment_header": "X-PAYMENT",
+    "one_liner": "CuNi Studio: https://cuni-studio.fly.dev/ \u00b7 Agent^Rider https://agentrider.vercel.app/.well-known/agent.json \u00b7 Lab commerce https://www.slidphilabs.com/api/agent",
+    "site": "https://cuni-studio.fly.dev/"
+  },
+  "x402": {
+    "discovery": "https://www.slidphilabs.com/api/agent",
+    "catalog": "https://www.slidphilabs.com/api/x402-products",
+    "networks": [
+      "solana-mainnet-beta",
+      "eip155:8453"
+    ],
+    "payment_header": "X-PAYMENT",
+    "note": "Lab product x402 on Slid Phi Labs; CuNi pairs with Agent^Rider for exact policy coordination"
+  }
+}

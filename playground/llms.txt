@@ -1,0 +1,17 @@
+# CuNi (Code:uNiTY)
+
+> Exact multi-target compiler — Python, Go, JavaScript. Same source, exactness-checked multi-runtime.
+
+## Agent discovery
+- Studio: https://cuni-studio.fly.dev/
+- agents.txt: https://cuni-studio.fly.dev/agents.txt
+- agents.json: https://cuni-studio.fly.dev/agents.json
+- GitHub: https://github.com/ceedot-rock/cuni
+- Agent^Rider (identity + task market for exact policies): https://agentrider.vercel.app/.well-known/agent.json
+- Agent^Rider MCP: https://agentrider.vercel.app/api/mcp
+- Lab x402 commerce (Slid Phi Labs): https://www.slidphilabs.com/api/agent
+- One line: CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
+
+## Humans
+- Studio: https://cuni-studio.fly.dev/
+- Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md

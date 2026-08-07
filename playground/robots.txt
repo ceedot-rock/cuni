@@ -1,13 +1,11 @@
-# CuNi Studio — https://cuni-studio.fly.dev/
 User-agent: *
 Allow: /
-Allow: /api/health
-Allow: /api/examples
-Disallow: /api/run
-Disallow: /api/emit
-Disallow: /api/check
-Disallow: /api/notelog
-Disallow: /api/criticbook
-Disallow: /data
 
+Allow: /llms.txt
+Allow: /agents.txt
+Allow: /agents.json
+Allow: /api/
+
+# Agent discovery: /llms.txt · /agents.txt · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json
+# Lab commerce: https://www.slidphilabs.com/api/agent
 Sitemap: https://cuni-studio.fly.dev/sitemap.xml

@@ -5,12 +5,20 @@ edition = "2021"
 description = "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript)"
 license = "MIT"
 repository = "https://github.com/ceedot-rock/cuni"
-homepage = "https://github.com/ceedot-rock/cuni"
+homepage = "https://cuni-studio.fly.dev/"
 documentation = "https://github.com/ceedot-rock/cuni/blob/master/SPEC.md"
 readme = "README.md"
-keywords = ["compiler", "transpiler", "multi-target", "python", "golang"]
+keywords = ["compiler", "transpiler", "multi-target", "python", "golang", "agentic", "mcp", "agent-rider"]
 categories = ["compilers", "development-tools"]
 
 [[bin]]
 name = "cuni"
 path = "src/main.rs"
+
+[package.metadata.agentic]
+discovery = "https://cuni-studio.fly.dev/agents.json"
+studio = "https://cuni-studio.fly.dev/"
+agent_rider = "https://agentrider.vercel.app/.well-known/agent.json"
+mcp = "https://agentrider.vercel.app/api/mcp"
+lab_commerce = "https://www.slidphilabs.com/api/agent"
+one_liner = "CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent"

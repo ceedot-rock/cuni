@@ -257,3 +257,19 @@ assets/logo.png                        # brand mark
 ## License
 
 MIT — see [`LICENSE`](LICENSE).
+
+## Agentic discovery
+
+```
+CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
+```
+
+| Surface | URL |
+|---------|-----|
+| Studio | https://cuni-studio.fly.dev/ |
+| agents.txt | https://cuni-studio.fly.dev/agents.txt |
+| agents.json | https://cuni-studio.fly.dev/agents.json |
+| llms.txt | https://cuni-studio.fly.dev/llms.txt |
+| Agent^Rider manifest | https://agentrider.vercel.app/.well-known/agent.json |
+| Agent^Rider MCP | https://agentrider.vercel.app/api/mcp |
+| Lab x402 commerce | https://www.slidphilabs.com/api/agent |

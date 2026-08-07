@@ -1,0 +1,24 @@
+{
+  "$schema": "https://agents-txt.com/schema/agents-json/v1.0.json",
+  "version": "1.0",
+  "standard": "https://agents-txt.com",
+  "site": {
+    "name": "CuNi Studio",
+    "url": "https://cuni-studio.fly.dev",
+    "description": "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript). Studio publishes exact policies into Agent^Rider."
+  },
+  "mcp": [
+    {
+      "url": "https://agentrider.vercel.app/api/mcp",
+      "type": "streamable-http",
+      "description": "Agent^Rider MCP (CuNi publishes exact policies into Rider)"
+    }
+  ],
+  "discovery": {
+    "studio": "https://cuni-studio.fly.dev/",
+    "github": "https://github.com/ceedot-rock/cuni",
+    "agent_rider": "https://agentrider.vercel.app/.well-known/agent.json",
+    "lab_commerce": "https://www.slidphilabs.com/api/agent",
+    "one_liner": "CuNi Studio: https://cuni-studio.fly.dev/ · exact multi-runtime · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent"
+  }
+}

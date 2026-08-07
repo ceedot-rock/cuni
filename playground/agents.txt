@@ -1,0 +1,6 @@
+# agents.txt
+# Standard: https://agents-txt.com
+# JSON: https://cuni-studio.fly.dev/agents.json
+
+MCP: https://agentrider.vercel.app/api/mcp
+A2A: https://agentrider.vercel.app/.well-known/agent.json

@@ -2,32 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://cuni-studio.fly.dev/</loc>
-    <changefreq>daily</changefreq>
+    <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://github.com/ceedot-rock/cuni</loc>
+    <loc>https://cuni-studio.fly.dev/llms.txt</loc>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://github.com/ceedot-rock/cuni/blob/master/docs/AI_IS_CUNI.md</loc>
+    <loc>https://cuni-studio.fly.dev/agents.json</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://github.com/ceedot-rock/cuni/blob/master/docs/LINK_TUTORIAL.md</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://github.com/ceedot-rock/cuni/releases/tag/v0.1.6</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://github.com/ceedot-rock/cuni/tree/master/examples/agent</loc>
+    <loc>https://cuni-studio.fly.dev/agents.txt</loc>
     <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
+    <priority>0.85</priority>
   </url>
 </urlset>

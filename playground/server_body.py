@@ -1,3 +1,2 @@
-#!/usr/bin/env python3
-# Temporary recovery - see server.py loader
-print('see commits')
+# Deprecated: full Studio server lives in server.py (Rider cutover integrated).
+# Kept only so old import paths do not 404 during deploy rollouts.
