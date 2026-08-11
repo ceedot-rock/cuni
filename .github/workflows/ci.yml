@@ -3,8 +3,19 @@ name: CI
 on:
   push:
     branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE*'
   pull_request:
     branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE*'
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
@@ -37,13 +48,3 @@ jobs:
 
       - name: Test
         run: cargo test --verbose
-
-      # Keep the product surface green even if someone skips the Exactness workflow.
-      - name: Exactness gate (cuni check)
-        run: |
-          cargo build --release
-          ./target/release/cuni check --timeout 120 \
-            examples/full.cuni \
-            examples/structs.cuni \
-            examples/enums.cuni \
-            examples/named_fields.cuni
