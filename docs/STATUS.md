@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-08-04 · **v0.1.7 tagged**
+**Last updated**: 2026-08-12 · **v0.1.7 tagged** · Studio → Rider cutover live 2026-08-07
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -11,24 +11,29 @@ Exact multi-runtime agents, coordinated.
 3. Shared authoring + progressive deployment (Studio → Rider)
 
 ## Live today
-- **Studio**: https://cuni-studio.fly.dev/ — Progress + Publish; spend-control default; Agent `spend` skill  
+- **Studio**: https://cuni-studio.fly.dev/ — Progress + Publish; spend-control default; Agent `spend` skill; free to try  
 - **Exactness CI**: green on every push (examples + cargo test)  
-- **Publish → register**: Studio-side Rider stub live (`/api/rider/register`, `/api/rider/registered`)  
-- **Flagship proofs**: exactness (py/go/js identical stdout) + `link` interop demo  
+- **Publish → register**:  
+  - Local stub: `/api/rider/register` + `/api/rider/registered`  
+  - Remote: `CUNI_RIDER_URL=https://agentrider.vercel.app` → `POST /api/v0/contracts` (exactness-gated, idempotent on sourceHash)  
+  - Verified 2026-08-07: contracts `ctr_1ec3e1bdb32541f0` (studio) + smoke  
+- **Health**: `/api/health` exposes `rider.register`, `rider.list`, `rider.remote`, `rider.remote_url`  
+- **Flagship proofs**: exactness (py/go/js identical stdout) + `link` interop + spend skill  
 - **Packaging**: draft only — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
   Preferred install today: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.7`
 
-## Highest-leverage open (CuNi S2S focus)
-1. **Packaging** — ship real Homebrew formula + cargo-binstall / release assets (one-command install)  
-2. **Full Agent-Rider cutover** — replace Studio publish stub with real Rider identity + messaging  
-3. **Studio first-impression** — additional flagship examples + short guided tour  
-4. **Examples gallery** — clear index of spend-control / link / agent skills  
-5. **CLI / Studio error polish** — concrete fix-its on type and exactness failures  
-6. **CI matrix expansion** — more targets / benchmarks when release assets exist  
+## Known issue (2026-08-12)
+- Rider `/api/v0/contracts` currently returns HTTP 402 / DEPLOYMENT_DISABLED from the Vercel edge. Local stub remains healthy. Re-check deployment / billing / x402 gating on Agent-Rider.
+
+## Highest-leverage open
+1. **Surface registered contracts in Studio UI** (health footer already has hooks; make count + recent contracts visible + link to Rider) + keep E2E docs current → Step 2 of classic 10  
+2. **Packaging** — real Homebrew + cargo-binstall / release assets (one-command install)  
+3. **Studio first-impression polish** — guided tour / more flagship examples if needed  
+4. **CLI / Studio error polish** — concrete fix-its on type and exactness failures  
 
 ## Portfolio context
-Classic rolling 10-Steps (daily focus) and S2S50 (broader) live in the collaborative work system.  
-CuNi remains primary with Agent-Rider; SlidPhi elevated for commercial track.
+Classic rolling 10-Steps (daily focus) lives in the collaborative work system.  
+Primary commercial track is now **SlidPhi** freemium (free first 100 GB) + dual human/agent surfaces. CuNi + Agent-Rider remain the exactness + coordination core.
 
 ## Paused
 - Sunday investor email to Bob unless re-enabled
