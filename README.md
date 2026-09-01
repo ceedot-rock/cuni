@@ -15,12 +15,12 @@
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7"><img src="https://img.shields.io/badge/version-0.1.7-cyan.svg" alt="v0.1.7" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GNU GPLv3" /></a>
 </p>
 
 **One source. Identical Python, JavaScript, and Go — or the compiler refuses.**
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, MIT, v0.1.7.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.7.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -256,7 +256,7 @@ assets/logo.png                        # brand mark
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+**Dual license.** Public tree is **GNU GPLv3** (`GPL-3.0-only`) — see [`LICENSE`](LICENSE). To ship CuNi inside a **closed-source** product, buy a written commercial exception: [COMMERCIAL.md](COMMERCIAL.md) · corey@slidphilabs.com. Hosted [Studio](https://cuni-studio.fly.dev/) is $0 exactness, not a grant of Rider or AWARE. SoT: https://www.slidphilabs.com/licensing.json
 
 ## Agentic discovery
 

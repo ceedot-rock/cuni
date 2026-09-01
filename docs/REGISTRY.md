@@ -39,7 +39,7 @@ packages/
 name = "greet-contract"
 version = "0.1.0"
 description = "Shared Greet link contract"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [exports]
 # path relative to package root

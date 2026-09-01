@@ -2,7 +2,7 @@
   "name": "cuni",
   "version": "0.1.6",
   "private": true,
-  "description": "CuNi (Code:uNiTY) \u2014 exact multi-target compiler (Python, Go, JavaScript)",
+  "description": "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript)",
   "homepage": "https://cuni-studio.fly.dev/",
   "repository": {
     "type": "git",
@@ -19,7 +19,8 @@
     "agents.txt",
     "llms.txt",
     "mcp",
-    "slid-phi-labs"
+    "slid-phi-labs",
+    "gpl-3.0"
   ],
   "funding": {
     "type": "individual",
@@ -38,7 +39,7 @@
       "eip155:8453"
     ],
     "payment_header": "X-PAYMENT",
-    "one_liner": "CuNi Studio: https://cuni-studio.fly.dev/ \u00b7 Agent^Rider https://agentrider.vercel.app/.well-known/agent.json \u00b7 Lab commerce https://www.slidphilabs.com/api/agent",
+    "one_liner": "CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent",
     "site": "https://cuni-studio.fly.dev/"
   },
   "x402": {
@@ -50,5 +51,6 @@
     ],
     "payment_header": "X-PAYMENT",
     "note": "Lab product x402 on Slid Phi Labs; CuNi pairs with Agent^Rider for exact policy coordination"
-  }
+  },
+  "license": "GPL-3.0-only"
 }
