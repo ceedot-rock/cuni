@@ -2,7 +2,7 @@
   "name": "cuni",
   "version": "0.1.6",
   "private": true,
-  "description": "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript)",
+  "description": "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript",
   "homepage": "https://cuni-studio.fly.dev/",
   "repository": {
     "type": "git",

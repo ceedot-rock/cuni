@@ -29,6 +29,10 @@ The one deliberate exception is the `ext` block (see §9), which is an explicit,
 
 All three are garbage-collected with reference semantics, which is why they can share one core without an ownership/borrowing model. Rust is deliberately excluded from v1: its ownership rules would force a three-way own/borrow-mut/borrow-immut annotation onto every binding and function signature, reshaping the entire core before it's even validated elsewhere. Rust is a candidate v2 target; adding it may require a breaking change to how bindings and functions are declared.
 
+### 3.1 Emit catalog (not exactness targets)
+
+`cuni --emit-all DIR` and `cuni --list-langs` print the same AST into every language in `src/langs.rs`. Those extra printers are family-derived source dumps. They are **not** §2 supported targets: exactness still *runs* only Python, Go, and JavaScript. Listing a language in the catalog is not a claim that the emitted file compiles or matches stdout on that runtime.
+
 ## 4. Lexical Basics
 
 **Comments** — line comments only, `#` to end of line.

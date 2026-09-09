@@ -76,6 +76,55 @@ fn sanitize(s: &str) -> String {
 }
 
 #[test]
+fn emit_all_writes_every_catalog_language() {
+    let dir = tmp_path("all_langs");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let output = Command::new(cuni_bin())
+        .args([
+            "examples/full.cuni",
+            "--emit-all",
+            dir.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to invoke cuni --emit-all");
+    assert!(
+        output.status.success(),
+        "emit-all failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let listed = Command::new(cuni_bin())
+        .arg("--list-langs")
+        .output()
+        .expect("failed to invoke --list-langs");
+    assert!(listed.status.success());
+    let n = String::from_utf8_lossy(&listed.stdout)
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .count();
+    let files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .collect();
+    assert_eq!(
+        files.len(),
+        n,
+        "emit-all wrote {} files, catalog lists {}",
+        files.len(),
+        n
+    );
+    assert!(n >= 50, "catalog too small: {n}");
+    let py = dir.join("py.py");
+    let go = dir.join("go.go");
+    let js = dir.join("js.js");
+    assert!(py.is_file() && go.is_file() && js.is_file());
+    let py_src = std::fs::read_to_string(&py).unwrap();
+    assert!(py_src.contains("print") || py_src.contains("def "), "python emit empty?");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn full_example_is_exact_across_targets() {
     // parse("42") succeeds → 42; Circle(2.0).area → ~12.56636; then names.push + say
     assert_exact(

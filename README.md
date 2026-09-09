@@ -18,9 +18,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GNU GPLv3" /></a>
 </p>
 
-**One source. Identical Python, JavaScript, and Go — or the compiler refuses.**
+**One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.**
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.7.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages (family printers). Exactness still *runs* only py/go/js. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.7.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -151,11 +151,15 @@ cuni check examples/full.cuni --verbose --timeout 120
 # type-check + dump AST
 cuni examples/full.cuni
 
-# emit all three targets
+# emit all three exactness targets
 cuni examples/full.cuni \
   --emit-py /tmp/full.py \
   --emit-go /tmp/full.go \
   --emit-js /tmp/full.js
+
+# emit every language in the catalog (py/go/js quality; rest family printers)
+cuni --list-langs
+cuni examples/full.cuni --emit-all /tmp/cuni-all
 
 python3 /tmp/full.py
 go run /tmp/full.go
@@ -227,7 +231,8 @@ Full prose: [`SPEC.md`](SPEC.md). Formal EBNF: [`GRAMMAR.md`](GRAMMAR.md).
 src/
   lexer.rs parser.rs token.rs ast.rs   # frontend
   typeck.rs checks.rs modules.rs       # refuse logic + use resolution
-  codegen_{py,go,js}.rs                # three backends
+  codegen_{py,go,js}.rs                # exactness backends
+  langs.rs / codegen_all.rs            # emit catalog (every coding language)
   main.rs                              # CLI
 examples/                              # runnable .cuni samples
 examples/link/demo.sh                  # flagship Go server ← py/js/go clients

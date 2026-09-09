@@ -32,9 +32,14 @@ const els = {
     py: $("out-py"),
     go: $("out-go"),
     js: $("out-js"),
+    lang: $("out-lang"),
     stdout: $("out-stdout"),
   },
+  langPick: $("lang-pick"),
 };
+
+let lastLangs = {};
+let catalog = [];
 
 let examples = [];
 let running = false;
@@ -58,10 +63,58 @@ function showError(msg) {
   els.error.textContent = msg;
 }
 
+function fillLangPick(langs) {
+  lastLangs = langs || {};
+  const pick = els.langPick;
+  if (!pick) return;
+  const prev = pick.value;
+  const emitted = Object.keys(lastLangs);
+  const rows =
+    catalog.length > 0
+      ? catalog
+      : emitted.sort().map((file) => ({ file, name: file, id: file.split(".")[0] }));
+  if (rows.length === 0) return;
+  pick.innerHTML = "";
+  for (const row of rows) {
+    const o = document.createElement("option");
+    o.value = row.file;
+    const gate = row.exactness ? " · exactness" : "";
+    o.textContent = `${row.name} (${row.id})${gate}`;
+    pick.appendChild(o);
+  }
+  const files = rows.map((r) => r.file);
+  pick.value = files.includes(prev)
+    ? prev
+    : files.find((n) => n === "py.py" || n.endsWith(".py")) || files[0];
+  showPickedLang();
+}
+
+function showPickedLang() {
+  const key = els.langPick && els.langPick.value;
+  const text =
+    (key && lastLangs[key]) || lastLangs["py.py"] || lastLangs["out.py"] || "";
+  if (els.out.lang) els.out.lang.textContent = text || "(emit to fill this language)";
+}
+
+async function loadLangCatalog() {
+  try {
+    const r = await fetch("/api/langs");
+    const j = await r.json();
+    catalog = j.langs || [];
+    fillLangPick(lastLangs);
+  } catch (e) {
+    console.warn("langs catalog", e);
+  }
+}
+
 function setOutputs(data) {
   els.out.py.textContent = data.py || "(no emit)";
   els.out.go.textContent = data.go || "(no emit)";
   els.out.js.textContent = data.js || "(no emit)";
+  fillLangPick(data.langs || {});
+  if (!data.langs || !Object.keys(data.langs).length) {
+    if (els.out.lang) els.out.lang.textContent = data.py || "(no emit)";
+  }
 
   const parts = [];
   const stdout = data.stdout || {};
@@ -88,8 +141,11 @@ function selectTab(name) {
     t.classList.toggle("active", t.dataset.tab === name);
   });
   document.querySelectorAll(".code").forEach((p) => p.classList.remove("active"));
-  const map = { py: "out-py", go: "out-go", js: "out-js", stdout: "out-stdout" };
-  $(map[name]).classList.add("active");
+  if (name === "stdout") {
+    $("out-stdout").classList.add("active");
+  } else {
+    $("out-lang").classList.add("active");
+  }
 }
 
 function selectBook(name) {
@@ -524,7 +580,7 @@ async function publishToRider() {
         js: "",
       },
     });
-    selectTab("py");
+    selectTab("lang");
     await refreshBooks();
   } catch (e) {
     setStatus("fail", "error");
@@ -568,6 +624,12 @@ function wire() {
   document.querySelectorAll(".tab").forEach((t) => {
     t.addEventListener("click", () => selectTab(t.dataset.tab));
   });
+  if (els.langPick) {
+    els.langPick.addEventListener("change", () => {
+      showPickedLang();
+      selectTab("lang");
+    });
+  }
   document.querySelectorAll(".book-tab").forEach((t) => {
     t.addEventListener("click", () => selectBook(t.dataset.book));
   });
@@ -620,5 +682,6 @@ function wire() {
 wire();
 void loadHealth();
 void loadExamples();
+void loadLangCatalog();
 void refreshBooks();
 void loadAgentSkills();

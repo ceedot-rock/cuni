@@ -219,6 +219,27 @@ button.tab {
 }
 button.tab.active { color: var(--text); border-bottom-color: var(--gold-line); }
 
+.tab-lang {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  padding: 6px 8px;
+  flex: 1;
+}
+.tab-lang select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  min-width: 180px;
+  max-width: 100%;
+}
+
 .badge {
   font-family: var(--mono);
   font-size: 0.8rem;

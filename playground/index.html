@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CuNi Studio — Exact Python/Go/JS playground + Agent mode (free)</title>
+    <title>CuNi Studio — every language, exact py/go/js gate (free)</title>
     <meta
       name="description"
       content="Critical rules that must mean the same in every runtime — or they don’t ship. Free CuNi Studio: exactness-check Python, Go, and JavaScript—or refuse. Agent mode after PASS."
@@ -91,8 +91,8 @@
           "url": "https://github.com/ceedot-rock/cuni/blob/master/docs/GETTING_STARTED_AGENT_RIDER.md"
         },
         "featureList": [
-          "cuni emit to Python, Go, JavaScript",
-          "cuni check exactness gate",
+          "cuni emit to every coding language",
+          "cuni check exactness gate on Python, Go, JavaScript",
           "Agent mode skill routing",
           "Propose and adopt CuNi law after exactness",
           "Notelog lab journal",
@@ -167,7 +167,7 @@
         Example
         <select id="example" aria-label="Load example program"></select>
       </label>
-      <button id="emit" type="button" title="cuni --emit-py/go/js">Emit</button>
+      <button id="emit" type="button" title="cuni --emit-all — every language; exactness still py/go/js">Emit</button>
       <button id="check" type="button" title="cuni check">Check</button>
       <button id="run" class="primary" type="button" title="emit + check + stdout">
         Run exactness
@@ -228,14 +228,20 @@
           <span id="summary" class="summary mono"></span>
         </div>
         <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-tab="py" role="tab">Python</button>
-          <button type="button" class="tab" data-tab="go" role="tab">Go</button>
-          <button type="button" class="tab" data-tab="js" role="tab">JavaScript</button>
+          <label class="tab-lang">
+            Language
+            <select id="lang-pick" aria-label="Emitted language">
+              <option value="py">Python</option>
+              <option value="go">Go</option>
+              <option value="js">JavaScript</option>
+            </select>
+          </label>
           <button type="button" class="tab" data-tab="stdout" role="tab">Stdout / check</button>
         </div>
-        <pre id="out-py" class="code active"></pre>
-        <pre id="out-go" class="code"></pre>
-        <pre id="out-js" class="code"></pre>
+        <pre id="out-lang" class="code active"></pre>
+        <pre id="out-py" class="code hidden"></pre>
+        <pre id="out-go" class="code hidden"></pre>
+        <pre id="out-js" class="code hidden"></pre>
         <pre id="out-stdout" class="code"></pre>
       </section>
 

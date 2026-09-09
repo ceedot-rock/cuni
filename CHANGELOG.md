@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased] — emit every coding language
+
+### Added
+- **`--emit-all DIR`** writes the full language catalog (`src/langs.rs`)
+- **`--list-langs`** lists id / name / extension
+- Studio language picker + `GET /api/langs`
+- Honest split: catalog emit vs exactness (still py/go/js only)
+
 ## [Unreleased] — Studio host + SEO
 
 ### Added

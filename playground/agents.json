@@ -5,7 +5,7 @@
   "site": {
     "name": "CuNi Studio",
     "url": "https://cuni-studio.fly.dev",
-    "description": "CuNi (Code:uNiTY) — exact multi-target compiler (Python, Go, JavaScript). Studio publishes exact policies into Agent^Rider."
+    "description": "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript. Studio publishes exact policies into Agent^Rider."
   },
   "mcp": [
     {

@@ -119,6 +119,34 @@ def list_remote_contracts(timeout: float = 8.0) -> dict:
         return {"ok": False, "error": str(e), "url": url}
 
 
+def list_langs() -> list[dict]:
+    """Catalog from `cuni --list-langs`. Exactness still only py/go/js."""
+    try:
+        cuni = find_cuni()
+    except FileNotFoundError:
+        return []
+    try:
+        p = run_cmd([str(cuni), "--list-langs"])
+    except Exception:
+        return []
+    out = []
+    for line in (p.stdout or "").splitlines():
+        parts = line.split("\t")
+        if len(parts) < 3:
+            continue
+        ext = parts[2].lstrip(".")
+        out.append(
+            {
+                "id": parts[0],
+                "name": parts[1],
+                "ext": ext,
+                "file": f"{parts[0]}.{ext}",
+                "exactness": parts[0] in ("py", "go", "js"),
+            }
+        )
+    return out
+
+
 def find_cuni() -> Path:
     env = os.environ.get("CUNI_BIN")
     if env and Path(env).is_file():
@@ -176,6 +204,7 @@ def run_cmd(args: list[str], cwd: Path | None = None) -> subprocess.CompletedPro
 
 def _emit_only(cuni: Path, work: Path, main: Path) -> dict:
     py_out, go_out, js_out = work / "out.py", work / "out.go", work / "out.js"
+    lang_dir = work / "langs"
     emit = run_cmd(
         [
             str(cuni),
@@ -186,6 +215,8 @@ def _emit_only(cuni: Path, work: Path, main: Path) -> dict:
             str(go_out),
             "--emit-js",
             str(js_out),
+            "--emit-all",
+            str(lang_dir),
         ]
     )
     if emit.returncode != 0:
@@ -198,9 +229,16 @@ def _emit_only(cuni: Path, work: Path, main: Path) -> dict:
             "py": None,
             "go": None,
             "js": None,
+            "langs": {},
             "summary": err.splitlines()[-1] if err else "emit failed",
             "critiques": _critiques_from_compile(err),
         }
+    langs = {}
+    if lang_dir.is_dir():
+        for p in sorted(lang_dir.iterdir()):
+            if p.is_file():
+                langs[p.name] = p.read_text(encoding="utf-8", errors="replace")
+    n = len(langs)
     return {
         "ok": True,
         "phase": "emit",
@@ -208,7 +246,8 @@ def _emit_only(cuni: Path, work: Path, main: Path) -> dict:
         "py": py_out.read_text(encoding="utf-8") if py_out.is_file() else "",
         "go": go_out.read_text(encoding="utf-8") if go_out.is_file() else "",
         "js": js_out.read_text(encoding="utf-8") if js_out.is_file() else "",
-        "summary": "emit: ok (py/go/js)",
+        "langs": langs,
+        "summary": f"emit: ok ({n} languages; exactness still py/go/js)",
         "critiques": [],
         "_paths": {"py": py_out, "go": go_out, "js": js_out, "main": main, "work": work},
     }
@@ -329,10 +368,11 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 "py": py_src,
                 "go": go_src,
                 "js": js_src,
+                "langs": emit_res.get("langs") or {},
                 "stdout": {},
                 "run_errors": {},
                 "exactness": "n/a",
-                "summary": "emit: ok (py/go/js)",
+                "summary": emit_res.get("summary") or "emit: ok",
                 "check_log": "",
                 "critiques": [],
             }
@@ -383,6 +423,7 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
             "py": py_src,
             "go": go_src,
             "js": js_src,
+            "langs": emit_res.get("langs") or {},
             "stdout": stdout,
             "run_errors": run_errs,
             "exactness": "PASS" if exact_pass else "FAIL",
@@ -512,6 +553,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "python": shutil.which("python3"),
                     "go": shutil.which("go"),
                     "node": shutil.which("node"),
+                    "lang_count": len(list_langs()),
                     "host": DEFAULT_HOST,
                     "timeout": TIMEOUT,
                     "max_concurrent": MAX_CONCURRENT,
@@ -537,6 +579,17 @@ class Handler(SimpleHTTPRequestHandler):
             )
         if path == "/api/examples":
             return self._json(200, {"examples": list_examples()})
+        if path == "/api/langs":
+            langs = list_langs()
+            return self._json(
+                200,
+                {
+                    "ok": True,
+                    "count": len(langs),
+                    "exactness": ["py", "go", "js"],
+                    "langs": langs,
+                },
+            )
         if path == "/api/agent/skills":
             if not agent_lib or not agent_lib.agent_available():
                 return self._json(503, {"ok": False, "error": "agent pack not available"})
@@ -949,6 +1002,7 @@ def main() -> None:
     print("  POST /api/publish  exactness gate → Rider metadata (+ remote if CUNI_RIDER_URL)")
     print("  POST /api/rider/register  |  GET /api/rider/registered  (Studio Rider stub)")
     print("  GET/POST /api/notelog   |  /api/criticbook")
+    print("  GET /api/langs   emit catalog (exactness still py/go/js)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

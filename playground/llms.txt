@@ -1,6 +1,6 @@
 # CuNi (Code:uNiTY)
 
-> Exact multi-target compiler — Python, Go, JavaScript. Same source, exactness-checked multi-runtime.
+> Emit every coding language from one CuNi source. Exactness still runs Python, Go, JavaScript — same stdout or refuse.
 
 ## Agent discovery
 - Studio: https://cuni-studio.fly.dev/

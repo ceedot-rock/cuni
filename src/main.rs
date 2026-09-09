@@ -1,9 +1,11 @@
 mod ast;
 mod check;
 mod checks;
+mod codegen_all;
 mod codegen_go;
 mod codegen_js;
 mod codegen_py;
+mod langs;
 mod lexer;
 mod modules;
 mod parser;
@@ -24,6 +26,7 @@ cuni — CuNi (Code:uNiTY) compiler
 Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep]
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
+               [--emit-all <dir>] [--list-langs]
   cuni --help
   cuni --version
 
@@ -33,8 +36,10 @@ Commands:
           Prints:  exactness: PASS (py/go/js)
 
 Emit mode:
+  --emit-all DIR writes every language in the catalog (py/go/js use the
+  quality printers; the rest share the all-language printer).
+  Exactness still *runs* only py/go/js.
   With no --emit-* flags, prints the parsed AST (debug) after type-checking.
-  `use name` loads <dir>/<name>.cuni relative to the source file.
 "
     );
 }
@@ -178,9 +183,21 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     let mut emit_py: Option<String> = None;
     let mut emit_go: Option<String> = None;
     let mut emit_js: Option<String> = None;
+    let mut emit_all: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
-        if args[i] == "--emit-py" {
+        if args[i] == "--list-langs" {
+            for l in langs::LANGS {
+                println!("{}\t{}\t.{}", l.id, l.name, l.ext);
+            }
+            return ExitCode::SUCCESS;
+        } else if args[i] == "--emit-all" {
+            emit_all = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-all requires a directory");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-py" {
             emit_py = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-py requires an output path");
                 std::process::exit(1);
@@ -264,6 +281,27 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
         eprintln!("cuni: wrote {}", out_path);
+        emitted_any = true;
+    }
+    if let Some(dir) = emit_all {
+        if let Err(e) = fs::create_dir_all(&dir) {
+            eprintln!("cuni: couldn't create {}: {}", dir, e);
+            return ExitCode::FAILURE;
+        }
+        for lang in langs::LANGS {
+            let src = match lang.id {
+                "py" => codegen_py::generate(&program),
+                "go" => codegen_go::generate(&program),
+                "js" | "ts" => codegen_js::generate(&program),
+                _ => codegen_all::generate(&program, lang),
+            };
+            let path = format!("{}/{}", dir, lang.out_file());
+            if let Err(e) = fs::write(&path, src) {
+                eprintln!("cuni: couldn't write {}: {}", path, e);
+                return ExitCode::FAILURE;
+            }
+        }
+        eprintln!("cuni: wrote {} languages to {}", langs::LANGS.len(), dir);
         emitted_any = true;
     }
     if !emitted_any {
