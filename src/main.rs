@@ -13,6 +13,7 @@ mod langs;
 mod lexer;
 mod modules;
 mod parser;
+mod said;
 mod token;
 mod typeck;
 

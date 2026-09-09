@@ -12,6 +12,8 @@ A CuNi program with no `ext` blocks **emits and runs** on every language in the 
 
 Native seats today: Python, Go, JavaScript, TypeScript, C, C++, Rust. Other catalog ids still emit+run (Python lowering until that seat is native). `--receipt` records `native` vs `lowering`.
 
+A citizen receipt (`cuni check --receipt`) carries `source_hash`: SHA-256 of the `.cuni` bytes. The program is that hash, not the path. Agent-Rider refuses register if a claimed hash does not match the source.
+
 ## 2. Speech is not law
 
 Models may talk. They may not ship. A program is a **citizen** only after exactness PASS. Agent-Rider refuses contract register unless `exactness.passed === true`.

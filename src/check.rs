@@ -8,6 +8,7 @@ use crate::langs::{self, Lang};
 use crate::lexer::Lexer;
 use crate::modules;
 use crate::parser::Parser;
+use crate::said;
 use crate::typeck;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,6 +28,7 @@ pub struct TargetResult {
 #[derive(Debug)]
 pub struct CheckReport {
     pub path: PathBuf,
+    pub source_hash: String,
     pub front_ok: bool,
     pub front_err: Option<String>,
     pub targets: Vec<TargetResult>,
@@ -163,8 +165,10 @@ pub fn check_file_only(
     timeout: Duration,
     only: Option<&[String]>,
 ) -> CheckReport {
+    let source = fs::read_to_string(path).unwrap_or_default();
     let mut report = CheckReport {
         path: path.to_path_buf(),
+        source_hash: said::said(&source),
         front_ok: false,
         front_err: None,
         targets: Vec::new(),
@@ -406,13 +410,37 @@ pub fn receipt_json(report: &CheckReport) -> String {
     }
     seats.push(']');
     format!(
-        "{{\n  \"path\": {:?},\n  \"exact\": {},\n  \"summary\": {:?},\n  \"langs\": {},\n  \"seats\": {}\n}}\n",
+        "{{\n  \"path\": {:?},\n  \"source_hash\": {:?},\n  \"exact\": {},\n  \"summary\": {:?},\n  \"langs\": {},\n  \"seats\": {}\n}}\n",
         report.path.display().to_string(),
+        report.source_hash,
         report.exact,
         report.summary,
         report.targets.len(),
         seats
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn receipt_names_the_program_not_the_path() {
+        let src = "fn main() { say(1) }\n";
+        let report = CheckReport {
+            path: PathBuf::from("ignored.cuni"),
+            source_hash: said::said(src),
+            front_ok: true,
+            front_err: None,
+            targets: vec![],
+            exact: true,
+            summary: "exactness: PASS (0 langs)".into(),
+        };
+        let rec = receipt_json(&report);
+        assert!(rec.contains("source_hash"));
+        assert!(rec.contains(&said::said(src)));
+        assert_ne!(said::said(src), said::said("fn main() { say(2) }\n"));
+    }
 }
 
 /// Gold stdout: Python native seat of a passing (or attempted) check.
