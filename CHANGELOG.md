@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.9] — 2026-09-09
+
+### Added
+- **`source_hash` on `--receipt`** — SHA-256 of the `.cuni` bytes. The program is that hash, not the path. Agent-Rider refuses register on mismatch.
+- Protocol surfaces: `PROTOCOL.md`, `/.well-known/cuni-protocol.json`.
+
+### Changed
+- **`cuni check` emit+runs every catalog language (119).** Native seats: py, go, js, ts, c, cpp, rs. Other ids: Python lowering so the gate still runs.
+- Native seats **c / cpp / rs** covering `full.cuni`.
+- `cuni ingest` (Python v1 subset) and `cuni prove --against`.
+- Lab laws under `examples/laws/` (suite meter, catalog SKUs, Rider fee, spend cap).
+- py/js integer `/` truncates toward zero so money laws match Go/C/Rust.
+
 ## [Unreleased] — 119-language seat
 
 ### Added
