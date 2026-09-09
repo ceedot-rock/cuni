@@ -1,12 +1,13 @@
 # Changelog
 
-## [Unreleased] — emit every coding language
+## [0.1.8] — 2026-09-09
 
 ### Added
-- **`--emit-all DIR`** writes the full language catalog (`src/langs.rs`)
+- **`--emit-all DIR`** writes the full language catalog (`src/langs.rs`, 119 printers)
 - **`--list-langs`** lists id / name / extension
 - Studio language picker + `GET /api/langs`
 - Honest split: catalog emit vs exactness (still py/go/js only)
+- Studio stays up: `auto_stop_machines = "off"`, `min_machines_running = 1`
 
 ## [Unreleased] — Studio host + SEO
 

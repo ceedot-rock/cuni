@@ -14,13 +14,13 @@
   <a href="https://cuni-studio.fly.dev/"><img src="https://img.shields.io/badge/playground-live-3dd68c.svg" alt="Playground live" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7"><img src="https://img.shields.io/badge/version-0.1.7-cyan.svg" alt="v0.1.7" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.8"><img src="https://img.shields.io/badge/version-0.1.8-cyan.svg" alt="v0.1.8" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GNU GPLv3" /></a>
 </p>
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.**
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages (family printers). Exactness still *runs* only py/go/js. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.7.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages (family printers). Exactness still *runs* only py/go/js. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.8.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -108,7 +108,7 @@ cargo build --release
   <img src="assets/link-demo.gif" alt="CuNi link demo: Go server, Python JS Go clients all print hello Cee x3" width="720" />
 </p>
 
-Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni) · [Release notes](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7)
+Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni) · [Release notes](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.8)
 
 ### 30s demo (exactness)
 
@@ -124,7 +124,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 
 ```bash
 # install the cuni binary onto your PATH
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.7
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.8
 # packaging options (draft): docs/PACKAGING.md · packaging/homebrew/cuni.rb
 
 # or clone and build from source
@@ -246,9 +246,9 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.7)
+## Status (v0.1.8)
 
-**Shipped:** lexer/parser, three codegens, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with Notelog + Critic Book, Exactness **CI + badge**, flagship **link demo**, Studio → Rider publish/register stub, Agent `spend` skill.
+**Shipped:** lexer/parser, quality backends for Python/Go/JS, `--emit-all` language catalog, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**.
 
 **Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
 

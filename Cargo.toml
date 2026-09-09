@@ -1,6 +1,6 @@
 [package]
 name = "cuni"
-version = "0.1.6"
+version = "0.1.8"
 edition = "2021"
 description = "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript"
 license = "GPL-3.0-only"
