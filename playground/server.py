@@ -61,6 +61,7 @@ PHI_REST = PhiRest(
         "sitemap.xml",
         "PROTOCOL.md",
         "protocol.json",
+        ".well-known/cuni-protocol.json",
     ],
 )
 
@@ -615,6 +616,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not handle_list_registered:
                 return self._json(503, {"ok": False, "error": "rider_stub not available"})
             return self._json(*handle_list_registered(DATA))
+        if path in ("/PROTOCOL.md", "/protocol.md"):
+            self.path = "/PROTOCOL.md"
+            path = "/PROTOCOL.md"
         if path in ("/", ""):
             self.path = "/index.html"
             path = "/index.html"
@@ -633,6 +637,7 @@ class Handler(SimpleHTTPRequestHandler):
                 ".json": "application/json; charset=utf-8",
                 ".txt": "text/plain; charset=utf-8",
                 ".xml": "application/xml; charset=utf-8",
+                ".md": "text/markdown; charset=utf-8",
             }.get(ext, "application/octet-stream")
             self.send_response(200)
             self.send_header("Content-Type", ctype)

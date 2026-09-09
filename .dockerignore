@@ -9,6 +9,8 @@ docs/growth/
 .grok/
 **/*.md
 !README.md
+!PROTOCOL.md
+!playground/PROTOCOL.md
 tests/
 **/.DS_Store
 **/node_modules/
