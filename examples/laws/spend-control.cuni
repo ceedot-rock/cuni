@@ -1,0 +1,17 @@
+# Re-export flagship agent law into /laws so products pin one path.
+# Speech may talk. This is what may spend.
+
+def can_spend(amount: int, cap: int) -> bool do
+    ret amount <= cap
+end
+
+def as_int(b: bool) -> int do
+    if b do
+        ret 1
+    end
+    ret 0
+end
+
+say(as_int(can_spend(4, 5)))
+say(as_int(can_spend(9, 5)))
+say(as_int(can_spend(5, 5)))

@@ -1,5 +1,6 @@
-//! Printers for every language in `langs`. Same AST as py/go/js.
-//! Exactness still *runs* only py/go/js. These are derived emits.
+//! Family-flavored printers (syntax sketches). Exactness does **not** use
+//! these — `emit::generate_exact` is the §2 path and runs every catalog id.
+#![allow(dead_code)]
 
 use crate::ast::*;
 use crate::langs::{Family, Lang};

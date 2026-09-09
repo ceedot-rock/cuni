@@ -1,0 +1,11 @@
+# Agent-Rider marketplace fee: 5% of reward, integer floor.
+# Must match src/lib/tasks.ts TASK_FEE_RATE default 0.05.
+
+def task_fee(reward: int) -> int do
+    ret (reward * 5) / 100
+end
+
+say(task_fee(0))
+say(task_fee(99))
+say(task_fee(100))
+say(task_fee(1000))

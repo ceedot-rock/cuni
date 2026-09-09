@@ -1,13 +1,10 @@
-# Commercial exception
+# Commercial grant
 
-This package is **GNU GPLv3** in public.
+CuNi is dual-licensed **AGPL-3.0-or-later OR Slid Phi Labs Commercial**.
 
-To distribute it **inside a closed-source product**, you need a written commercial exception from Slid Phi Labs / Corey Tasz.
+Chooser: [LICENSE](LICENSE) · Copyleft: [LICENSE.AGPL-3.0](LICENSE.AGPL-3.0) · Commercial: [LICENSE.COMMERCIAL](LICENSE.COMMERCIAL)
 
-- SoT: https://www.slidphilabs.com/licensing.json
-- Terms: https://www.slidphilabs.com/COMMERCIAL-LICENSE.md
-- Inbox: corey@slidphilabs.com
+SKU `cuni-exception` $490/year: https://www.slidphilabs.com/pay?sku=cuni-exception
 
-This exception never includes Combined GC, AWARE residual, Chamber kernel, or Agent-Rider keys.
-Hosted seats are access, not a grant of the engine.
-$199 support SKUs are help, not this grant, unless the invoice says so.
+SoT: https://www.slidphilabs.com/licensing.json
+Inbox: corey@slidphilabs.com

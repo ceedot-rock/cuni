@@ -34,3 +34,4 @@ __pycache__/
 **/mint-*.json
 **/*buyback*
 **/*sell-all*
+dist/

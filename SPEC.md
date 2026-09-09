@@ -25,13 +25,15 @@ The one deliberate exception is the `ext` block (see §9), which is an explicit,
 
 ## 3. v1 Target Languages
 
-**Python, JavaScript, Go.**
+**Python, JavaScript, Go** are the native quality backends (garbage-collected, reference semantics). TypeScript uses the JavaScript backend.
 
-All three are garbage-collected with reference semantics, which is why they can share one core without an ownership/borrowing model. Rust is deliberately excluded from v1: its ownership rules would force a three-way own/borrow-mut/borrow-immut annotation onto every binding and function signature, reshaping the entire core before it's even validated elsewhere. Rust is a candidate v2 target; adding it may require a breaking change to how bindings and functions are declared.
+CuNi is **119 languages** (`src/langs.rs`). `cuni check` and `--emit-all` apply §2 to every id: emit, run, identical stdout, or refuse.
 
-### 3.1 Emit catalog (not exactness targets)
+**Native seats today:** Python (`python3`), Go (`go run`), JavaScript and TypeScript (`node`), C (`gcc`), C++ (`g++`), Rust (`rustc`). See `docs/SEATS.md`.
 
-`cuni --emit-all DIR` and `cuni --list-langs` print the same AST into every language in `src/langs.rs`. Those extra printers are family-derived source dumps. They are **not** §2 supported targets: exactness still *runs* only Python, Go, and JavaScript. Listing a language in the catalog is not a claim that the emitted file compiles or matches stdout on that runtime.
+Until a catalog id has a native backend, its exactness artifact is a Python lowering so the seat still **runs** rather than being skipped. `--receipt` records `native` vs `lowering` per id.
+
+`cuni ingest` reverses a tiny Python subset into CuNi (or refuses). `cuni prove file.cuni --against impl.py` requires a foreign implementation to match CuNi gold stdout.
 
 ## 4. Lexical Basics
 

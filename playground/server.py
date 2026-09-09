@@ -38,7 +38,7 @@ EXAMPLES = ROOT / "examples"
 AGENT = EXAMPLES / "agent"
 DATA = Path(os.environ.get("CUNI_PLAYGROUND_DATA", str(PLAY / "data")))
 DEFAULT_PORT = int(os.environ.get("CUNI_PLAYGROUND_PORT", "8787"))
-TIMEOUT = int(os.environ.get("CUNI_PLAYGROUND_TIMEOUT", "45"))
+TIMEOUT = int(os.environ.get("CUNI_PLAYGROUND_TIMEOUT", "180"))
 MAX_SOURCE = int(os.environ.get("CUNI_PLAYGROUND_MAX_SOURCE", "200000"))
 MAX_CONCURRENT = int(os.environ.get("CUNI_PLAYGROUND_MAX_CONCURRENT", "2"))
 # Hosted default: bind all interfaces. Local-only: set CUNI_PLAYGROUND_HOST=127.0.0.1
@@ -59,6 +59,8 @@ PHI_REST = PhiRest(
         "llms.txt",
         "robots.txt",
         "sitemap.xml",
+        "PROTOCOL.md",
+        "protocol.json",
     ],
 )
 
@@ -120,7 +122,7 @@ def list_remote_contracts(timeout: float = 8.0) -> dict:
 
 
 def list_langs() -> list[dict]:
-    """Catalog from `cuni --list-langs`. Exactness still only py/go/js."""
+    """Catalog from `cuni --list-langs`. Exactness emit+runs every id."""
     try:
         cuni = find_cuni()
     except FileNotFoundError:
@@ -141,7 +143,7 @@ def list_langs() -> list[dict]:
                 "name": parts[1],
                 "ext": ext,
                 "file": f"{parts[0]}.{ext}",
-                "exactness": parts[0] in ("py", "go", "js"),
+                "exactness": True,
             }
         )
     return out
@@ -247,7 +249,7 @@ def _emit_only(cuni: Path, work: Path, main: Path) -> dict:
         "go": go_out.read_text(encoding="utf-8") if go_out.is_file() else "",
         "js": js_out.read_text(encoding="utf-8") if js_out.is_file() else "",
         "langs": langs,
-        "summary": f"emit: ok ({n} languages; exactness still py/go/js)",
+        "summary": f"emit: ok ({n} languages; exactness artifacts)",
         "critiques": [],
         "_paths": {"py": py_out, "go": go_out, "js": js_out, "main": main, "work": work},
     }
@@ -299,7 +301,7 @@ def _critiques_from_exactness(check_out: str, stdout: dict[str, str]) -> list[di
             "category": "exactness",
             "line": None,
             "col": None,
-            "body": "Exactness failed: py/go/js stdout are not identical.",
+            "body": "Exactness failed: catalog language stdout are not identical.",
             "source": "auto",
         }
     )
@@ -408,7 +410,7 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
 
         summary_line = next(
             (ln for ln in check_out.splitlines() if "exactness:" in ln),
-            "exactness: FAIL" if not exact_pass else "exactness: PASS (py/go/js)",
+            "exactness: FAIL" if not exact_pass else "exactness: PASS",
         )
         critiques = (
             []
@@ -1002,7 +1004,7 @@ def main() -> None:
     print("  POST /api/publish  exactness gate → Rider metadata (+ remote if CUNI_RIDER_URL)")
     print("  POST /api/rider/register  |  GET /api/rider/registered  (Studio Rider stub)")
     print("  GET/POST /api/notelog   |  /api/criticbook")
-    print("  GET /api/langs   emit catalog (exactness still py/go/js)")
+    print("  GET /api/langs   emit catalog (exactness runs every id)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

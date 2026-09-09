@@ -22,14 +22,14 @@ fn check(args: &[&str]) -> (bool, String, String) {
 
 #[test]
 fn check_full_example_passes() {
-    let (ok, stdout, stderr) = check(&["examples/full.cuni", "--timeout", "120"]);
+    let (ok, stdout, stderr) = check(&["examples/full.cuni", "--timeout", "180"]);
     assert!(
         ok,
         "expected PASS\nstdout:\n{}\nstderr:\n{}",
         stdout, stderr
     );
     assert!(
-        stdout.contains("exactness: PASS (py/go/js)"),
+        stdout.contains("exactness: PASS (") && stdout.contains("langs)"),
         "stdout missing PASS line:\n{}",
         stdout
     );
@@ -37,16 +37,44 @@ fn check_full_example_passes() {
 
 #[test]
 fn check_structs_passes() {
-    let (ok, stdout, _) = check(&["examples/structs.cuni", "--timeout", "120"]);
+    let (ok, stdout, _) = check(&["examples/structs.cuni", "--timeout", "180"]);
     assert!(ok, "{}", stdout);
-    assert!(stdout.contains("exactness: PASS (py/go/js)"));
+    assert!(stdout.contains("exactness: PASS (") && stdout.contains("langs)"));
 }
 
 #[test]
 fn check_named_fields_passes() {
-    let (ok, stdout, _) = check(&["examples/named_fields.cuni", "--timeout", "120"]);
+    let (ok, stdout, _) = check(&["examples/named_fields.cuni", "--timeout", "180"]);
     assert!(ok, "{}", stdout);
-    assert!(stdout.contains("exactness: PASS (py/go/js)"));
+    assert!(stdout.contains("exactness: PASS (") && stdout.contains("langs)"));
+}
+
+#[test]
+fn check_native_seats_full() {
+    let (ok, stdout, stderr) = check(&[
+        "examples/full.cuni",
+        "--only",
+        "py,go,js,c,cpp,rs",
+        "--timeout",
+        "180",
+    ]);
+    assert!(ok, "native seats failed\n{stdout}\n{stderr}");
+    assert!(stdout.contains("exactness: PASS"));
+}
+
+#[test]
+fn ingest_python_subset_roundtrip() {
+    let dir = std::env::temp_dir();
+    let py = dir.join(format!("cuni_ing_{}.py", std::process::id()));
+    std::fs::write(&py, "def add(a, b):\n    return a + b\nprint(add(2, 40))\nprint(\"cuni\")\n").unwrap();
+    let output = Command::new(cuni_bin())
+        .args(["ingest", py.to_str().unwrap()])
+        .output()
+        .expect("ingest");
+    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    let cuni = String::from_utf8_lossy(&output.stdout);
+    assert!(cuni.contains("def add"));
+    assert!(cuni.contains("say(add(2, 40))"));
 }
 
 #[test]

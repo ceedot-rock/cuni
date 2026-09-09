@@ -1,0 +1,27 @@
+{
+  "name": "CuNi Protocol",
+  "id": "cuni-protocol",
+  "version": "1.0.0",
+  "spec": "https://cuni-studio.fly.dev/PROTOCOL.md",
+  "canonical": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
+  "github": "https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md",
+  "rule": "emit+run identical stdout on every catalog language, or refuse",
+  "catalog_languages": 119,
+  "native_seats": ["py", "go", "js", "ts", "c", "cpp", "rs"],
+  "commands": ["check", "ingest", "prove", "emit-all"],
+  "citizenship": "exactness.passed must be true before Agent-Rider register",
+  "laws": {
+    "suite-meter": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/suite-meter.cuni",
+    "catalog-plans": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/catalog-plans.cuni",
+    "rider-fee": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/rider-fee.cuni",
+    "spend-control": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/spend-control.cuni"
+  },
+  "discovery": {
+    "studio": "https://cuni-studio.fly.dev/",
+    "agents_json": "https://cuni-studio.fly.dev/agents.json",
+    "llms_txt": "https://cuni-studio.fly.dev/llms.txt",
+    "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
+    "mcp": "https://agentrider.fly.dev/api/mcp",
+    "lab": "https://www.slidphilabs.com/api/agent"
+  }
+}

@@ -22,7 +22,7 @@ cargo build --release
   examples/full.cuni examples/structs.cuni examples/enums.cuni
 ```
 
-Exit **0** only when every listed program prints **`exactness: PASS (py/go/js)`**.
+Exit **0** only when every listed program prints **`exactness: PASS (N langs)`**.
 
 ## What is checked vs not
 

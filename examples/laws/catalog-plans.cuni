@@ -1,0 +1,46 @@
+# Public SKU prices in integer cents. Site copy must match these.
+
+def sku_cents(sku: int) -> int do
+    if sku == 1 do
+        ret 900
+    end
+    if sku == 2 do
+        ret 4900
+    end
+    if sku == 3 do
+        ret 49000
+    end
+    if sku == 4 do
+        ret 900
+    end
+    if sku == 5 do
+        ret 9900
+    end
+    if sku == 6 do
+        ret 7900
+    end
+    if sku == 7 do
+        ret 79000
+    end
+    if sku == 8 do
+        ret 0
+    end
+    if sku == 9 do
+        ret 49000
+    end
+    ret 0
+end
+
+# 1 aware-day 2 aware-month 3 aware-year
+# 4 chamber-month 5 chamber-year
+# 6 rider-month 7 rider-year
+# 8 cuni-studio 9 cuni-exception
+say(sku_cents(1))
+say(sku_cents(2))
+say(sku_cents(3))
+say(sku_cents(4))
+say(sku_cents(5))
+say(sku_cents(6))
+say(sku_cents(7))
+say(sku_cents(8))
+say(sku_cents(9))

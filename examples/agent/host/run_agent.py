@@ -37,7 +37,7 @@ SESSION_DIR = Path(
 QUARANTINE_DIR = Path(
     os.environ.get("CUNI_AGENT_QUARANTINE", str(AGENT / "quarantine"))
 )
-TIMEOUT = int(os.environ.get("CUNI_AGENT_TIMEOUT", "45"))
+TIMEOUT = int(os.environ.get("CUNI_AGENT_TIMEOUT", "180"))
 MEMORY_TURNS = int(os.environ.get("CUNI_AGENT_MEMORY_TURNS", "6"))
 
 
@@ -610,7 +610,11 @@ def main() -> None:
     ap.add_argument("--skill", choices=skill_ids, default=None)
     ap.add_argument("--llm", action="store_true")
     ap.add_argument("--check-all", action="store_true")
-    ap.add_argument("--skip-check", action="store_true")
+    ap.add_argument(
+        "--skip-check",
+        action="store_true",
+        help="do not use: skips the law gate; result is not a citizen",
+    )
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--repl", action="store_true")
     ap.add_argument(

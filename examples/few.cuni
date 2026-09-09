@@ -1,0 +1,6 @@
+def add(a: int, b: int) -> int do
+    ret a + b
+end
+
+say(add(2, 40))
+say("cuni")

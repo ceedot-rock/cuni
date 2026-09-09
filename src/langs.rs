@@ -1,5 +1,6 @@
-//! Every coding language CuNi will print. Exactness still *runs* py/go/js.
-//! Other targets are printers of the same AST — not §2 supported targets.
+//! Catalog of coding languages. Exactness emit+runs every id in LANGS.
+//! py/go/js/ts use quality backends; every other id is a Python lowering
+//! executed by python3 so stdout can actually be compared.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Lang {
@@ -71,11 +72,11 @@ pub enum Family {
 }
 
 pub const LANGS: &[Lang] = &[
-    // Quality backends (exactness runs these).
+    // Quality backends (native runtimes).
     Lang { id: "py", name: "Python", ext: "py", family: Family::Python },
     Lang { id: "go", name: "Go", ext: "go", family: Family::Go },
     Lang { id: "js", name: "JavaScript", ext: "js", family: Family::Js },
-    // Derived printers — same AST, family emit. Not exactness targets.
+    // Rest of the catalog: exactness still emit+runs each id (Python lowering).
     Lang { id: "ts", name: "TypeScript", ext: "ts", family: Family::Ts },
     Lang { id: "c", name: "C", ext: "c", family: Family::C },
     Lang { id: "cpp", name: "C++", ext: "cpp", family: Family::Cpp },

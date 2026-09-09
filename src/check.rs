@@ -1,14 +1,10 @@
-//! Exactness check: emit py/go/js, run each, require identical stdout.
-//!
-//! This is the product surface for SPEC.md §2 — "compile-or-refuse" plus
-//! runtime agreement across all v1 targets. Exit status is the platform API:
-//! 0 = exactness PASS, 1 = FAIL.
+//! Exactness check: emit every catalog language, run each, require identical
+//! stdout. SPEC.md §2 — compile-or-refuse. Exit 0 = PASS, 1 = FAIL.
 
 use crate::ast::Program;
 use crate::checks;
-use crate::codegen_go;
-use crate::codegen_js;
-use crate::codegen_py;
+use crate::emit;
+use crate::langs::{self, Lang};
 use crate::lexer::Lexer;
 use crate::modules;
 use crate::parser::Parser;
@@ -101,48 +97,32 @@ pub fn load_program(path: &Path) -> Result<Program, String> {
     Ok(program)
 }
 
-fn emit_for(program: &Program, target: &str, out: &Path) -> Result<(), String> {
-    match target {
-        "py" => {
-            if let Some(name) = checks::find_ext_collision(program, "py") {
-                return Err(format!(
-                    "`ext {}` shadows the Python builtin `{}` inside its own py: body",
-                    name, name
-                ));
-            }
-            fs::write(out, codegen_py::generate(program)).map_err(|e| e.to_string())
+fn emit_for(program: &Program, lang: &Lang, out: &Path) -> Result<(), String> {
+    if lang.id == "py" || emit::seat_kind(lang) == emit::SeatKind::Lowering {
+        if let Some(name) = checks::find_ext_collision(program, "py") {
+            return Err(format!(
+                "`ext {}` shadows the Python builtin `{}` inside its own py: body",
+                name, name
+            ));
         }
-        "go" => fs::write(out, codegen_go::generate(program)).map_err(|e| e.to_string()),
-        "js" => {
-            if let Some(name) = checks::find_ext_collision(program, "js") {
-                return Err(format!(
-                    "`ext {}` shadows the JS global `{}` inside its own js: body",
-                    name, name
-                ));
-            }
-            fs::write(out, codegen_js::generate(program)).map_err(|e| e.to_string())
-        }
-        _ => Err(format!("unknown target {}", target)),
     }
+    if lang.id == "js" || lang.id == "ts" {
+        if let Some(name) = checks::find_ext_collision(program, "js") {
+            return Err(format!(
+                "`ext {}` shadows the JS global `{}` inside its own js: body",
+                name, name
+            ));
+        }
+    }
+    fs::write(out, emit::generate_exact(program, lang)).map_err(|e| e.to_string())
 }
 
-fn run_target(target: &str, artifact: &Path, timeout: Duration) -> Result<String, String> {
-    let (cmd, args): (String, Vec<String>) = match target {
-        "py" => (
-            "python3".into(),
-            vec![artifact.to_string_lossy().into_owned()],
-        ),
-        "go" => (
-            "go".into(),
-            vec!["run".into(), artifact.to_string_lossy().into_owned()],
-        ),
-        "js" => (
-            "node".into(),
-            vec![artifact.to_string_lossy().into_owned()],
-        ),
-        _ => return Err(format!("unknown target {}", target)),
-    };
-    run_blocking(&cmd, &args, timeout)
+fn run_target(lang: &Lang, artifact: &Path, timeout: Duration) -> Result<String, String> {
+    let plan = emit::exec_plan(lang, artifact);
+    if let Some((cmd, args)) = plan.compile {
+        run_blocking(&cmd, &args, timeout)?;
+    }
+    run_blocking(&plan.run.0, &plan.run.1, timeout)
 }
 
 fn run_blocking(cmd: &str, args: &[String], timeout: Duration) -> Result<String, String> {
@@ -172,7 +152,17 @@ fn run_blocking(cmd: &str, args: &[String], timeout: Duration) -> Result<String,
 }
 
 /// Check one `.cuni` source for cross-target exactness.
+#[allow(dead_code)]
 pub fn check_file(path: &Path, work_dir: &Path, timeout: Duration) -> CheckReport {
+    check_file_only(path, work_dir, timeout, None)
+}
+
+pub fn check_file_only(
+    path: &Path,
+    work_dir: &Path,
+    timeout: Duration,
+    only: Option<&[String]>,
+) -> CheckReport {
     let mut report = CheckReport {
         path: path.to_path_buf(),
         front_ok: false,
@@ -198,23 +188,33 @@ pub fn check_file(path: &Path, work_dir: &Path, timeout: Duration) -> CheckRepor
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("prog");
-    let targets = ["py", "go", "js"];
-    let exts = ["py", "go", "js"];
 
-    for (target, ext) in targets.iter().zip(exts.iter()) {
-        let out = work_dir.join(format!("{}.{}", stem, ext));
+    let langs: Vec<&Lang> = langs::LANGS
+        .iter()
+        .filter(|l| {
+            only.map(|ids| ids.iter().any(|id| id == l.id || id == l.ext))
+                .unwrap_or(true)
+        })
+        .collect();
+    if langs.is_empty() {
+        report.summary = "exactness: FAIL — --only matched no catalog languages".into();
+        return report;
+    }
+
+    for lang in langs {
+        let out = work_dir.join(format!("{}_{}", stem, lang.out_file()));
         let mut tr = TargetResult {
-            target,
+            target: lang.id,
             emit_ok: false,
             emit_err: None,
             run_ok: false,
             run_err: None,
             stdout: None,
         };
-        match emit_for(&program, target, &out) {
+        match emit_for(&program, lang, &out) {
             Ok(()) => {
                 tr.emit_ok = true;
-                match run_target(target, &out, timeout) {
+                match run_target(lang, &out, timeout) {
                     Ok(stdout) => {
                         tr.run_ok = true;
                         tr.stdout = Some(stdout);
@@ -227,7 +227,7 @@ pub fn check_file(path: &Path, work_dir: &Path, timeout: Duration) -> CheckRepor
         report.targets.push(tr);
     }
 
-    // Exactness: all three emitted, ran, and stdout equal
+    let n = report.targets.len();
     let all_ok = report.targets.iter().all(|t| t.emit_ok && t.run_ok);
     if !all_ok {
         let mut parts = Vec::new();
@@ -235,7 +235,11 @@ pub fn check_file(path: &Path, work_dir: &Path, timeout: Duration) -> CheckRepor
             if let Some(e) = &t.emit_err {
                 parts.push(format!("{} emit refused: {}", t.target, e));
             } else if let Some(e) = &t.run_err {
-                parts.push(format!("{} run failed: {}", t.target, e.lines().next().unwrap_or("")));
+                parts.push(format!(
+                    "{} run failed: {}",
+                    t.target,
+                    e.lines().next().unwrap_or("")
+                ));
             }
         }
         report.summary = format!("exactness: FAIL — {}", parts.join("; "));
@@ -243,19 +247,28 @@ pub fn check_file(path: &Path, work_dir: &Path, timeout: Duration) -> CheckRepor
         return report;
     }
 
-    let outs: Vec<&str> = report
-        .targets
-        .iter()
-        .map(|t| t.stdout.as_deref().unwrap_or(""))
-        .collect();
-    if outs[0] == outs[1] && outs[1] == outs[2] {
+    let gold = report.targets[0].stdout.as_deref().unwrap_or("");
+    let mut diverged: Vec<&str> = Vec::new();
+    for t in &report.targets {
+        if t.stdout.as_deref().unwrap_or("") != gold {
+            diverged.push(t.target);
+        }
+    }
+    if diverged.is_empty() {
         report.exact = true;
-        report.summary = "exactness: PASS (py/go/js)".into();
+        report.summary = format!("exactness: PASS ({} langs)", n);
     } else {
         report.exact = false;
+        let show: Vec<_> = diverged.iter().take(8).copied().collect();
         report.summary = format!(
-            "exactness: FAIL — stdout diverged\n  --- py ---\n{}\n  --- go ---\n{}\n  --- js ---\n{}",
-            outs[0], outs[1], outs[2]
+            "exactness: FAIL — stdout diverged vs {} for: {}{}",
+            report.targets[0].target,
+            show.join(", "),
+            if diverged.len() > 8 {
+                format!(" (+{} more)", diverged.len() - 8)
+            } else {
+                String::new()
+            }
         );
     }
     report
@@ -309,25 +322,40 @@ pub fn print_report(report: &CheckReport, verbose: bool) {
         return;
     }
     println!("  front-end  ok");
-    for t in &report.targets {
-        if !t.emit_ok {
-            println!(
-                "  emit {:<3}  REFUSE  {}",
-                t.target,
-                t.emit_err.as_deref().unwrap_or("")
-            );
-            continue;
-        }
-        println!("  emit {:<3}  ok", t.target);
-        if !t.run_ok {
-            println!(
-                "  run  {:<3}  FAIL  {}",
-                t.target,
-                t.run_err.as_deref().unwrap_or("").lines().next().unwrap_or("")
-            );
-        } else {
-            println!("  run  {:<3}  ok", t.target);
+    let n = report.targets.len();
+    let ok_n = report
+        .targets
+        .iter()
+        .filter(|t| t.emit_ok && t.run_ok)
+        .count();
+    if report.exact && !verbose {
+        println!("  emit/run {}/{} ok", ok_n, n);
+    } else {
+        for t in &report.targets {
+            if !t.emit_ok {
+                println!(
+                    "  emit {:<8}  REFUSE  {}",
+                    t.target,
+                    t.emit_err.as_deref().unwrap_or("")
+                );
+                continue;
+            }
             if verbose {
+                println!("  emit {:<8}  ok", t.target);
+            }
+            if !t.run_ok {
+                println!(
+                    "  run  {:<8}  FAIL  {}",
+                    t.target,
+                    t.run_err
+                        .as_deref()
+                        .unwrap_or("")
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                );
+            } else if verbose {
+                println!("  run  {:<8}  ok", t.target);
                 if let Some(s) = &t.stdout {
                     for line in s.lines() {
                         println!("           | {}", line);
@@ -337,6 +365,9 @@ pub fn print_report(report: &CheckReport, verbose: bool) {
                     }
                 }
             }
+        }
+        if !verbose {
+            println!("  emit/run {}/{} ok", ok_n, n);
         }
     }
     if report.exact {
@@ -351,4 +382,44 @@ pub fn print_report(report: &CheckReport, verbose: bool) {
             }
         }
     }
+}
+
+pub fn receipt_json(report: &CheckReport) -> String {
+    let mut seats = String::from("[");
+    for (i, t) in report.targets.iter().enumerate() {
+        if i > 0 {
+            seats.push(',');
+        }
+        let kind = langs::LANGS
+            .iter()
+            .find(|l| l.id == t.target)
+            .map(emit::seat_kind)
+            .unwrap_or(emit::SeatKind::Lowering);
+        let kind = match kind {
+            emit::SeatKind::Native => "native",
+            emit::SeatKind::Lowering => "lowering",
+        };
+        seats.push_str(&format!(
+            "{{\"id\":\"{}\",\"seat\":\"{}\",\"emit\":{},\"run\":{}}}",
+            t.target, kind, t.emit_ok, t.run_ok
+        ));
+    }
+    seats.push(']');
+    format!(
+        "{{\n  \"path\": {:?},\n  \"exact\": {},\n  \"summary\": {:?},\n  \"langs\": {},\n  \"seats\": {}\n}}\n",
+        report.path.display().to_string(),
+        report.exact,
+        report.summary,
+        report.targets.len(),
+        seats
+    )
+}
+
+/// Gold stdout: Python native seat of a passing (or attempted) check.
+pub fn gold_stdout(report: &CheckReport) -> Option<&str> {
+    report
+        .targets
+        .iter()
+        .find(|t| t.target == "py" && t.run_ok)
+        .and_then(|t| t.stdout.as_deref())
 }

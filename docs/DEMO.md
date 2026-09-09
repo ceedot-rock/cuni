@@ -8,20 +8,31 @@
 
 ---
 
-## 30-second Studio demo (primary)
+## 30-second demo (primary)
+
+**Live CLI** (repo root, `cargo build --release`):
+
+```bash
+./examples/demo-30s.sh
+```
+
+Shows `examples/few.cuni`, then `cuni check --only py,go,js,c,cpp,rs`. Expect **exactness: PASS (6 langs)** and identical `42` / `cuni` on Python, Go, JavaScript, C, C++, Rust.
+
+**Visual:** [assets/demo-30s.mp4](../assets/demo-30s.mp4) · [HTML](../assets/demo-30s.html)
+
+**Talk track:**  
+*“CuNi is 119 languages. One program. Same stdout — or it refuses.”*
+
+### Studio (same promise)
 
 1. Open **[CuNi Studio](https://cuni-studio.fly.dev/)**  
    → `spend-control.cuni` loads by default (flagship law).
 
 2. Click **Run exactness**.  
-   → Expect **exactness PASS** and identical Python / Go / JavaScript (or a clear refuse).
+   → Expect **exactness PASS** (or a clear refuse).
 
 3. Optional: click **Publish**.  
-   → Exactness PASS → metadata stored → auto-register into Rider stub.  
-   → Footer may show `registered: N`.
-
-**Talk track:**  
-*“One source. Identical py/go/js — or the compiler refuses. That policy is the same law Agent mode runs from speech.”*
+   → Exactness PASS → metadata stored → Rider stub.
 
 ---
 

@@ -4,8 +4,10 @@ Allow: /
 Allow: /llms.txt
 Allow: /agents.txt
 Allow: /agents.json
+Allow: /PROTOCOL.md
+Allow: /.well-known/cuni-protocol.json
 Allow: /api/
 
-# Agent discovery: /llms.txt · /agents.txt · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json
+# Agent discovery: /llms.txt · /PROTOCOL.md · /.well-known/cuni-protocol.json · Agent^Rider https://agentrider.fly.dev/.well-known/agent.json
 # Lab commerce: https://www.slidphilabs.com/api/agent
 Sitemap: https://cuni-studio.fly.dev/sitemap.xml

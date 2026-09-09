@@ -102,6 +102,11 @@ impl Codegen {
         self.line(0, "def say(x):");
         self.line(1, "print(x)");
         self.out.push('\n');
+        self.line(0, "def _cuni_div(a, b):");
+        self.line(1, "if type(a) is int and type(b) is int and b != 0:");
+        self.line(2, "return int(a / b) if a * b < 0 else a // b");
+        self.line(1, "return a / b");
+        self.out.push('\n');
         self.line(0, "class CuNiError(Exception):");
         self.line(1, "\"\"\"Raised by `fail` — CuNi's explicit failure-signaling statement.\"\"\"");
         self.out.push('\n');
@@ -430,7 +435,15 @@ impl Codegen {
             }
             ExprKind::Index { base, index } => format!("{}[{}]", self.gen_expr(base, scope), self.gen_expr(index, scope)),
             ExprKind::Field { base, name } => format!("{}.{}", self.gen_expr(base, scope), name),
-            ExprKind::Binary { op, lhs, rhs } => format!("({} {} {})", self.gen_expr(lhs, scope), py_binop(*op), self.gen_expr(rhs, scope)),
+            ExprKind::Binary { op, lhs, rhs } => {
+                let l = self.gen_expr(lhs, scope);
+                let r = self.gen_expr(rhs, scope);
+                if matches!(op, BinOp::Div) {
+                    format!("_cuni_div({}, {})", l, r)
+                } else {
+                    format!("({} {} {})", l, py_binop(*op), r)
+                }
+            }
             ExprKind::Unary { op, expr } => match op {
                 UnOp::Not => format!("(not {})", self.gen_expr(expr, scope)),
                 UnOp::Neg => format!("(-{})", self.gen_expr(expr, scope)),

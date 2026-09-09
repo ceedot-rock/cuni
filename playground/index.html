@@ -21,15 +21,17 @@
 <link rel="alternate" type="application/json" href="/agents.json" title="agents.json"/>
 <link rel="alternate" type="text/plain" href="/agents.txt" title="agents.txt"/>
 <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt"/>
-<link rel="alternate" type="application/json" href="https://agentrider.vercel.app/.well-known/agent.json" title="Agent^Rider manifest"/>
+<link rel="alternate" type="application/json" href="https://cuni-studio.fly.dev/.well-known/cuni-protocol.json" title="CuNi Protocol"/>
+<link rel="alternate" type="application/json" href="https://agentrider.fly.dev/.well-known/agent.json" title="Agent^Rider manifest"/>
 <link rel="alternate" type="application/json" href="https://www.slidphilabs.com/api/agent" title="Lab agent commerce"/>
 <meta name="agent-commerce" content="x402"/>
 <meta name="agent-protocols" content="x402,mcp"/>
 <meta name="agent-discovery" content="https://cuni-studio.fly.dev/agents.json"/>
-<meta name="agent-rider" content="https://agentrider.vercel.app/.well-known/agent.json"/>
-<meta name="agent-mcp" content="https://agentrider.vercel.app/api/mcp"/>
+<meta name="cuni-protocol" content="https://cuni-studio.fly.dev/.well-known/cuni-protocol.json"/>
+<meta name="agent-rider" content="https://agentrider.fly.dev/.well-known/agent.json"/>
+<meta name="agent-mcp" content="https://agentrider.fly.dev/api/mcp"/>
 <meta name="lab-commerce" content="https://www.slidphilabs.com/api/agent"/>
-<meta name="agent-one-liner" content="CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent"/>
+<meta name="agent-one-liner" content="CuNi Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol.json · Studio https://cuni-studio.fly.dev/ · Rider https://agentrider.fly.dev/.well-known/agent.json"/>
 
     <link rel="alternate" hreflang="en" href="https://cuni-studio.fly.dev/" />
 
@@ -167,7 +169,7 @@
         Example
         <select id="example" aria-label="Load example program"></select>
       </label>
-      <button id="emit" type="button" title="cuni --emit-all — every language; exactness still py/go/js">Emit</button>
+      <button id="emit" type="button" title="cuni --emit-all — every catalog language; check emit+runs them all">Emit</button>
       <button id="check" type="button" title="cuni check">Check</button>
       <button id="run" class="primary" type="button" title="emit + check + stdout">
         Run exactness
@@ -333,7 +335,8 @@
   <strong>Agents:</strong>
   <a href="/agents.json">agents.json</a> ·
   <a href="/llms.txt">llms.txt</a> ·
-  <a href="https://agentrider.vercel.app/.well-known/agent.json">Agent^Rider</a> ·
+  <a href="/.well-known/cuni-protocol.json">CuNi Protocol</a> ·
+  <a href="https://agentrider.fly.dev/.well-known/agent.json">Agent^Rider</a> ·
   <a href="https://www.slidphilabs.com/api/agent">Lab commerce</a>
 </p>
 

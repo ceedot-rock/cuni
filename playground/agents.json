@@ -5,11 +5,12 @@
   "site": {
     "name": "CuNi Studio",
     "url": "https://cuni-studio.fly.dev",
-    "description": "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript. Studio publishes exact policies into Agent^Rider."
+    "description": "CuNi Protocol: 119 languages, one program, same stdout or refuse. Studio publishes exact policies into Agent^Rider."
   },
+  "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
   "mcp": [
     {
-      "url": "https://agentrider.vercel.app/api/mcp",
+      "url": "https://agentrider.fly.dev/api/mcp",
       "type": "streamable-http",
       "description": "Agent^Rider MCP (CuNi publishes exact policies into Rider)"
     }
@@ -17,7 +18,8 @@
   "discovery": {
     "studio": "https://cuni-studio.fly.dev/",
     "github": "https://github.com/ceedot-rock/cuni",
-    "agent_rider": "https://agentrider.vercel.app/.well-known/agent.json",
+    "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
+    "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
     "lab_commerce": "https://www.slidphilabs.com/api/agent",
     "one_liner": "CuNi Studio · exact multi-runtime · Lab dual surface: humans https://www.slidphilabs.com/humans · agents GET https://www.slidphilabs.com/api/agent · map https://www.slidphilabs.com/platform.json",
     "lab_platform": "https://www.slidphilabs.com/platform.json",

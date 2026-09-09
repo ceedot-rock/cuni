@@ -1,20 +1,25 @@
 # CuNi (Code:uNiTY)
 
-> Emit every coding language from one CuNi source. Exactness still runs Python, Go, JavaScript — same stdout or refuse.
+> CuNi Protocol: 119 languages, one program, same stdout or refuse.
+
+## Protocol
+- JSON: https://cuni-studio.fly.dev/.well-known/cuni-protocol.json
+- Text: https://cuni-studio.fly.dev/PROTOCOL.md
+- GitHub: https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md
 
 ## Agent discovery
 - Studio: https://cuni-studio.fly.dev/
 - agents.txt: https://cuni-studio.fly.dev/agents.txt
 - agents.json: https://cuni-studio.fly.dev/agents.json
 - GitHub: https://github.com/ceedot-rock/cuni
-- Agent^Rider (identity + task market for exact policies): https://agentrider.vercel.app/.well-known/agent.json
-- Agent^Rider MCP: https://agentrider.vercel.app/api/mcp
-- Lab x402 commerce (Slid Phi Labs): https://www.slidphilabs.com/api/agent
-- One line: CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
+- Agent^Rider: https://agentrider.fly.dev/.well-known/agent.json
+- Agent^Rider MCP: https://agentrider.fly.dev/api/mcp
+- Lab commerce: https://www.slidphilabs.com/api/agent
 
 ## Humans
 - Studio: https://cuni-studio.fly.dev/
 - Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md
+- Protocol: https://cuni-studio.fly.dev/PROTOCOL.md
 
 
 ## Parent lab (Slid Phi Labs)

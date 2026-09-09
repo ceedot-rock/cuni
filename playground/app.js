@@ -325,7 +325,7 @@ async function invoke(path, label) {
     } else if (data.exactness === "PASS" || data.ok) {
       setStatus("pass", "exactness PASS");
       showError("");
-      els.summary.textContent = data.summary || "exactness: PASS (py/go/js)";
+      els.summary.textContent = data.summary || "exactness: PASS";
       els.summary.classList.add("pass");
     } else {
       setStatus("fail", "exactness FAIL");

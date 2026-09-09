@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased] — 119-language seat
+
+### Added
+- Native seats **c / cpp / rs** (gcc, g++, rustc) covering `full.cuni`.
+- **`cuni ingest`** — Python v1 subset → CuNi, or refuse.
+- **`cuni prove --against`** — foreign impl must match CuNi gold.
+- **`cuni check --only id,id`** and **`--receipt`** (ledger JSON).
+- `docs/SEATS.md` — 119 languages is law.
+- Lab laws under `examples/laws/`: suite meter, catalog SKUs, Rider fee, spend cap.
+- `scripts/prove-lab-laws.sh` proves spl-pay-per-suite quotes against suite-meter gold.
+- py/js integer `/` truncates toward zero so money laws match Go/C/Rust.
+
+### Changed
+- **`cuni check` emit+runs every catalog language.** Native: py, go, js, ts, c, cpp, rs. Other ids: Python lowering so the gate still runs.
+- Agent host timeout 180s; `--skip-check` is not a citizen.
+
 ## [0.1.8] — 2026-09-09
 
 ### Added

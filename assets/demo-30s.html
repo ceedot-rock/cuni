@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CuNi — 30s demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --bg:#0b0014; --mg:#ff2bd6; --cy:#3ef0ff; --gold:#ffd24a; --fg:#f4f4f8; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--fg);
+      font-family: ui-monospace, "DejaVu Sans Mono", Menlo, Consolas, monospace; }
+    .stage { width: 100%; max-width: 1100px; margin: 0 auto; padding: 4vh 4vw;
+      min-height: 100%; display: flex; flex-direction: column; gap: 1.2rem; }
+    h1 { font-size: clamp(1.4rem, 4vw, 2.4rem); letter-spacing: .04em; }
+    h1 span { color: var(--cy); }
+    .sub { color: #c9c9d4; font-size: 1rem; }
+    pre { background: #14001f; border: 1px solid #4a1858; border-radius: 10px;
+      padding: 1rem 1.2rem; line-height: 1.45; overflow: auto; }
+    .kw { color: var(--mg); } .str { color: var(--cy); } .num { color: var(--gold); }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .7rem; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .seat { background: #120018; border: 1px solid #3a2048; border-radius: 8px;
+      padding: .7rem .8rem; min-height: 5.2rem; }
+    .seat b { display: block; color: var(--cy); margin-bottom: .3rem; }
+    .seat.ok { border-color: var(--mg); }
+    .pass { font-size: clamp(1.2rem, 3vw, 1.8rem); color: var(--gold); font-weight: 700; }
+    footer { color: #9aa; font-size: .9rem; }
+    a { color: var(--cy); }
+    .beat { opacity: 0; animation: in .4s ease forwards; }
+    #b1 { animation-delay: 0s; }
+    #b2 { animation-delay: 4s; }
+    #b3 { animation-delay: 10s; }
+    #b4 { animation-delay: 20s; }
+    #b5 { animation-delay: 26s; }
+    @keyframes in { to { opacity: 1; } }
+    .seat { opacity: .25; }
+    .s1 { animation: on .3s 11s forwards; }
+    .s2 { animation: on .3s 12s forwards; }
+    .s3 { animation: on .3s 13s forwards; }
+    .s4 { animation: on .3s 14s forwards; }
+    .s5 { animation: on .3s 15s forwards; }
+    .s6 { animation: on .3s 16s forwards; }
+    @keyframes on { to { opacity: 1; border-color: var(--mg); } }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div id="b1" class="beat">
+      <h1>CuNi <span>119 languages</span></h1>
+      <p class="sub">One program. Same stdout. Or the compiler refuses.</p>
+    </div>
+    <pre id="b2" class="beat"><span class="kw">def</span> add(a: int, b: int) -&gt; int <span class="kw">do</span>
+    <span class="kw">ret</span> a + b
+<span class="kw">end</span>
+
+<span class="kw">say</span>(add(<span class="num">2</span>, <span class="num">40</span>))
+<span class="kw">say</span>(<span class="str">"cuni"</span>)</pre>
+    <div id="b3" class="beat">
+      <div class="grid">
+        <div class="seat s1"><b>Python</b>42<br>cuni</div>
+        <div class="seat s2"><b>Go</b>42<br>cuni</div>
+        <div class="seat s3"><b>JavaScript</b>42<br>cuni</div>
+        <div class="seat s4"><b>C</b>42<br>cuni</div>
+        <div class="seat s5"><b>C++</b>42<br>cuni</div>
+        <div class="seat s6"><b>Rust</b>42<br>cuni</div>
+      </div>
+    </div>
+    <p id="b4" class="beat pass">exactness: PASS (6 native seats · 119-language gate)</p>
+    <footer id="b5" class="beat">cuni-studio.fly.dev · <a href="https://cuni-studio.fly.dev/">open Studio</a></footer>
+  </div>
+</body>
+</html>

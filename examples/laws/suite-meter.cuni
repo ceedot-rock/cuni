@@ -1,0 +1,44 @@
+# Lab suite meter — the charge the user actually pays.
+# First 2 GiB / calendar month free, then 8¢/GiB, $1 card minimum.
+# Integer cents only. Must match packages/spl-pay-per-suite and the site API.
+
+def max0(x: int) -> int do
+    if x < 0 do
+        ret 0
+    end
+    ret x
+end
+
+def billable(bytes: int, used: int, free_cap: int) -> int do
+    ret max0(bytes - max0(free_cap - used))
+end
+
+def usage_cents(billable_bytes: int) -> int do
+    let gib = 1073741824
+    if billable_bytes <= 0 do
+        ret 0
+    end
+    ret (billable_bytes * 8 + gib / 2) / gib
+end
+
+def quote_cents(bytes: int, used: int) -> int do
+    let free_cap = 2147483648
+    let b = billable(bytes, used, free_cap)
+    if b <= 0 do
+        ret 0
+    end
+    let u = usage_cents(b)
+    if u < 100 do
+        ret 100
+    end
+    if u > 1000000 do
+        ret 1000000
+    end
+    ret u
+end
+
+let gib = 1073741824
+say(quote_cents(0, 0))
+say(quote_cents(gib * 2, 0))
+say(quote_cents(gib * 3, 0))
+say(quote_cents(gib * 20, 0))

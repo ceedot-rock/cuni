@@ -15,12 +15,12 @@
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.8"><img src="https://img.shields.io/badge/version-0.1.8-cyan.svg" alt="v0.1.8" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="GNU GPLv3" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--Commercial-blue.svg" alt="AGPL-3.0-or-later OR Commercial" /></a>
 </p>
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.**
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages (family printers). Exactness still *runs* only py/go/js. Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source, GNU GPLv3, v0.1.8.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.1.8.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -71,7 +71,7 @@ Packaging draft (Homebrew / cargo-binstall): [`docs/PACKAGING.md`](docs/PACKAGIN
 **End-to-end path (live today):**
 
 1. Write a policy in [CuNi Studio](https://cuni-studio.fly.dev/) (default: spend-control).
-2. **Run exactness** — refuse unless py/go/js match.
+2. **Run exactness** — refuse unless every catalog language matches.
 3. **Publish** — metadata is stored and auto-registered into the Studio-side Rider stub.
 4. Inspect: `GET /api/rider/registered` · design for real Rider: [`docs/RIDER_V0_CONTRACTS.md`](docs/RIDER_V0_CONTRACTS.md)
 
@@ -87,7 +87,7 @@ Result: agents can be implemented in the language that is most convenient, while
 
 | Proof | How | What it shows |
 |-------|-----|----------------|
-| **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → py/go/js → **same stdout** |
+| **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → every catalog language → **same stdout** |
 | **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
 
 ### Flagship: one `link`, three languages
@@ -116,7 +116,8 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
   <a href="assets/demo-30s.mp4"><img src="assets/demo-30s.gif" alt="CuNi 30-second demo" width="640" /></a>
 </p>
 
-[Full MP4 (30s)](assets/demo-30s.mp4) · one source → Python / Go / JavaScript with identical stdout
+[Full MP4 (30s)](assets/demo-30s.mp4) · [HTML](assets/demo-30s.html) · live: `./examples/demo-30s.sh`  
+One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `cuni`. 119-language gate.
 
 ## Install
 
@@ -137,9 +138,12 @@ cargo build --release
 ## Quick start
 
 ```bash
-# exactness gate (platform step 1) — emit py/go/js, run each, require identical stdout
+# exactness gate — 119 languages, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
-# → exactness: PASS (py/go/js)   exit 0
+# → exactness: PASS (119 langs)   exit 0
+cuni check examples/full.cuni --only py,go,js,c,cpp,rs   # native seats
+cuni ingest impl.py -o impl.cuni                         # reverse, or refuse
+cuni prove examples/full.cuni --against impl.py          # foreign code must match
 # → exactness: FAIL — …         exit 1
 
 cuni check examples/          # all .cuni under a directory
@@ -151,13 +155,13 @@ cuni check examples/full.cuni --verbose --timeout 120
 # type-check + dump AST
 cuni examples/full.cuni
 
-# emit all three exactness targets
+# emit native quality backends (also covered by --emit-all / check)
 cuni examples/full.cuni \
   --emit-py /tmp/full.py \
   --emit-go /tmp/full.go \
   --emit-js /tmp/full.js
 
-# emit every language in the catalog (py/go/js quality; rest family printers)
+# emit every language in the catalog (exactness artifacts; check runs the same files)
 cuni --list-langs
 cuni examples/full.cuni --emit-all /tmp/cuni-all
 
@@ -165,7 +169,7 @@ python3 /tmp/full.py
 go run /tmp/full.go
 node /tmp/full.js
 
-# from a clone: conformance (runs real py/go/js) + typeck suite
+# from a clone: conformance (runs the full catalog) + typeck suite
 cargo test
 ```
 
@@ -266,15 +270,17 @@ assets/logo.png                        # brand mark
 ## Agentic discovery
 
 ```
-CuNi Studio: https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.vercel.app/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
+CuNi Studio: https://cuni-studio.fly.dev/ · Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol.json · Agent^Rider https://agentrider.fly.dev/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
 ```
 
 | Surface | URL |
 |---------|-----|
+| **CuNi Protocol** | https://cuni-studio.fly.dev/.well-known/cuni-protocol.json |
+| Protocol (text) | https://cuni-studio.fly.dev/PROTOCOL.md |
 | Studio | https://cuni-studio.fly.dev/ |
 | agents.txt | https://cuni-studio.fly.dev/agents.txt |
 | agents.json | https://cuni-studio.fly.dev/agents.json |
 | llms.txt | https://cuni-studio.fly.dev/llms.txt |
-| Agent^Rider manifest | https://agentrider.vercel.app/.well-known/agent.json |
-| Agent^Rider MCP | https://agentrider.vercel.app/api/mcp |
+| Agent^Rider manifest | https://agentrider.fly.dev/.well-known/agent.json |
+| Agent^Rider MCP | https://agentrider.fly.dev/api/mcp |
 | Lab x402 commerce | https://www.slidphilabs.com/api/agent |
