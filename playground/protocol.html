@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CuNi Protocol — 119 languages. Same stdout or refuse.</title>
+  <meta name="description" content="The program is the hash. Emit+run identical stdout on the catalog, or the compiler refuses. Citizen only after exactness PASS." />
+  <link rel="canonical" href="https://cuni-studio.fly.dev/protocol.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://cuni-studio.fly.dev/protocol.html" />
+  <meta property="og:title" content="CuNi Protocol — same stdout or refuse" />
+  <meta property="og:description" content="119 languages. source_hash is the citizen. Speech is not law." />
+  <meta property="og:image" content="https://cuni-studio.fly.dev/protocol-card.jpg" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://cuni-studio.fly.dev/protocol-card.jpg" />
+  <link rel="alternate" type="application/json" href="/.well-known/cuni-protocol.json" title="CuNi Protocol JSON" />
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: #07070a; color: #f2efe8; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; }
+    main { max-width: 980px; margin: 0 auto; padding: 28px 20px 80px; }
+    img.card { width: 100%; height: auto; display: block; border: 1px solid #3a1418; }
+    h1 { font-size: clamp(2rem, 6vw, 4.2rem); letter-spacing: -0.04em; margin: 28px 0 8px; }
+    .rule { color: #ff3b3b; font-weight: 700; }
+    p.lede { font-size: 1.25rem; max-width: 40rem; }
+    nav { display: flex; flex-wrap: wrap; gap: 10px; margin: 28px 0; }
+    a.btn { background: #ff3b3b; color: #fff; text-decoration: none; padding: 10px 16px; font-weight: 700; }
+    a.ghost { color: #f2efe8; border: 1px solid #444; padding: 10px 16px; text-decoration: none; }
+    dl { display: grid; grid-template-columns: 9rem 1fr; gap: 8px 16px; font-family: ui-monospace, monospace; font-size: 13px; }
+    dt { color: #ff8a80; }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    dd a { color: #9ecbff; }
+    footer { margin-top: 48px; color: #888; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <img class="card" src="/protocol-card.jpg" alt="CuNi: 119 languages. Same stdout or refuse. source_hash is the citizen." />
+    <h1>Same stdout.<br />Or refuse.</h1>
+    <p class="lede"><span class="rule">CuNi is 119 languages.</span> One program. The compiler emits and runs the catalog. If stdout diverges, it exits 1. Models may talk. They may not ship.</p>
+    <nav>
+      <a class="btn" href="/.well-known/cuni-protocol.json">Canonical JSON</a>
+      <a class="ghost" href="/PROTOCOL.md">Text spec</a>
+      <a class="ghost" href="/">Studio</a>
+      <a class="ghost" href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.9">v0.1.9</a>
+    </nav>
+    <dl>
+      <dt>citizen</dt>
+      <dd>exactness PASS + <code>source_hash</code> (SHA-256 of the .cuni). Path is not identity.</dd>
+      <dt>native seats</dt>
+      <dd>py, go, js, ts, c, cpp, rs — others still emit+run (Python lowering)</dd>
+      <dt>Rider</dt>
+      <dd>refuses register unless <code>exactness.passed === true</code> and the claimed hash matches</dd>
+      <dt>install</dt>
+      <dd><code>cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.9</code></dd>
+      <dt>not</dt>
+      <dd>an RFC. Not an MCP server. Rider is the MCP: <a href="https://agentrider.fly.dev/api/mcp">agentrider.fly.dev/api/mcp</a></dd>
+    </dl>
+    <footer>Slid Phi Labs · Cherry Hill. Speech is not law.</footer>
+  </main>
+</body>
+</html>

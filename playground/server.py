@@ -61,6 +61,8 @@ PHI_REST = PhiRest(
         "sitemap.xml",
         "PROTOCOL.md",
         "protocol.json",
+        "protocol.html",
+        "protocol-card.jpg",
         ".well-known/cuni-protocol.json",
     ],
 )
@@ -638,6 +640,8 @@ class Handler(SimpleHTTPRequestHandler):
                 ".txt": "text/plain; charset=utf-8",
                 ".xml": "application/xml; charset=utf-8",
                 ".md": "text/markdown; charset=utf-8",
+                ".jpg": "image/jpeg",
+                ".png": "image/png",
             }.get(ext, "application/octet-stream")
             self.send_response(200)
             self.send_header("Content-Type", ctype)
