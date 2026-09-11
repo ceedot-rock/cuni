@@ -20,8 +20,8 @@
 | **Quikgater** | Pay-per-fetch for agents (x402 / USDC on Base) | **Repo live** · worker responds (needs `url` param) | https://github.com/ceedot-rock/quikgater · https://quikgater-worker.ceedotrock.workers.dev |
 | **Pinata Pools** | Farcaster miniapp — USDC threshold pots on Base (90/10 burst) | **Live** (Pages) | https://pinata-pools.pages.dev/ |
 | **Agent Rider** | Agent rider protocol experiment | **Live** | https://agentrider.fly.dev · https://github.com/ceedot-rock/Agent-Rider |
-| **APParattus** | Launch / milestone planning | **Live** | https://app-arattus.vercel.app · https://github.com/ceedot-rock/APParattus |
-| **WSOAP** | World series of agentic poker (experiment) | **Live** | https://wsoap.vercel.app · https://github.com/ceedot-rock/wsoap |
+| **APParattus** | Launch / milestone planning | **GitHub only** (no Fly app; former vercel 402) | https://github.com/ceedot-rock/APParattus · brand https://www.slidphilabs.com |
+| **WSOAP** | World series of agentic poker (experiment) | **Repo** (vercel host 402) | https://github.com/ceedot-rock/wsoap |
 
 ## URL check (2026-07-27)
 
@@ -33,8 +33,8 @@
 | pump.fun/62U1zus… | 200 |
 | pinata-pools.pages.dev | 200 |
 | agentrider.fly.dev | 200 |
-| app-arattus.vercel.app | 200 |
-| wsoap.vercel.app | 200 |
+| app-arattus.vercel.app | 402 (dead) |
+| wsoap.vercel.app | 402 (dead) |
 | quikgater-worker (root) | 400 without `url` — expected for API shape |
 
 ## Out of portfolio pitch (for now)
@@ -66,3 +66,8 @@ Ready-to-post bodies: [`growth/posts-portfolio-allowlist-2026-07-27.md`](growth/
 - $CuNi only as optional footnote — never the headline.  
 - No tip desks (not a real channel). No cold-scrape spam. Humans + organic only.  
 - Accurate v0.1 claims only.
+
+
+## Legacy Vercel oddity
+
+`cuni.vercel.app` still returns HTTP 200 (“CodeUnity” SPA) and is **not** the canonical Studio. Canonical: https://cuni-studio.fly.dev/. Take-down/301 requires a working Vercel dashboard session; other lab `*.vercel.app` hosts already 402 (account appears billing-locked for those projects). No `vercel.json` redirect is controllable from this repo.
