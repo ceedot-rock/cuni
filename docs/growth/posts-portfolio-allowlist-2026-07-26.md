@@ -35,7 +35,7 @@ Project post = one product deep.
 | **$CuNi** | Community token pointing at CuNi (not financial advice) | https://pump.fun/62U1zus7pQfpjsq5xW7DiF6MebtThDeRitaqKBM5jgnd |
 | **Quikgater** | Pay-per-fetch for agents (x402 / USDC on Base) | https://github.com/ceedot-rock/quikgater · worker: https://quikgater-worker.ceedotrock.workers.dev |
 | **Pinata Pools** | Farcaster miniapp (Base pot game) | https://pinata-pools.pages.dev/ |
-| **Agent Rider** | Agent rider protocol | https://agentrider.vercel.app · https://github.com/ceedot-rock/Agent-Rider |
+| **Agent Rider** | Agent rider protocol | https://agentrider.fly.dev · https://github.com/ceedot-rock/Agent-Rider |
 | **APParattus** | Launch / milestone planning | https://app-arattus.vercel.app · https://github.com/ceedot-rock/APParattus |
 | **WSOAP** | World series of agentic poker | https://wsoap.vercel.app · https://github.com/ceedot-rock/wsoap |
 
@@ -72,7 +72,7 @@ No install. Pick example `full` → Run exactness. Notelog + Critic Book on the 
 | $CuNi | Community signal token for the language | https://pump.fun/62U1zus7pQfpjsq5xW7DiF6MebtThDeRitaqKBM5jgnd |
 | Quikgater | Pay-per-fact web fetch for agents (x402) | https://github.com/ceedot-rock/quikgater |
 | Pinata Pools | Farcaster miniapp on Base | https://pinata-pools.pages.dev/ |
-| Agent Rider | Agent rider protocol | https://agentrider.vercel.app |
+| Agent Rider | Agent rider protocol | https://agentrider.fly.dev |
 | APParattus | Launch planning / milestones | https://app-arattus.vercel.app |
 | WSOAP | Agentic poker experiment | https://wsoap.vercel.app |
 
@@ -160,7 +160,7 @@ https://pinata-pools.pages.dev/
 ```
 4/ Agent Rider
 Agent rider protocol
-https://agentrider.vercel.app
+https://agentrider.fly.dev
 https://github.com/ceedot-rock/Agent-Rider
 
 #AIAgents #agents #protocol
@@ -209,7 +209,7 @@ CuNi Studio (exact py/go/js or refuse): https://cuni-studio.fly.dev/
 $CuNi: https://pump.fun/62U1zus7pQfpjsq5xW7DiF6MebtThDeRitaqKBM5jgnd
 Quikgater: https://github.com/ceedot-rock/quikgater
 Pinata Pools: https://pinata-pools.pages.dev/
-Agent Rider: https://agentrider.vercel.app
+Agent Rider: https://agentrider.fly.dev
 APParattus: https://app-arattus.vercel.app
 WSOAP: https://wsoap.vercel.app
 
