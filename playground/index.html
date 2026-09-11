@@ -308,6 +308,26 @@
       </section>
     </main>
 
+
+    <section id="registered-contracts" class="contracts-panel" aria-label="Registered Rider contracts">
+      <div class="contracts-head">
+        <h2 class="contracts-title">Registered contracts <span id="contracts-count" class="mono muted">—</span></h2>
+        <a
+          id="rider-link"
+          class="btn-link"
+          href="https://agentrider.fly.dev"
+          target="_blank"
+          rel="noopener"
+          title="Open Agent-Rider"
+          >Rider</a
+        >
+        <button id="contracts-refresh" type="button" class="ghost" title="Refresh registered list">Refresh</button>
+      </div>
+      <div id="contracts-list" class="contracts-list" aria-live="polite">
+        <div class="book-empty">Loading registered contracts…</div>
+      </div>
+    </section>
+
     <footer class="foot">
       <span id="health" class="mono muted">checking toolchain…</span>
       <span class="muted">
@@ -316,10 +336,10 @@
         >
         ·
         <a
-          href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.7"
+          href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.9"
           target="_blank"
           rel="noopener"
-          >v0.1.7</a
+          >v0.1.9</a
         >
         ·
         <a href="https://cuni-studio.fly.dev/" rel="canonical">cuni-studio.fly.dev</a>

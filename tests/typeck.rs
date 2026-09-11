@@ -55,6 +55,7 @@ fn assert_rejected(source: &str, must_contain: &str) {
 #[test]
 fn undefined_variable_is_rejected() {
     assert_rejected("tests/typeck_invalid/undefined_var.cuni", "undefined variable `y`");
+    assert_rejected("tests/typeck_invalid/undefined_var.cuni", "fix-it:");
 }
 
 #[test]
@@ -75,11 +76,13 @@ fn fail_outside_fallible_function_is_rejected() {
 #[test]
 fn wrong_call_arg_count_is_rejected() {
     assert_rejected("tests/typeck_invalid/wrong_arg_count.cuni", "`add` expects 2 argument(s), found 3");
+    assert_rejected("tests/typeck_invalid/wrong_arg_count.cuni", "fix-it:");
 }
 
 #[test]
 fn unknown_type_name_is_rejected() {
     assert_rejected("tests/typeck_invalid/unknown_type.cuni", "unknown type `sttr`");
+    assert_rejected("tests/typeck_invalid/unknown_type.cuni", "fix-it:");
 }
 
 #[test]

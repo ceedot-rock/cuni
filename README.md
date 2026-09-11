@@ -14,13 +14,13 @@
   <a href="https://cuni-studio.fly.dev/"><img src="https://img.shields.io/badge/playground-live-3dd68c.svg" alt="Playground live" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.8"><img src="https://img.shields.io/badge/version-0.1.8-cyan.svg" alt="v0.1.8" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.9"><img src="https://img.shields.io/badge/version-0.1.9-cyan.svg" alt="v0.1.9" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--Commercial-blue.svg" alt="AGPL-3.0-or-later OR Commercial" /></a>
 </p>
 
-**One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.**
+**One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.** Receipts name the program by `source_hash`, not by path.
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.1.8.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.1.9.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -108,7 +108,7 @@ cargo build --release
   <img src="assets/link-demo.gif" alt="CuNi link demo: Go server, Python JS Go clients all print hello Cee x3" width="720" />
 </p>
 
-Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni) · [Release notes](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.8)
+Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples/link.cuni`](examples/link.cuni) · [Release notes](https://github.com/ceedot-rock/cuni/releases/tag/v0.1.9)
 
 ### 30s demo (exactness)
 
@@ -125,7 +125,7 @@ One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `
 
 ```bash
 # install the cuni binary onto your PATH
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.8
+cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.9
 # packaging options (draft): docs/PACKAGING.md · packaging/homebrew/cuni.rb
 
 # or clone and build from source
@@ -250,7 +250,7 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.8)
+## Status (v0.1.9)
 
 **Shipped:** lexer/parser, quality backends for Python/Go/JS, `--emit-all` language catalog, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**.
 

@@ -11,6 +11,10 @@ const els = {
   error: $("error"),
   summary: $("summary"),
   health: $("health"),
+  contractsCount: $("contracts-count"),
+  contractsList: $("contracts-list"),
+  contractsRefresh: $("contracts-refresh"),
+  riderLink: $("rider-link"),
   notelogList: $("notelog-list"),
   criticList: $("critic-list"),
   notelogForm: $("notelog-form"),
@@ -46,11 +50,45 @@ let running = false;
 let mode = "play";
 let lastProposeSource = "";
 
-const DEFAULT_SOURCE = `def greet(name: str) -> str do\n    ret \\`hello \\${name}\\`\nend\n\nsay(greet("CuNi"))\nsay(1 + 2 * 3)\n`;
+const DEFAULT_SOURCE = "def greet(name: str) -> str do\n    ret `hello ${name}`\nend\n\nsay(greet(\"CuNi\"))\nsay(1 + 2 * 3)\n";
+
 
 function setStatus(kind, text) {
   els.status.className = `badge ${kind}`;
   els.status.textContent = text;
+}
+
+/** Concrete fix-its for type + exactness refusals. Never suggests approximate mode. */
+function polishFixIt(msg) {
+  const s = String(msg || "");
+  if (!s) return s;
+  if (/fix-it:/i.test(s)) return s;
+  const hints = [];
+  if (/undefined variable/i.test(s)) {
+    hints.push("fix-it: declare it with `let name = …` or `mut name = …` before use (SPEC.md §6)");
+  } else if (/undefined function/i.test(s)) {
+    hints.push("fix-it: define `def name(...) -> T do … end` above the call, or check spelling");
+  } else if (/unknown type/i.test(s)) {
+    hints.push("fix-it: use a known type (`int`, `str`, `bool`, `float`, `list<T>`, `map<K,V>`, `opt<T>`) or a declared `typ`/`enum`");
+  } else if (/expects \d+ argument/i.test(s)) {
+    hints.push("fix-it: pass exactly the declared arity — no extra/missing args (exactness refuses silent coercion)");
+  } else if (/declares `->|ret` value has type/i.test(s)) {
+    hints.push("fix-it: change the `ret` expression or the `-> T` annotation so they match");
+  } else if (/fallible/i.test(s) && /\?\?/.test(s) === false && /unwrap/i.test(s)) {
+    hints.push("fix-it: unwrap with `??` or handle failure explicitly — bare fallible results are refused");
+  } else if (/fallible/i.test(s)) {
+    hints.push("fix-it: unwrap with `let x = f(…) ?? fallback` (SPEC.md §12) — bare fallible results are refused");
+  } else if (/immutable|let`-bound|cannot assign/i.test(s)) {
+    hints.push("fix-it: declare the binding `mut` if mutation is intended");
+  } else if (/stdout diverged|exactness:\s*FAIL|exactness failed|catalog language/i.test(s)) {
+    hints.push(
+      "fix-it: remove `ext` host differences, avoid non-portable float printing, and keep integer/`say` paths identical — CuNi has no approximate mode"
+    );
+  } else if (/type error/i.test(s)) {
+    hints.push("fix-it: resolve the type error above; exactness never runs on a refused program");
+  }
+  if (!hints.length) return s;
+  return s.replace(/\s*$/, "") + "\n\n" + hints.join("\n");
 }
 
 function showError(msg) {
@@ -60,7 +98,59 @@ function showError(msg) {
     return;
   }
   els.error.classList.remove("hidden");
-  els.error.textContent = msg;
+  els.error.textContent = polishFixIt(msg);
+}
+
+function shortHash(h) {
+  const s = (h || "").toString();
+  return s.length > 16 ? s.slice(0, 12) + "…" : s || "—";
+}
+
+function riderUrlFromHealth(j) {
+  const u =
+    (j && j.rider && (j.rider.remote_url || (j.rider.contracts && j.rider.contracts.url))) ||
+    "";
+  if (typeof u === "string" && u.startsWith("http")) {
+    return u.replace(/\/api\/v0\/contracts\/?$/, "") || "https://agentrider.fly.dev";
+  }
+  return "https://agentrider.fly.dev";
+}
+
+function renderContracts(reg, health) {
+  const countEl = els.contractsCount;
+  const listEl = els.contractsList;
+  const linkEl = els.riderLink;
+  if (!listEl) return;
+  const riderBase = riderUrlFromHealth(health);
+  if (linkEl) {
+    linkEl.href = riderBase;
+    linkEl.title = `Open Agent-Rider (${riderBase})`;
+  }
+  const count = reg && typeof reg.count === "number" ? reg.count : 0;
+  const contracts = (reg && Array.isArray(reg.contracts) && reg.contracts) || [];
+  if (countEl) countEl.textContent = `(${count})`;
+  if (!count || contracts.length === 0) {
+    listEl.innerHTML =
+      `<div class="book-empty">No registered contracts yet. Run exactness → <strong>Publish</strong> to register into Rider (local stub always; remote when healthy).</div>`;
+    return;
+  }
+  const recent = contracts.slice(0, 8);
+  listEl.innerHTML = recent
+    .map((c) => {
+      const id = (c && c.id) || "—";
+      const hash = shortHash(c && c.sourceHash);
+      const when = (c && c.registeredAt) || "—";
+      const st = (c && c.status) || "registered";
+      return (
+        `<div class="contract-row" title="${hash}">` +
+        `<span class="cid">${id}</span>` +
+        `<span class="hash">${hash}</span>` +
+        `<span class="when">${when}</span>` +
+        `<span class="st">${st}</span>` +
+        `</div>`
+      );
+    })
+    .join("");
 }
 
 function fillLangPick(langs) {
@@ -231,10 +321,11 @@ async function loadHealth() {
       fetch("/api/rider/registered").catch(() => null),
     ]);
     const j = await r.json();
+    let reg = null;
     let regCount = null;
     if (regR && regR.ok) {
       try {
-        const reg = await regR.json();
+        reg = await regR.json();
         if (reg && typeof reg.count === "number") regCount = reg.count;
       } catch (_) {
         /* ignore */
@@ -242,8 +333,16 @@ async function loadHealth() {
     }
     if (!j.ok) {
       els.health.textContent = `toolchain: cuni missing — ${j.error || "build with cargo"}`;
+      renderContracts(reg || { count: 0, contracts: [] }, j);
       return;
     }
+    const riderBase = riderUrlFromHealth(j);
+    const remoteBit =
+      j.rider && j.rider.remote
+        ? `rider remote: on`
+        : j.rider
+          ? `rider remote: off`
+          : null;
     const parts = [
       `cuni: ok`,
       `py: ${j.python ? "ok" : "missing"}`,
@@ -254,9 +353,16 @@ async function loadHealth() {
     ];
     if (regCount != null) parts.push(`registered: ${regCount}`);
     else if (j.rider) parts.push(`rider: ${j.rider.register ? "ok" : "off"}`);
+    if (remoteBit) parts.push(remoteBit);
+    parts.push(`langs: ${j.lang_count ?? 119}`);
     els.health.textContent = parts.join(" · ");
+    if (els.riderLink) {
+      els.riderLink.href = riderBase;
+    }
+    renderContracts(reg || { count: 0, contracts: [] }, j);
   } catch (e) {
     els.health.textContent = `health check failed: ${e}`;
+    renderContracts({ count: 0, contracts: [] }, null);
   }
 }
 
@@ -634,6 +740,9 @@ function wire() {
     t.addEventListener("click", () => selectBook(t.dataset.book));
   });
   els.bookRefresh.addEventListener("click", () => void refreshBooks());
+  if (els.contractsRefresh) {
+    els.contractsRefresh.addEventListener("click", () => void loadHealth());
+  }
 
   els.agentRun.addEventListener("click", () => void agentRun());
   els.agentPropose.addEventListener("click", () => void agentPropose());
