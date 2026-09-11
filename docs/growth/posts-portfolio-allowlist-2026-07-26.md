@@ -36,8 +36,8 @@ Project post = one product deep.
 | **Quikgater** | Pay-per-fetch for agents (x402 / USDC on Base) | https://github.com/ceedot-rock/quikgater · worker: https://quikgater-worker.ceedotrock.workers.dev |
 | **Pinata Pools** | Farcaster miniapp (Base pot game) | https://pinata-pools.pages.dev/ |
 | **Agent Rider** | Agent rider protocol | https://agentrider.fly.dev · https://github.com/ceedot-rock/Agent-Rider |
-| **APParattus** | Launch / milestone planning | https://app-arattus.vercel.app · https://github.com/ceedot-rock/APParattus |
-| **WSOAP** | World series of agentic poker | https://wsoap.vercel.app · https://github.com/ceedot-rock/wsoap |
+| **APParattus** | Launch / milestone planning | https://www.slidphilabs.com (APParattus: no Fly app; former vercel dead) · https://github.com/ceedot-rock/APParattus |
+| **WSOAP** | World series of agentic poker | https://github.com/ceedot-rock/wsoap (wsoap.vercel.app 402) · https://github.com/ceedot-rock/wsoap |
 
 ---
 
@@ -73,8 +73,8 @@ No install. Pick example `full` → Run exactness. Notelog + Critic Book on the 
 | Quikgater | Pay-per-fact web fetch for agents (x402) | https://github.com/ceedot-rock/quikgater |
 | Pinata Pools | Farcaster miniapp on Base | https://pinata-pools.pages.dev/ |
 | Agent Rider | Agent rider protocol | https://agentrider.fly.dev |
-| APParattus | Launch planning / milestones | https://app-arattus.vercel.app |
-| WSOAP | Agentic poker experiment | https://wsoap.vercel.app |
+| APParattus | Launch planning / milestones | https://www.slidphilabs.com (APParattus: no Fly app; former vercel dead) |
+| WSOAP | Agentic poker experiment | https://github.com/ceedot-rock/wsoap (wsoap.vercel.app 402) |
 
 ### Ask
 - What would *you* click first if you had 5 minutes?
@@ -170,7 +170,7 @@ https://github.com/ceedot-rock/Agent-Rider
 ```
 5/ APParattus
 Launch planning: milestones, owners, risks
-https://app-arattus.vercel.app
+https://www.slidphilabs.com (APParattus: no Fly app; former vercel dead)
 https://github.com/ceedot-rock/APParattus
 
 #productmanagement #launch #buildinpublic
@@ -180,7 +180,7 @@ https://github.com/ceedot-rock/APParattus
 ```
 6/ WSOAP
 World series of agentic poker (experiment)
-https://wsoap.vercel.app
+https://github.com/ceedot-rock/wsoap (wsoap.vercel.app 402)
 https://github.com/ceedot-rock/wsoap
 
 #AI #poker #agents #experiment
@@ -210,8 +210,8 @@ $CuNi: https://pump.fun/62U1zus7pQfpjsq5xW7DiF6MebtThDeRitaqKBM5jgnd
 Quikgater: https://github.com/ceedot-rock/quikgater
 Pinata Pools: https://pinata-pools.pages.dev/
 Agent Rider: https://agentrider.fly.dev
-APParattus: https://app-arattus.vercel.app
-WSOAP: https://wsoap.vercel.app
+APParattus: https://www.slidphilabs.com (APParattus: no Fly app; former vercel dead)
+WSOAP: https://github.com/ceedot-rock/wsoap (wsoap.vercel.app 402)
 
 Critique welcome. #buildinpublic #devtools #AIAgents #opensource
 ```
