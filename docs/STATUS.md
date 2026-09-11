@@ -28,6 +28,12 @@ Exact multi-runtime agents, coordinated.
 ## Exactness stays sacred
 A CuNi program either produces the same behavior on every supported target, or it **refuses**. There is **no approximate mode**. Type and exactness failures now carry concrete fix-its in CLI + Studio (still refuse — never soften the gate).
 
+### Studio hosted gate = py / go / js (choice, 2026-09-11)
+- **CLI / CI**: `cuni check` still emit+runs the **119-language catalog** (native + lowering).
+- **Studio / Publish / Agent**: `cuni check --only py,go,js` (override with `CUNI_PLAYGROUND_CHECK_ONLY`).
+- **Why**: the Fly image ships `python3` / `go` / `node` only. Running the full catalog false-FAILed spend-control on missing `c`/`cpp`/`rs` runners (`os error 2`) even when py/go/js matched — that fought the flagship promise and the publish metadata `targets: ["py","go","js"]`.
+- **Not softening**: identical stdout on the gated seats is still required; refuse still refuses. Optional native seats are verified where their toolchains exist (local/CI), not by pretending the Studio VM has gcc/rustc.
+
 ## Known gap (2026-09-11)
 - **Remote register re-verify** still pending: Rider-side **GRANT / `service_role`** match for `cuni_contracts` must be confirmed so Studio→Fly register can be re-proven end-to-end after the Vercel 402 dead-door era. Local stub remains healthy; health may already show `rider.remote: true` when the Fly app answers.
 

@@ -77,13 +77,17 @@ def _stage_modules(work: Path, source: str) -> None:
                 break
 
 
+# Match Studio hosted gate (playground/server.py CHECK_ONLY). Full catalog = CLI/CI.
+_STUDIO_GATE = ["py", "go", "js"]
+
+
 def check_source(cuni: Path, source: str, timeout: int) -> dict:
     with tempfile.TemporaryDirectory(prefix="cuni_prop_") as td:
         work = Path(td)
         main = work / "main.cuni"
         main.write_text(source, encoding="utf-8")
         _stage_modules(work, source)
-        r = _run([str(cuni), "check", str(main), "--timeout", str(timeout)], work, timeout)
+        r = _run([str(cuni), "check", str(main), "--timeout", str(timeout), "--only", ",".join(_STUDIO_GATE)], work, timeout)
         out = (r.stdout or "") + (r.stderr or "")
         out = out.replace(str(main), "main.cuni")
         ok = r.returncode == 0 and "exactness: PASS" in out
@@ -146,7 +150,7 @@ def run_skill(
         main.write_text(source, encoding="utf-8")
 
         chk = _run(
-            [str(cuni), "check", str(main), "--timeout", str(timeout)], work, timeout
+            [str(cuni), "check", str(main), "--timeout", str(timeout), "--only", ",".join(_STUDIO_GATE)], work, timeout
         )
         check_log = ((chk.stdout or "") + (chk.stderr or "")).replace(
             str(main), "entry.cuni"

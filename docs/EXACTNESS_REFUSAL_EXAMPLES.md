@@ -66,3 +66,12 @@ fix-it: remove `ext` host differences, avoid non-portable float printing, keep i
 
 Studio’s error banner runs the same fix-it mapping client-side for hosted try sessions.
 
+## Studio hosted gate vs full catalog
+
+| Surface | Gate |
+|---------|------|
+| CuNi Studio / Publish / Agent | `cuni check --only py,go,js` (flagship promise) |
+| Local CLI / Exactness CI | full 119-language catalog |
+
+Missing optional runners (c/cpp/rs) on the Studio host must not refuse a program whose py/go/js stdout already match. That is gate alignment, not approximate mode.
+
