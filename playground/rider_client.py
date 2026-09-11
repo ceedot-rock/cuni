@@ -1,6 +1,6 @@
 """Real Agent-Rider registration client (Studio → Rider cutover).
 
-When CUNI_RIDER_URL is set (e.g. https://agentrider.vercel.app), publish will
+When CUNI_RIDER_URL is set (e.g. https://agentrider.fly.dev), publish will
 POST the exactness-gated metadata to POST /api/v0/contracts on that host.
 Falls back gracefully if the remote is unreachable (local stub still runs).
 """

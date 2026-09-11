@@ -61,7 +61,7 @@ Agent-Rider provides the coordination layer (identity, messaging, multi-agent wo
 
 | Project | Role |
 |---------|------|
-| [Agent-Rider](https://github.com/ceedot-rock/Agent-Rider) | Multi-agent coordination · [live](https://agentrider.vercel.app) |
+| [Agent-Rider](https://github.com/ceedot-rock/Agent-Rider) | Multi-agent coordination · [live](https://agentrider.fly.dev) |
 | [quikgater](https://github.com/ceedot-rock/quikgater) | Pay-per-fact fetch for agents (x402 / USDC) |
 | [SlidPhi](https://github.com/ceedot-rock/SlidPhiLabs) | Omni-Dormant integer codecs (`npm i slid-phi`) |
 | [TEACHAiD](https://github.com/ceedot-rock/teachaid) | Interactive beginner school app |

@@ -1,7 +1,7 @@
 # E2E: Studio exactness → Publish → Agent^Rider
 
 **Status:** cutover live as of 2026-08-07  
-**Apps:** https://cuni-studio.fly.dev/ · https://agentrider.vercel.app/
+**Apps:** https://cuni-studio.fly.dev/ · https://agentrider.fly.dev/
 
 ## Flow
 
@@ -12,7 +12,7 @@
    - Builds metadata (`sourceHash`, exactness, publisher `studio`)
    - Registers local stub (fallback)
    - When `CUNI_RIDER_URL` is set, calls `register_remote(meta)` →  
-     `POST https://agentrider.vercel.app/api/v0/contracts`
+     `POST https://agentrider.fly.dev/api/v0/contracts`
 5. **Verify** contracts:
 
 ```bash
@@ -23,7 +23,7 @@ curl -s https://cuni-studio.fly.dev/api/rider/registered | jq .
 curl -s https://cuni-studio.fly.dev/api/health | jq .rider
 
 # Remote Rider (may return 402 if deployment gated)
-curl -s https://agentrider.vercel.app/api/v0/contracts | jq .
+curl -s https://agentrider.fly.dev/api/v0/contracts | jq .
 ```
 
 ## Studio UI surface (open work — Step 2)

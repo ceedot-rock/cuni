@@ -15,7 +15,7 @@ Exact multi-runtime agents, coordinated.
 - **Exactness CI**: green on every push (examples + cargo test)  
 - **Publish → register**:  
   - Local stub: `/api/rider/register` + `/api/rider/registered`  
-  - Remote: `CUNI_RIDER_URL=https://agentrider.vercel.app` → `POST /api/v0/contracts` (exactness-gated, idempotent on sourceHash)  
+  - Remote: `CUNI_RIDER_URL=https://agentrider.fly.dev` → `POST /api/v0/contracts` (exactness-gated, idempotent on sourceHash)  
   - Verified 2026-08-07: contracts `ctr_1ec3e1bdb32541f0` (studio) + smoke  
 - **Health**: `/api/health` exposes `rider.register`, `rider.list`, `rider.remote`, `rider.remote_url`  
 - **Flagship proofs**: exactness (py/go/js identical stdout) + `link` interop + spend skill  

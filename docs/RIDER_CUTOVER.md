@@ -51,7 +51,7 @@ curl -sL https://raw.githubusercontent.com/ceedot-rock/cuni/d36b63652f697c738448
 4. Set env on Fly (Studio):
 
 ```bash
-fly secrets set CUNI_RIDER_URL=https://agentrider.vercel.app -a cuni-studio
+fly secrets set CUNI_RIDER_URL=https://agentrider.fly.dev -a cuni-studio
 ```
 
 5. Redeploy Studio.
@@ -59,7 +59,7 @@ fly secrets set CUNI_RIDER_URL=https://agentrider.vercel.app -a cuni-studio
 ## End-to-end path after cutover
 
 1. Open Studio → Run exactness → Publish
-2. Studio posts to `POST https://agentrider.vercel.app/api/v0/contracts`
+2. Studio posts to `POST https://agentrider.fly.dev/api/v0/contracts`
 3. Rider stores contract (idempotent on `sourceHash`), returns `contractId`
 4. List: `GET /api/v0/contracts`
 5. Local stub still available at `/api/rider/register` as fallback
