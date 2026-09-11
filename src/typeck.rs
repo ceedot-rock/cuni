@@ -171,7 +171,13 @@ impl<'a> Checker<'a> {
                 if self.is_known_type_name(name) || generics_in_scope.contains(name) {
                     Ok(())
                 } else {
-                    err_at(span, format!("unknown type `{}`", name))
+                    err_at(
+                        span,
+                        format!(
+                            "unknown type `{}` — fix-it: use `int`/`str`/`bool`/`float`/`list<T>`/`map<K,V>`/`opt<T>` or a declared `typ`/`enum` (check spelling)",
+                            name
+                        ),
+                    )
                 }
             }
             Type::Generic(name, args) => {
@@ -516,7 +522,7 @@ impl<'a> Checker<'a> {
                 return err_at(
                     e.span,
                     format!(
-                        "`ret` value has type `{}`, but the function declares `-> {}`",
+                        "`ret` value has type `{}`, but the function declares `-> {}` — fix-it: change the `ret` expression or the `-> T` annotation so they match",
                         type_str(&actual),
                         type_str(ret_ty)
                     ),
@@ -548,7 +554,13 @@ impl<'a> Checker<'a> {
             }
             ExprKind::Ident(name) => {
                 if !scope.contains_key(name) {
-                    return err_at(expr.span, format!("undefined variable `{}`", name));
+                    return err_at(
+                        expr.span,
+                        format!(
+                            "undefined variable `{}` — fix-it: declare it with `let {} = …` or `mut {} = …` before use (SPEC.md §6)",
+                            name, name, name
+                        ),
+                    );
                 }
             }
             ExprKind::List(items) => {
@@ -590,7 +602,7 @@ impl<'a> Checker<'a> {
                                 return err_at(
                                     expr.span,
                                     format!(
-                                        "`{}` expects {} argument(s), found {}",
+                                        "`{}` expects {} argument(s), found {} — fix-it: pass exactly the declared arity (CuNi refuses silent coercion)",
                                         fname,
                                         sig.params.len(),
                                         args.len()
@@ -613,7 +625,13 @@ impl<'a> Checker<'a> {
                         } else if let Some(info) = self.typs.get(fname) {
                             self.check_typ_constructor(fname, info, args, expr.span)?;
                         } else {
-                            return err_at(expr.span, format!("undefined function `{}`", fname));
+                            return err_at(
+                            expr.span,
+                            format!(
+                                "undefined function `{}` — fix-it: define `def {}(...) -> T do … end` above the call, or check spelling",
+                                fname, fname
+                            ),
+                        );
                         }
                     }
                     ExprKind::Field { base, name } => {
@@ -850,10 +868,11 @@ impl<'a> Checker<'a> {
                 return err_at(
                     arg.span(),
                     format!(
-                        "`{}` argument {} has type `{}`, expected `{}`",
+                        "`{}` argument {} has type `{}`, expected `{}` — fix-it: pass a `{}` value (no approximate / coerced mode)",
                         fname,
                         i + 1,
                         type_str(&actual),
+                        type_str(param_ty),
                         type_str(param_ty)
                     ),
                 );

@@ -7,7 +7,7 @@
 Hosted Studio:
 
 1. **Emit** — `cuni <file> --emit-py/--emit-go/--emit-js`
-2. **Check / Run** — `cuni check` exactness (+ optional per-target stdout)
+2. **Check / Run** — `cuni check --only py,go,js` exactness (+ optional per-target stdout). Hosted gate matches the product promise; missing c/cpp/rs on the Fly image must not false-FAIL Publish.
 3. **Notelog** — chronological lab notes (auto on every run + manual)
 4. **Critic Book** — structured critiques (auto from typeck/exactness + manual)
 5. **Agent mode** — speech → CuNi skill (exactness gate) → py/go/js; propose/adopt law
@@ -38,6 +38,7 @@ CUNI_PLAYGROUND_HOST=127.0.0.1 python3 playground/server.py
 | `CUNI_PLAYGROUND_MAX_SOURCE` | `200000` | max source bytes |
 | `CUNI_PLAYGROUND_MAX_CONCURRENT` | `2` | parallel /api/run\|emit\|check |
 | `CUNI_PLAYGROUND_DATA` | `playground/data` | Notelog + Critic Book JSON |
+| `CUNI_PLAYGROUND_CHECK_ONLY` | `py,go,js` | Studio exactness seats (`cuni check --only …`). Flagship hosted gate; full 119-lang catalog stays CLI/CI. |
 
 ## API
 

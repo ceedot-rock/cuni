@@ -183,7 +183,10 @@ pub fn check_file_only(
         }
         Err(e) => {
             report.front_err = Some(e.clone());
-            report.summary = format!("exactness: FAIL — front-end: {}", e);
+            report.summary = format!(
+                "exactness: FAIL — front-end: {}\nfix-it: resolve the type/parse error above; exactness never runs on a refused program (no approximate mode)",
+                e
+            );
             return report;
         }
     };
@@ -246,7 +249,10 @@ pub fn check_file_only(
                 ));
             }
         }
-        report.summary = format!("exactness: FAIL — {}", parts.join("; "));
+        report.summary = format!(
+            "exactness: FAIL — {}\nfix-it: every catalog seat must emit+run; fix the first failing target, then re-run `cuni check` (no approximate mode)",
+            parts.join("; ")
+        );
         report.exact = false;
         return report;
     }
@@ -265,7 +271,7 @@ pub fn check_file_only(
         report.exact = false;
         let show: Vec<_> = diverged.iter().take(8).copied().collect();
         report.summary = format!(
-            "exactness: FAIL — stdout diverged vs {} for: {}{}",
+            "exactness: FAIL — stdout diverged vs {} for: {}{}\nfix-it: remove `ext` host differences, avoid non-portable float printing, keep integer/`say` paths identical — CuNi has no approximate mode",
             report.targets[0].target,
             show.join(", "),
             if diverged.len() > 8 {

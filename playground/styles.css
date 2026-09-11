@@ -372,3 +372,40 @@ button.ghost { background: transparent; padding: 6px 10px; color: var(--muted); 
 }
 .critic-meta { display: flex; gap: 8px; }
 .critic-meta select { flex: 1; min-width: 0; }
+
+/* Registered contracts (Studio → Rider surface) */
+.contracts-panel {
+  margin: 0 18px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel2);
+  overflow: hidden;
+}
+.contracts-head {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.contracts-title {
+  margin: 0; font-size: 0.95rem; font-weight: 600; flex: 1; min-width: 160px;
+}
+.contracts-list {
+  padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px;
+  max-height: 220px; overflow: auto; background: #0a101e;
+}
+.contract-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 1fr) minmax(120px, 2fr) minmax(110px, 1.2fr) auto;
+  gap: 8px 12px; align-items: center;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--panel); padding: 8px 10px;
+  font-family: var(--mono); font-size: 0.72rem; color: #d7e4ff;
+}
+.contract-row .cid { color: var(--gold-line); }
+.contract-row .hash { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.contract-row .when { color: var(--muted); }
+.contract-row .st { color: var(--good); text-transform: lowercase; }
+@media (max-width: 720px) {
+  .contract-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}

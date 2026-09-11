@@ -43,3 +43,35 @@ This is the Studio default (`spend-control`). You should see **exactness PASS** 
 ## Teaching point
 
 Exactness is not “mostly the same.” It is byte-identical behavior on every supported target — or the program is refused. That is the citizenship gate for Agent-Rider.
+
+## Fix-it polish (v0.1.9 / Studio)
+
+Type and exactness refusals now append a concrete **fix-it** line. Exactness stays sacred — there is still **no approximate mode**.
+
+### Before
+
+```text
+tests/typeck_invalid/undefined_var.cuni:1:9: type error: undefined variable `y`
+exactness: FAIL — stdout diverged vs py for: go, js
+```
+
+### After
+
+```text
+tests/typeck_invalid/undefined_var.cuni:1:9: type error: undefined variable `y` — fix-it: declare it with `let y = …` or `mut y = …` before use (SPEC.md §6)
+
+exactness: FAIL — stdout diverged vs py for: go, js
+fix-it: remove `ext` host differences, avoid non-portable float printing, keep integer/`say` paths identical — CuNi has no approximate mode
+```
+
+Studio’s error banner runs the same fix-it mapping client-side for hosted try sessions.
+
+## Studio hosted gate vs full catalog
+
+| Surface | Gate |
+|---------|------|
+| CuNi Studio / Publish / Agent | `cuni check --only py,go,js` (flagship promise) |
+| Local CLI / Exactness CI | full 119-language catalog |
+
+Missing optional runners (c/cpp/rs) on the Studio host must not refuse a program whose py/go/js stdout already match. That is gate alignment, not approximate mode.
+

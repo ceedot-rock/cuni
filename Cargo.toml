@@ -23,3 +23,8 @@ agent_rider = "https://agentrider.fly.dev/.well-known/agent.json"
 mcp = "https://agentrider.fly.dev/api/mcp"
 lab_commerce = "https://www.slidphilabs.com/api/agent"
 one_liner = "CuNi Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol.json · Studio https://cuni-studio.fly.dev/ · Agent^Rider https://agentrider.fly.dev/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent"
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/cuni-{ version }-{ target }.tar.gz"
+bin-dir = "{ bin }"
+pkg-fmt = "tgz"

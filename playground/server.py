@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """CuNi Hosted Playground — emit + exactness (cuni check) + Notelog + Critic Book.
 
-Pipeline (same as CLI):
-  1. cuni <file> --emit-py/--emit-go/--emit-js
-  2. cuni check <file>  → exactness: PASS|FAIL
+Pipeline:
+  1. cuni <file> --emit-py/--emit-go/--emit-js (+ --emit-all artifacts)
+  2. cuni check <file> --only py,go,js  → exactness: PASS|FAIL
+     (Studio hosted gate = flagship py/go/js. Full 119-lang catalog is CLI/CI.)
 
 Books:
   Notelog  — chronological lab notes (auto + manual)
@@ -44,6 +45,12 @@ MAX_CONCURRENT = int(os.environ.get("CUNI_PLAYGROUND_MAX_CONCURRENT", "2"))
 # Hosted default: bind all interfaces. Local-only: set CUNI_PLAYGROUND_HOST=127.0.0.1
 DEFAULT_HOST = os.environ.get("CUNI_PLAYGROUND_HOST", "0.0.0.0")
 HTTP_BASE = os.environ.get("CUNI_AGENT_HTTP_BASE", "https://cuni-studio.fly.dev")
+# Hosted Studio flagship gate = py/go/js (Dockerfile ships those runners only).
+# Full 119-lang catalog remains CLI/CI (`cuni check` with no --only). Missing
+# optional c/cpp/rs toolchains must NOT false-FAIL Publish — that would soften
+# nothing; it aligns the gate with the product promise + publish metadata targets.
+_CHECK_ONLY_RAW = os.environ.get("CUNI_PLAYGROUND_CHECK_ONLY", "py,go,js").strip()
+CHECK_ONLY = [x.strip() for x in _CHECK_ONLY_RAW.split(",") if x.strip()] or ["py", "go", "js"]
 
 _run_sem = threading.Semaphore(MAX_CONCURRENT)
 _store_lock = threading.Lock()
@@ -382,8 +389,13 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 "critiques": [],
             }
 
-        # Exactness via official cuni check path
-        check = run_cmd([str(cuni), "check", str(main), "--timeout", str(TIMEOUT)])
+        # Exactness via official cuni check path — Studio gate = CHECK_ONLY (default py,go,js).
+        # Do not run the full 119-lang catalog here: the Fly image has no c/cpp/rs runners,
+        # and the product promise + publish metadata targets are py/go/js.
+        check_cmd = [str(cuni), "check", str(main), "--timeout", str(TIMEOUT)]
+        if CHECK_ONLY:
+            check_cmd += ["--only", ",".join(CHECK_ONLY)]
+        check = run_cmd(check_cmd)
         check_out = (check.stdout or "") + (check.stderr or "")
         exact_pass = check.returncode == 0 and "exactness: PASS" in check_out
 
@@ -559,6 +571,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "go": shutil.which("go"),
                     "node": shutil.which("node"),
                     "lang_count": len(list_langs()),
+                    "exactness_gate": list(CHECK_ONLY),
                     "host": DEFAULT_HOST,
                     "timeout": TIMEOUT,
                     "max_concurrent": MAX_CONCURRENT,
@@ -591,7 +604,7 @@ class Handler(SimpleHTTPRequestHandler):
                 {
                     "ok": True,
                     "count": len(langs),
-                    "exactness": ["py", "go", "js"],
+                    "exactness": list(CHECK_ONLY),
                     "langs": langs,
                 },
             )
@@ -914,7 +927,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "exactness": {
                         "passed": True,
                         "checkedAt": ts,
-                        "targets": ["py", "go", "js"],
+                        "targets": list(CHECK_ONLY),
                         "stdoutMatch": True,
                     },
                     "publishedAt": ts,
@@ -1009,7 +1022,8 @@ def main() -> None:
     print(f"  bind {host}:{port}  timeout={TIMEOUT}s  concurrent={MAX_CONCURRENT}")
     print("  POST /api/run    emit + cuni check + stdout")
     print("  POST /api/emit   emit only")
-    print("  POST /api/check  emit + cuni check")
+    print("  POST /api/check  emit + cuni check --only " + ",".join(CHECK_ONLY))
+    print(f"  exactness gate (Studio): {",".join(CHECK_ONLY)}  (full catalog = CLI/CI)")
     print("  POST /api/publish  exactness gate → Rider metadata (+ remote if CUNI_RIDER_URL)")
     print("  POST /api/rider/register  |  GET /api/rider/registered  (Studio Rider stub)")
     print("  GET/POST /api/notelog   |  /api/criticbook")

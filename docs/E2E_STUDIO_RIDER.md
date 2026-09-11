@@ -1,7 +1,7 @@
 # E2E: Studio exactness → Publish → Agent^Rider
 
-**Status:** cutover live as of 2026-08-07  
-**Apps:** https://cuni-studio.fly.dev/ · https://agentrider.fly.dev/
+**Status:** cutover live; Studio contracts UI shipped 2026-09-11 (v0.1.9)  
+**Apps:** https://cuni-studio.fly.dev/ · https://agentrider.fly.dev/ (Fly-only; Vercel 402 is a historical dead door)
 
 ## Flow
 
@@ -22,30 +22,18 @@ curl -s https://cuni-studio.fly.dev/api/rider/registered | jq .
 # Health (shows remote status)
 curl -s https://cuni-studio.fly.dev/api/health | jq .rider
 
-# Remote Rider (may return 402 if deployment gated)
+# Remote Rider (Fly-only live face; re-verify pending GRANT/service_role)
 curl -s https://agentrider.fly.dev/api/v0/contracts | jq .
 ```
 
-## Studio UI surface (open work — Step 2)
+## Studio UI surface (shipped — Step 2)
 
-Goal: make registered contracts visible without leaving Studio.
+Registered contracts are visible in Studio without leaving the page:
 
-Recommended minimal changes:
-
-1. **Footer / health strip**  
-   Already polls `/api/health` and `/api/rider/registered`. Surface:
-   - `registered: N` (from local stub or remote when available)
-   - Small badge: `Rider remote: on/off`
-   - Click → expand last 3 contracts (id, sourceHash short, registeredAt)
-
-2. **Publish success toast**  
-   After successful publish, show `Registered: <contractId>` + link to Rider contracts page (or local list).
-
-3. **Optional contracts panel**  
-   New tab or side drawer listing local + remote contracts (read-only).
-
-4. **Docs link**  
-   Keep this file + `RIDER_CUTOVER.md` linked from Progress / README.
+1. **Contracts panel** — count + recent rows (`id`, `sourceHash`, `registeredAt`, `status`); empty state when `count=0`
+2. **Health strip** — `registered: N` · `rider remote: on/off` · `langs: 119`
+3. **Rider link** — prefers `health.rider.remote_url`, falls back to https://agentrider.fly.dev
+4. **Docs** — this file + [`STATUS.md`](STATUS.md) + [`RIDER_CUTOVER.md`](RIDER_CUTOVER.md)
 
 Implementation notes:
 - Prefer local stub count for the primary badge (always works).
@@ -79,4 +67,5 @@ curl -s -X POST https://cuni-studio.fly.dev/api/publish \
 | When | Result |
 |------|--------|
 | 2026-08-07 | `ctr_1ec3e1bdb32541f0` from Studio publish; contracts count 2 |
-| 2026-08-12 | Local stub healthy (`count: 2`). Remote `/api/v0/contracts` returns HTTP 402 (DEPLOYMENT_DISABLED). Re-check Agent-Rider Vercel deployment / billing / x402. |
+| 2026-08-12 | Local stub healthy (`count: 2`). Remote Vercel edge returned HTTP 402 (historical dead door). |
+| 2026-09-11 | Fly-only Rider face https://agentrider.fly.dev. Studio UI surfaces `/api/rider/registered`. Remote register re-verify still pending GRANT/`service_role` match on Rider. |
