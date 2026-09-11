@@ -19,7 +19,7 @@
 | **$CuNi** | Community signal token for the language (not a product, not financial advice) | **Live on pump** · thin curve after creator bag sold to SOL 2026-07-27 · do **not** lead with this | https://pump.fun/62U1zus7pQfpjsq5xW7DiF6MebtThDeRitaqKBM5jgnd |
 | **Quikgater** | Pay-per-fetch for agents (x402 / USDC on Base) | **Repo live** · worker responds (needs `url` param) | https://github.com/ceedot-rock/quikgater · https://quikgater-worker.ceedotrock.workers.dev |
 | **Pinata Pools** | Farcaster miniapp — USDC threshold pots on Base (90/10 burst) | **Live** (Pages) | https://pinata-pools.pages.dev/ |
-| **Agent Rider** | Agent rider protocol experiment | **Live** | https://agentrider.vercel.app · https://github.com/ceedot-rock/Agent-Rider |
+| **Agent Rider** | Agent rider protocol experiment | **Live** | https://agentrider.fly.dev · https://github.com/ceedot-rock/Agent-Rider |
 | **APParattus** | Launch / milestone planning | **Live** | https://app-arattus.vercel.app · https://github.com/ceedot-rock/APParattus |
 | **WSOAP** | World series of agentic poker (experiment) | **Live** | https://wsoap.vercel.app · https://github.com/ceedot-rock/wsoap |
 
@@ -32,7 +32,7 @@
 | github.com/ceedot-rock/cuni | 200 |
 | pump.fun/62U1zus… | 200 |
 | pinata-pools.pages.dev | 200 |
-| agentrider.vercel.app | 200 |
+| agentrider.fly.dev | 200 |
 | app-arattus.vercel.app | 200 |
 | wsoap.vercel.app | 200 |
 | quikgater-worker (root) | 400 without `url` — expected for API shape |
