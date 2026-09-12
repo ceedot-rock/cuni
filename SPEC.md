@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-CuNi is a mnemonic, human-readable programming language designed to compile to **exact, idiomatic source code** in multiple target languages from a single CuNi program. It is not a general-purpose language that happens to have many backends — it is deliberately small, so that every construct in it has a provable, lossless mapping into every supported target.
+CuNi is a mnemonic, human-readable programming language designed to compile to **exact, idiomatic source code** in multiple target languages from a single CuNi program. It is deliberately small, so that every construct in it has a provable, lossless mapping into every supported target.
 
 **Design tenets:**
 - Mnemonic over cryptic: every keyword is a short, guessable word (`ret`, `mut`, `iface`), not a symbol or abbreviation that needs to be memorized from scratch.
@@ -31,7 +31,7 @@ CuNi is **119 languages** (`src/langs.rs`). `cuni check` and `--emit-all` apply 
 
 **Native seats today:** Python (`python3`), Go (`go run`), JavaScript and TypeScript (`node`), C (`gcc`), C++ (`g++`), Rust (`rustc`). See `docs/SEATS.md`.
 
-**In-process runner:** `cuni run` evaluates the AST inside the `cuni` binary. It is not a 120th emit language. It is a seat: `cuni check` runs it on portable programs (`ext`-free) and refuses if stdout diverges from catalog gold.
+**In-process runner:** `cuni run` evaluates the AST inside the `cuni` binary. It is a seat: `cuni check` runs it on portable programs (`ext`-free) and refuses if stdout diverges from catalog gold.
 
 Until a catalog id has a native backend, its exactness artifact is a Python lowering so the seat still **runs** rather than being skipped. `--receipt` records `native` vs `lowering` per id.
 

@@ -47,7 +47,7 @@ Integer cents, same gold on every native seat:
 
 ## 5b. Compressor laws
 
-Formulas, fills, and order. Not Combined GC. Not host xz.
+Formulas, fills, and order. House genes.
 
 | Law | Protects |
 |-----|----------|

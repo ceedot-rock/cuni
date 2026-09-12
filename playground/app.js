@@ -60,7 +60,7 @@ const EMPTY = {
   py: "n/a — Run exactness to fill this seat",
   go: "n/a — Run exactness to fill this seat",
   js: "n/a — Run exactness to fill this seat",
-  interp: "Run for instant stdout. Same answer as the gate — not a bypass.",
+  interp: "Run for instant stdout. Same answer as the gate.",
   lang: "Emit or Run exactness to fill the catalog artifact.",
   log: "Check log appears after Check or Run exactness.",
 };

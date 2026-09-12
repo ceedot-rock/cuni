@@ -1,6 +1,6 @@
 # Compressor laws (CuNi)
 
-Public meaning of PCC genes that are formulas, fills, and order — not Combined GC, not host xz.
+Public meaning of PCC genes that are formulas, fills, and order.
 
 Each file **encodes and decodes**. `cuni check` emit+runs the catalog; stdout must match.
 

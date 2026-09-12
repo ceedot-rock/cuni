@@ -12,7 +12,7 @@
   "commands": ["check", "run", "ingest", "prove", "emit-all"],
   "run": {
     "kind": "seat",
-    "note": "in-process evaluator. cuni check refuses if stdout diverges from catalog gold. Not a 120th emit language. Programs with ext skip this seat."
+    "note": "in-process evaluator. cuni check refuses if stdout diverges from catalog gold. Programs with ext skip this seat."
   },
   "public_install_tag": "v0.1.9",
   "citizenship": "exactness.passed must be true before Agent-Rider register",

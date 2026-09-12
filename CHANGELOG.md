@@ -9,7 +9,7 @@
 
 ### Changed
 - C `cuni_len` counts string bytes so `s.len()` matches py/go/js/rs.
-- Studio Exactness pane: py/go/js seats + in-process `run` (same stdout, not a bypass). `source_hash` is live on the page.
+- Studio Exactness pane: py/go/js seats + in-process `run` (same stdout). `source_hash` is live on the page.
 
 ## [0.1.9] — 2026-09-09
 
