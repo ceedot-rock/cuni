@@ -18,7 +18,7 @@ class Cuni < Formula
   desc "CuNi — write once, print many languages; Python/Go/JS must match"
   homepage "https://cuni-studio.fly.dev/"
   url "https://github.com/ceedot-rock/cuni/archive/refs/tags/v0.1.10.tar.gz"
-  sha256 "REPLACE_AFTER_TAG"
+  sha256 "2faf8d26ecc1fe2c2d8a8ca094cad257c5ba8d7a22a15e9e59f705f3291ed3b3"
   license "AGPL-3.0-or-later"
   head "https://github.com/ceedot-rock/cuni.git", branch: "master"
 
