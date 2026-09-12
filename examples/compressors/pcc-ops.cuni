@@ -1,0 +1,62 @@
+# PCC1 op ids. Same numbers as lbr1 splb Op. Not Combined GC.
+
+def op_zero() -> int do
+    ret 0
+end
+
+def op_match() -> int do
+    ret 1
+end
+
+def op_bwt() -> int do
+    ret 2
+end
+
+def op_store() -> int do
+    ret 3
+end
+
+def op_cmaq() -> int do
+    ret 4
+end
+
+def op_lz() -> int do
+    ret 5
+end
+
+def op_lzm() -> int do
+    ret 6
+end
+
+def op_zmix() -> int do
+    ret 7
+end
+
+def op_str() -> int do
+    ret 8
+end
+
+def op_nnc() -> int do
+    ret 9
+end
+
+def op_phrase() -> int do
+    ret 10
+end
+
+def op_math() -> int do
+    ret 11
+end
+
+say(op_zero())
+say(op_match())
+say(op_bwt())
+say(op_store())
+say(op_cmaq())
+say(op_lz())
+say(op_lzm())
+say(op_zmix())
+say(op_str())
+say(op_nnc())
+say(op_phrase())
+say(op_math())

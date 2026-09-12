@@ -1,0 +1,19 @@
+# ZERO fill. All-zero runs pack to 8 bytes when that does not expand.
+# 40_000 zeros → 8. 1_000_000 zeros → 8. Seven zeros stay 7.
+
+def packed_zeros(n: int) -> int do
+    if n <= 0 do
+        ret 0
+    end
+    if n < 8 do
+        ret n
+    end
+    ret 8
+end
+
+say(packed_zeros(0))
+say(packed_zeros(7))
+say(packed_zeros(8))
+say(packed_zeros(9))
+say(packed_zeros(40000))
+say(packed_zeros(1000000))

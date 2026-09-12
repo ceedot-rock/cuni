@@ -43,6 +43,18 @@ Integer cents, same gold on every native seat:
 | `examples/laws/rider-fee.cuni` | Rider 5% task fee |
 | `examples/laws/spend-control.cuni` | Agent spend cap |
 
+## 5b. Compressor laws
+
+Formulas, fills, and order. Not Combined GC. Not host xz.
+
+| Law | Protects |
+|-----|----------|
+| `examples/compressors/pcc-ops.cuni` | PCC1 op ids |
+| `examples/compressors/never-expand.cuni` | coded ≥ raw → keep raw |
+| `examples/compressors/zeros.cuni` | ZERO packed size |
+| `examples/compressors/math-arith.cuni` | MTH1 u8 ramp keep |
+| `examples/compressors/trustream.cuni` | 4 KiB tile gene order |
+
 ## 6. Where it lives
 
 | Surface | URL |

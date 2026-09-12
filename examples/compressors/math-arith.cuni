@@ -1,0 +1,39 @@
+# MTH1 ARITH_U8: store a, step, n instead of the tape when that is smaller.
+# Packed size is 11 bytes (4 magic + 1 kind + 1 a + 1 step + 4 n).
+# Decode checksum must match the ramp. Never expand.
+
+def u8(x: int) -> int do
+    let m = x % 256
+    if m < 0 do
+        ret m + 256
+    end
+    ret m
+end
+
+def ramp_sum(a: int, step: int, n: int) -> int do
+    mut s = 0
+    mut i = 0
+    whl i < n do
+        s = s + u8(a + step * i)
+        i = i + 1
+    end
+    ret s
+end
+
+def packed_arith_u8(n: int) -> int do
+    ret 11
+end
+
+def keep_arith(n: int) -> int do
+    let coded = packed_arith_u8(n)
+    if coded >= n do
+        ret n
+    end
+    ret coded
+end
+
+# a=3 step=2 n=20 → 3,5,…,41. Sum = 20*(3+41)/2 = 440.
+say(ramp_sum(3, 2, 20))
+say(packed_arith_u8(20))
+say(keep_arith(20))
+say(keep_arith(10))

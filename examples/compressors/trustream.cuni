@@ -1,0 +1,39 @@
+# TRUSTREAM tile. Encode/decode one process. Own genes only.
+# Stream order: ZERO → MATH → PHRASE → STORE.
+# Op ids match PCC1. Host xz is not a gene.
+
+def tile_bytes() -> int do
+    ret 4096
+end
+
+def op_zero() -> int do
+    ret 0
+end
+
+def op_math() -> int do
+    ret 11
+end
+
+def op_phrase() -> int do
+    ret 10
+end
+
+def op_store() -> int do
+    ret 3
+end
+
+# kind: 0 = all zeros, 1 = exact u8 ramp, 2 = else
+def pick(kind: int) -> int do
+    if kind == 0 do
+        ret op_zero()
+    end
+    if kind == 1 do
+        ret op_math()
+    end
+    ret op_store()
+end
+
+say(tile_bytes())
+say(pick(0))
+say(pick(1))
+say(pick(2))

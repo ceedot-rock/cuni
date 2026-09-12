@@ -1,0 +1,13 @@
+# Law: coded ≥ raw → keep raw. A keep never grows the file.
+
+def keep(raw: int, coded: int) -> int do
+    if coded >= raw do
+        ret raw
+    end
+    ret coded
+end
+
+say(keep(7, 8))
+say(keep(8, 8))
+say(keep(9, 8))
+say(keep(100, 40))
