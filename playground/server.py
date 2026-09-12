@@ -404,8 +404,6 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 str(cuni),
                 "run",
                 str(main),
-                "--lang",
-                "py",
                 "--timeout",
                 str(TIMEOUT),
             ]

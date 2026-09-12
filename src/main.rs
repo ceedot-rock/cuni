@@ -9,6 +9,7 @@ mod codegen_py;
 mod codegen_rs;
 mod emit;
 mod ingest;
+mod interp;
 mod langs;
 mod lexer;
 mod modules;
@@ -43,7 +44,8 @@ Commands:
           Native seats today: py, go, js, ts, c, cpp, rs.
           Other ids: Python lowering so the 119-language gate still runs.
           Prints:  exactness: PASS (N langs)
-  run     Emit+run one native seat (default py). Not a substitute for check.
+  run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
+          Not a substitute for check.
   ingest  Reverse CuNi: Python v1 subset → .cuni, or refuse.
   prove   Run a foreign implementation; it must match CuNi gold stdout.
 
@@ -220,19 +222,16 @@ fn cmd_check(args: &[String]) -> ExitCode {
 
 fn cmd_run(args: &[String]) -> ExitCode {
     let mut path = None;
-    let mut lang = "py".to_string();
+    let mut lang: Option<String> = None;
     let mut timeout_secs: u64 = 60;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
             "--lang" => {
-                lang = args
-                    .get(i + 1)
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        eprintln!("cuni run: --lang requires an id (py,go,js,ts,c,cpp,rs)");
-                        std::process::exit(1);
-                    });
+                lang = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                    eprintln!("cuni run: --lang requires an id (py,go,js,ts,c,cpp,rs)");
+                    std::process::exit(1);
+                }));
                 i += 2;
             }
             "--timeout" => {
@@ -260,14 +259,26 @@ fn cmd_run(args: &[String]) -> ExitCode {
         eprintln!("cuni run: missing file.cuni");
         return ExitCode::FAILURE;
     };
-    let work = env::temp_dir().join(format!("cuni_run_{}", std::process::id()));
-    let _ = fs::create_dir_all(&work);
-    match check::run_one(
-        Path::new(&path),
-        &lang,
-        &work,
-        Duration::from_secs(timeout_secs),
-    ) {
+    let program = match check::load_program(Path::new(&path)) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("cuni run: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let result = if let Some(lang) = lang {
+        let work = env::temp_dir().join(format!("cuni_run_{}", std::process::id()));
+        let _ = fs::create_dir_all(&work);
+        check::run_one(
+            Path::new(&path),
+            &lang,
+            &work,
+            Duration::from_secs(timeout_secs),
+        )
+    } else {
+        interp::run(&program)
+    };
+    match result {
         Ok(stdout) => {
             print!("{stdout}");
             ExitCode::SUCCESS

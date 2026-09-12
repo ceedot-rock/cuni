@@ -24,8 +24,8 @@ Next native seats to grow under the same law: `sh`, `pl`, `awk`, `sql`, `wat`.
 ## Commands this unlocks
 
 ```bash
-cuni run file.cuni                      # one native seat (default py)
-cuni run file.cuni --lang go
+cuni run file.cuni                      # in-process (no emit)
+cuni run file.cuni --lang py            # emit+run one native seat
 cuni check file.cuni --receipt          # ledger beside the source
 cuni check file.cuni --only c,rs,py     # pin the run to seats
 cuni ingest impl.py -o impl.cuni        # reverse: Python subset → CuNi or refuse
