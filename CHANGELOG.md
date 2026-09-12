@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.10] — 2026-09-12
+
+### Added
+- **`cuni run file.cuni [--lang py]`** — emit+run one native seat. Not a substitute for `cuni check`.
+- Compute stdlib (SPEC.md §15): `range`, `abs`, `min`, `max`, `str.len`, `slice` (OOB → empty).
+- Gold algorithms under `examples/compute/` (fib, gcd, sum-range, sort, range).
+
+### Changed
+- C `cuni_len` counts string bytes so `s.len()` matches py/go/js/rs.
+
 ## [0.1.9] — 2026-09-09
 
 ### Added

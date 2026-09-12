@@ -78,6 +78,47 @@ impl<'a> Checker<'a> {
                 name_span: Span::dummy(),
             },
         );
+        let int_t = Type::Named("int".to_string());
+        functions.insert(
+            "range".to_string(),
+            FnSig {
+                params: vec![int_t.clone()],
+                ret: Type::Generic("list".to_string(), vec![int_t.clone()]),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "abs".to_string(),
+            FnSig {
+                params: vec![int_t.clone()],
+                ret: int_t.clone(),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "min".to_string(),
+            FnSig {
+                params: vec![int_t.clone(), int_t.clone()],
+                ret: int_t.clone(),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "max".to_string(),
+            FnSig {
+                params: vec![int_t.clone(), int_t.clone()],
+                ret: int_t,
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
         let mut typs = HashMap::new();
         let mut ifaces = HashMap::new();
         let mut enums = HashMap::new();
@@ -920,6 +961,15 @@ impl<'a> Checker<'a> {
                 }
                 ExprKind::Field { name, .. } if name == "len" => {
                     Some(Type::Named("int".to_string()))
+                }
+                ExprKind::Field { base, name } if name == "slice" => {
+                    match self.infer_expr(base, scope, generics) {
+                        Some(Type::Named(n)) if n == "str" => Some(Type::Named("str".to_string())),
+                        Some(Type::Generic(n, args)) if n == "list" => {
+                            Some(Type::Generic(n, args))
+                        }
+                        _ => None,
+                    }
                 }
                 _ => None,
             },

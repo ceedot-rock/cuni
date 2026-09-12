@@ -457,3 +457,32 @@ pub fn gold_stdout(report: &CheckReport) -> Option<&str> {
         .find(|t| t.target == "py" && t.run_ok)
         .and_then(|t| t.stdout.as_deref())
 }
+
+const RUN_SEATS: &[&str] = &["py", "go", "js", "ts", "c", "cpp", "rs"];
+
+/// Emit and run one native seat. Not a substitute for `cuni check`.
+pub fn run_one(
+    path: &Path,
+    lang_id: &str,
+    work_dir: &Path,
+    timeout: Duration,
+) -> Result<String, String> {
+    let lang = langs::LANGS
+        .iter()
+        .find(|l| l.id == lang_id || l.ext == lang_id)
+        .ok_or_else(|| format!("unknown language `{lang_id}`"))?;
+    if !RUN_SEATS.contains(&lang.id) {
+        return Err(format!(
+            "`{lang_id}` is not a native seat — use py,go,js,ts,c,cpp,rs (`cuni run` is one seat; `cuni check` is the proof)"
+        ));
+    }
+    let program = load_program(path)?;
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("prog");
+    let _ = fs::create_dir_all(work_dir);
+    let out = work_dir.join(format!("{}_{}", stem, lang.out_file()));
+    emit_for(&program, lang, &out)?;
+    run_target(lang, &out, timeout)
+}

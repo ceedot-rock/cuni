@@ -1,0 +1,8 @@
+def fib(n: int) -> int do
+    if n < 2 do
+        ret n
+    end
+    ret fib(n - 1) + fib(n - 2)
+end
+
+say(fib(10))

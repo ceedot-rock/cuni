@@ -145,6 +145,34 @@ fn structs_example_is_exact_across_targets() {
     assert_exact("examples/structs.cuni", "7\n3\n");
 }
 
+#[test]
+fn compute_fib_is_exact() {
+    assert_exact("examples/compute/fib.cuni", "55\n");
+}
+
+#[test]
+fn compute_gcd_is_exact() {
+    assert_exact("examples/compute/gcd.cuni", "6\n");
+}
+
+#[test]
+fn compute_sum_range_is_exact() {
+    assert_exact("examples/compute/sum-range.cuni", "45\n");
+}
+
+#[test]
+fn compute_sort_is_exact() {
+    assert_exact("examples/compute/sort.cuni", "1 2 4 5\n");
+}
+
+#[test]
+fn compute_range_stdlib_is_exact() {
+    assert_exact(
+        "examples/compute/range.cuni",
+        "0\n3\n0\n1\n2\n4\n2\n9\n2\nell\n0\n",
+    );
+}
+
 /// `examples/modules.cuni` deliberately names its `ext` binding `fetch` while
 /// its `js:` body also calls the global `fetch` — the compiler must refuse to
 /// compile for JS (src/checks.rs) rather than emit self-recursive JS. This is

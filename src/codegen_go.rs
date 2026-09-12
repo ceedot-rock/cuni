@@ -262,6 +262,88 @@ impl Codegen {
         self.line(1, "fmt.Println(x)");
         self.line(0, "}");
         self.out.push('\n');
+        self.line(0, "func cuni_as_int(x any) int {");
+        self.line(1, "switch v := x.(type) {");
+        self.line(1, "case int:");
+        self.line(2, "return v");
+        self.line(1, "case int64:");
+        self.line(2, "return int(v)");
+        self.line(1, "case float64:");
+        self.line(2, "return int(v)");
+        self.line(1, "default:");
+        self.line(2, "return 0");
+        self.line(1, "}");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_range(n any) []int {");
+        self.line(1, "m := cuni_as_int(n)");
+        self.line(1, "if m <= 0 {");
+        self.line(2, "return []int{}");
+        self.line(1, "}");
+        self.line(1, "xs := make([]int, m)");
+        self.line(1, "for i := 0; i < m; i++ {");
+        self.line(2, "xs[i] = i");
+        self.line(1, "}");
+        self.line(1, "return xs");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_abs(n any) int {");
+        self.line(1, "v := cuni_as_int(n)");
+        self.line(1, "if v < 0 {");
+        self.line(2, "return -v");
+        self.line(1, "}");
+        self.line(1, "return v");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_min(a any, b any) int {");
+        self.line(1, "x, y := cuni_as_int(a), cuni_as_int(b)");
+        self.line(1, "if x <= y {");
+        self.line(2, "return x");
+        self.line(1, "}");
+        self.line(1, "return y");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_max(a any, b any) int {");
+        self.line(1, "x, y := cuni_as_int(a), cuni_as_int(b)");
+        self.line(1, "if x >= y {");
+        self.line(2, "return x");
+        self.line(1, "}");
+        self.line(1, "return y");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_len(x any) int {");
+        self.line(1, "switch v := x.(type) {");
+        self.line(1, "case string:");
+        self.line(2, "return len(v)");
+        self.line(1, "case []any:");
+        self.line(2, "return len(v)");
+        self.line(1, "case []int:");
+        self.line(2, "return len(v)");
+        self.line(1, "default:");
+        self.line(2, "return 0");
+        self.line(1, "}");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuni_slice(xs any, a any, b any) any {");
+        self.line(1, "ia, ib := cuni_as_int(a), cuni_as_int(b)");
+        self.line(1, "switch v := xs.(type) {");
+        self.line(1, "case string:");
+        self.line(2, "n := len(v)");
+        self.line(2, "if ia < 0 || ib < 0 || ia > n || ib > n || ia > ib {");
+        self.line(3, "return \"\"");
+        self.line(2, "}");
+        self.line(2, "return v[ia:ib]");
+        self.line(1, "case []any:");
+        self.line(2, "n := len(v)");
+        self.line(2, "if ia < 0 || ib < 0 || ia > n || ib > n || ia > ib {");
+        self.line(3, "return []any{}");
+        self.line(2, "}");
+        self.line(2, "return v[ia:ib]");
+        self.line(1, "default:");
+        self.line(2, "return nil");
+        self.line(1, "}");
+        self.line(0, "}");
+        self.out.push('\n');
 
         // Top-level `ret` (e.g. inside a `??` handler on a top-level `let`) has
         // no enclosing function in CuNi's source. Go, unlike Python, actually
@@ -770,9 +852,36 @@ impl Codegen {
             ExprKind::Ident(name) => name.clone(),
             ExprKind::List(_) | ExprKind::Map(_) => self.gen_expr_hinted(expr, None, scope),
             ExprKind::Call { callee, args } => {
+                if let ExprKind::Ident(fname) = &callee.kind {
+                    let mapped = match fname.as_str() {
+                        "range" => "cuni_range",
+                        "abs" => "cuni_abs",
+                        "min" => "cuni_min",
+                        "max" => "cuni_max",
+                        _ => "",
+                    };
+                    if !mapped.is_empty() {
+                        return format!(
+                            "{}({})",
+                            mapped,
+                            args.iter()
+                                .map(|a| self.gen_expr(a.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        );
+                    }
+                }
                 if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "len" {
-                        return format!("len({})", self.gen_expr(base, scope));
+                        return format!("cuni_len({})", self.gen_expr(base, scope));
+                    }
+                    if name == "slice" && args.len() == 2 {
+                        return format!(
+                            "cuni_slice({}, {}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope),
+                            self.gen_expr(args[1].expr(), scope)
+                        );
                     }
                     if name == "push" {
                         // `.push` only has a valid Go shape as a statement-

@@ -1,0 +1,40 @@
+# Selection sort without index assignment (C/RS Val cannot assign into index).
+# Inner `mut` lives in helper functions so Go does not redeclare in one block.
+
+def min_index(xs: list<int>) -> int do
+    mut mi = 0
+    mut i = 1
+    whl i < xs.len() do
+        if xs[i] < xs[mi] do
+            mi = i
+        end
+        i = i + 1
+    end
+    ret mi
+end
+
+def without(xs: list<int>, skip: int) -> list<int> do
+    mut nxt: list<int> = []
+    mut k = 0
+    whl k < xs.len() do
+        if k != skip do
+            nxt.push(xs[k])
+        end
+        k = k + 1
+    end
+    ret nxt
+end
+
+mut src: list<int> = []
+src.push(5)
+src.push(1)
+src.push(4)
+src.push(2)
+mut out: list<int> = []
+mut mi = 0
+whl src.len() > 0 do
+    mi = min_index(src)
+    out.push(src[mi])
+    src = without(src, mi)
+end
+say(`${out[0]} ${out[1]} ${out[2]} ${out[3]}`)

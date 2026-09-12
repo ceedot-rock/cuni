@@ -189,6 +189,16 @@ def list_examples() -> list[dict]:
                 "source": p.read_text(encoding="utf-8"),
             }
         )
+    compute = EXAMPLES / "compute"
+    if compute.is_dir():
+        for p in sorted(compute.glob("*.cuni")):
+            out.append(
+                {
+                    "id": f"compute/{p.stem}",
+                    "name": f"compute/{p.name}",
+                    "source": p.read_text(encoding="utf-8"),
+                }
+            )
     return out
 
 
@@ -386,6 +396,36 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 "exactness": "n/a",
                 "summary": emit_res.get("summary") or "emit: ok",
                 "check_log": "",
+                "critiques": [],
+            }
+
+        if mode == "exec":
+            exec_cmd = [
+                str(cuni),
+                "run",
+                str(main),
+                "--lang",
+                "py",
+                "--timeout",
+                str(TIMEOUT),
+            ]
+            ran = run_cmd(exec_cmd)
+            out = ran.stdout or ""
+            err = (ran.stderr or "").strip()
+            ok = ran.returncode == 0
+            return {
+                "ok": ok,
+                "phase": "exec",
+                "error": None if ok else (err or "cuni run failed"),
+                "py": py_src,
+                "go": go_src,
+                "js": js_src,
+                "langs": emit_res.get("langs") or {},
+                "stdout": {"py": out},
+                "run_errors": {} if ok else {"py": err},
+                "exactness": "n/a",
+                "summary": "run py: ok" if ok else f"run py: fail",
+                "check_log": err,
                 "critiques": [],
             }
 
@@ -674,13 +714,18 @@ class Handler(SimpleHTTPRequestHandler):
         except json.JSONDecodeError:
             return self._json(400, {"ok": False, "error": "invalid JSON body"})
 
-        if path in ("/api/run", "/api/emit", "/api/check"):
+        if path in ("/api/run", "/api/emit", "/api/check", "/api/exec"):
             source = data.get("source")
             if not isinstance(source, str) or not source.strip():
                 return self._json(400, {"ok": False, "error": "missing source"})
             if len(source) > MAX_SOURCE:
                 return self._json(400, {"ok": False, "error": "source too large"})
-            mode = {"/api/emit": "emit", "/api/check": "check", "/api/run": "run"}[path]
+            mode = {
+                "/api/emit": "emit",
+                "/api/check": "check",
+                "/api/run": "run",
+                "/api/exec": "exec",
+            }[path]
             if not _run_sem.acquire(blocking=False):
                 return self._json(
                     503,
@@ -1021,6 +1066,7 @@ def main() -> None:
     print(f"CuNi Playground (hosted) → http://{display}:{port}/")
     print(f"  bind {host}:{port}  timeout={TIMEOUT}s  concurrent={MAX_CONCURRENT}")
     print("  POST /api/run    emit + cuni check + stdout")
+    print("  POST /api/exec   cuni run --lang py (one seat)")
     print("  POST /api/emit   emit only")
     print("  POST /api/check  emit + cuni check --only " + ",".join(CHECK_ONLY))
     gate = ",".join(CHECK_ONLY)

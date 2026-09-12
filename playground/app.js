@@ -4,6 +4,7 @@ const els = {
   source: $("source"),
   example: $("example"),
   run: $("run"),
+  exec: $("exec"),
   emit: $("emit"),
   check: $("check"),
   publish: $("publish"),
@@ -706,6 +707,9 @@ function wire() {
   });
 
   els.run.addEventListener("click", () => void invoke("/api/run", "running"));
+  if (els.exec) {
+    els.exec.addEventListener("click", () => void invoke("/api/exec", "running"));
+  }
   els.emit.addEventListener("click", () => void invoke("/api/emit", "emitting"));
   els.check.addEventListener("click", () => void invoke("/api/check", "checking"));
   if (els.publish) {

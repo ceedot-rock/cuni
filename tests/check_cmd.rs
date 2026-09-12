@@ -63,6 +63,47 @@ fn check_native_seats_full() {
 }
 
 #[test]
+fn run_fib_prints_55() {
+    let output = Command::new(cuni_bin())
+        .args(["run", "examples/compute/fib.cuni"])
+        .output()
+        .expect("spawn cuni run");
+    assert!(
+        output.status.success(),
+        "cuni run failed\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "55\n");
+}
+
+#[test]
+fn run_unknown_seat_refuses() {
+    let output = Command::new(cuni_bin())
+        .args(["run", "examples/compute/fib.cuni", "--lang", "cobol"])
+        .output()
+        .expect("spawn cuni run");
+    assert!(!output.status.success());
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        err.contains("native seat") || err.contains("cobol"),
+        "unexpected stderr:\n{err}"
+    );
+}
+
+#[test]
+fn check_compute_native_seats() {
+    let (ok, stdout, stderr) = check(&[
+        "examples/compute",
+        "--only",
+        "py,go,js,c,cpp,rs",
+        "--timeout",
+        "180",
+    ]);
+    assert!(ok, "compute native seats failed\n{stdout}\n{stderr}");
+    assert!(stdout.contains("exactness: PASS"));
+}
+
+#[test]
 fn ingest_python_subset_roundtrip() {
     let dir = std::env::temp_dir();
     let py = dir.join(format!("cuni_ing_{}.py", std::process::id()));

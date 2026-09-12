@@ -1,0 +1,12 @@
+# Compute stdlib gold — scalars only (list `say` diverges per seat).
+say(range(0).len())
+say(range(3).len())
+for i in range(3) do
+    say(i)
+end
+say(abs(0 - 4))
+say(min(2, 9))
+say(max(2, 9))
+say("hi".len())
+say("hello".slice(1, 4))
+say("hello".slice(9, 12).len())

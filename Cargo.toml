@@ -1,6 +1,6 @@
 [package]
 name = "cuni"
-version = "0.1.9"
+version = "0.1.10"
 edition = "2021"
 description = "CuNi (Code:uNiTY) — emit every coding language; exactness gate runs the full catalog"
 license = "AGPL-3.0-or-later"

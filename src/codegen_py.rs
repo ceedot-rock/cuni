@@ -102,6 +102,36 @@ impl Codegen {
         self.line(0, "def say(x):");
         self.line(1, "print(x)");
         self.out.push('\n');
+        self.line(0, "def range(n):");
+        self.line(1, "n = int(n)");
+        self.line(1, "if n <= 0:");
+        self.line(2, "return []");
+        self.line(1, "out = []");
+        self.line(1, "i = 0");
+        self.line(1, "while i < n:");
+        self.line(2, "out.append(i)");
+        self.line(2, "i += 1");
+        self.line(1, "return out");
+        self.out.push('\n');
+        self.line(0, "def abs(n):");
+        self.line(1, "n = int(n)");
+        self.line(1, "return n if n >= 0 else -n");
+        self.out.push('\n');
+        self.line(0, "def min(a, b):");
+        self.line(1, "a, b = int(a), int(b)");
+        self.line(1, "return a if a <= b else b");
+        self.out.push('\n');
+        self.line(0, "def max(a, b):");
+        self.line(1, "a, b = int(a), int(b)");
+        self.line(1, "return a if a >= b else b");
+        self.out.push('\n');
+        self.line(0, "def _cuni_slice(xs, a, b):");
+        self.line(1, "a, b = int(a), int(b)");
+        self.line(1, "n = len(xs)");
+        self.line(1, "if a < 0 or b < 0 or a > n or b > n or a > b:");
+        self.line(2, "return \"\" if isinstance(xs, str) else []");
+        self.line(1, "return xs[a:b]");
+        self.out.push('\n');
         self.line(0, "def _cuni_div(a, b):");
         self.line(1, "if type(a) is int and type(b) is int and b != 0:");
         self.line(2, "return int(a / b) if a * b < 0 else a // b");
@@ -416,6 +446,14 @@ impl Codegen {
                     }
                     if name == "len" {
                         return format!("len({})", self.gen_expr(base, scope));
+                    }
+                    if name == "slice" && args.len() == 2 {
+                        return format!(
+                            "_cuni_slice({}, {}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope),
+                            self.gen_expr(args[1].expr(), scope)
+                        );
                     }
                 }
                 // Named typ constructor -> kwargs: Circle(r=2.0)

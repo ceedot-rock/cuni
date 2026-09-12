@@ -9,6 +9,7 @@ Quick index of the runnable examples. All live under [`examples/`](../examples/)
 | [`spend-control.cuni`](../examples/spend-control.cuni) | Default Studio example. Exact spend-limit policy. Publish → Rider stub. |
 | [`link.cuni`](../examples/link.cuni) + [`link/demo.sh`](../examples/link/demo.sh) | One `link` contract → Go server + Python / JS / Go clients. |
 | [`full.cuni`](../examples/full.cuni) | Broader language surface for exactness checks. |
+| [`compute/`](../examples/compute/) | Algorithms: `cuni run examples/compute/fib.cuni` → `55`. |
 
 ## Language surface
 

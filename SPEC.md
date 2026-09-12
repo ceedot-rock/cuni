@@ -266,6 +266,15 @@ A minimal, explicit table of stdlib surface — every name here has a ratified m
 | `say(x)` | `(any) -> void` | `print(x)` | `fmt.Println(x)` | `console.log(x)` |
 | `xs.push(v)` | `(list<T>, T) -> void`, `xs` must be `mut` | `xs.append(v)` | `xs = append(xs, v)` | `xs.push(v)` |
 | `xs.len()` | `(list<T>) -> int` | `len(xs)` | `len(xs)` | `xs.length` |
+| `s.len()` | `(str) -> int` | `len(s)` | `len(s)` | `s.length` |
+| `range(n)` | `(int) -> list<int>` | `[0..n)` as a list; `n<=0` → `[]` | same (`cuni_range`; `range` is a Go keyword) | integer loop, not `Array.from` |
+| `abs(n)` | `(int) -> int` | absolute value | `cuni_abs` | `Math.trunc` then sign |
+| `min(a, b)` | `(int, int) -> int` | | `cuni_min` (Go 1.21 `min` is not used — CuNi values are `any`) | |
+| `max(a, b)` | `(int, int) -> int` | | `cuni_max` | |
+| `s.slice(a, b)` | `(str, int, int) -> str` | half-open `[a,b)`; OOB → `""` | same, no panic | same |
+| `xs.slice(a, b)` | `(list<T>, int, int) -> list<T>` | half-open `[a,b)`; OOB → `[]` | same, no panic | same |
+
+C / C++ / Rust native seats implement this table via the tagged `Val` runtime (not idiomatic ownership). Python lowering seats inherit the Python mappings.
 
 Notes:
 - `.len()` is spelled as a method (`xs.len()`), not a free function (`len(xs)`), so it reads consistently with `.push` — both are collection operations spelled as methods on the collection — even though this doesn't match Python's own free-function idiom. The CuNi-level name only has to compile to each target's idiom, not match it.

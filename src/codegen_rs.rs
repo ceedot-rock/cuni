@@ -260,6 +260,14 @@ impl Gen {
                     if name == "len" {
                         return format!("v_len({})", self.expr(base));
                     }
+                    if name == "slice" && args.len() == 2 {
+                        return format!(
+                            "v_slice({}, {}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr()),
+                            self.expr(args[1].expr())
+                        );
+                    }
                     if name == "push" {
                         return format!(
                             "v_push_val({}, {})",
@@ -271,12 +279,22 @@ impl Gen {
                         );
                     }
                 }
-                let c = self.expr(callee);
                 let a = args
                     .iter()
                     .map(|x| self.expr(x.expr()))
                     .collect::<Vec<_>>()
                     .join(", ");
+                if let ExprKind::Ident(n) = &callee.kind {
+                    let mapped = match n.as_str() {
+                        "range" => "v_range",
+                        "abs" => "v_abs",
+                        "min" => "v_min",
+                        "max" => "v_max",
+                        _ => n.as_str(),
+                    };
+                    return format!("{mapped}({a})");
+                }
+                let c = self.expr(callee);
                 format!("{c}({a})")
             }
             ExprKind::Index { base, index } => {
@@ -359,6 +377,31 @@ fn v_index(s: Val, i: Val) -> Val {
 }
 fn v_len(s: Val) -> Val {
     match s { Val::List(xs) => Val::Int(xs.len() as i64), Val::Str(t) => Val::Int(t.len() as i64), _ => Val::Int(0) }
+}
+fn v_as_int(s: &Val) -> i64 { match s { Val::Int(n) => *n, _ => 0 } }
+fn v_range(n: Val) -> Val {
+    let m = v_as_int(&n);
+    if m <= 0 { return Val::List(vec![]); }
+    Val::List((0..m).map(Val::Int).collect())
+}
+fn v_abs(n: Val) -> Val { let v = v_as_int(&n); Val::Int(if v < 0 { -v } else { v }) }
+fn v_min(a: Val, b: Val) -> Val { let x = v_as_int(&a); let y = v_as_int(&b); Val::Int(if x <= y { x } else { y }) }
+fn v_max(a: Val, b: Val) -> Val { let x = v_as_int(&a); let y = v_as_int(&b); Val::Int(if x >= y { x } else { y }) }
+fn v_slice(s: Val, a: Val, b: Val) -> Val {
+    let ia = v_as_int(&a); let ib = v_as_int(&b);
+    match s {
+        Val::Str(t) => {
+            let n = t.len() as i64;
+            if ia < 0 || ib < 0 || ia > n || ib > n || ia > ib { Val::Str(String::new()) }
+            else { Val::Str(t.chars().skip(ia as usize).take((ib - ia) as usize).collect()) }
+        }
+        Val::List(xs) => {
+            let n = xs.len() as i64;
+            if ia < 0 || ib < 0 || ia > n || ib > n || ia > ib { Val::List(vec![]) }
+            else { Val::List(xs[ia as usize..ib as usize].to_vec()) }
+        }
+        _ => Val::None,
+    }
 }
 fn v_push(s: &mut Val, x: Val) {
     if let Val::List(xs) = s { xs.push(x); }

@@ -138,10 +138,14 @@ cargo build --release
 ## Quick start
 
 ```bash
+# run one native seat (default py) — not a substitute for check
+cuni run examples/compute/fib.cuni
+# → 55
 # exactness gate — 119 languages, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
 # → exactness: PASS (119 langs)   exit 0
 cuni check examples/full.cuni --only py,go,js,c,cpp,rs   # native seats
+cuni check examples/compute --timeout 180
 cuni ingest impl.py -o impl.cuni                         # reverse, or refuse
 cuni prove examples/full.cuni --against impl.py          # foreign code must match
 # → exactness: FAIL — …         exit 1
@@ -250,9 +254,9 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.9)
+## Status (v0.1.10)
 
-**Shipped:** lexer/parser, quality backends for Python/Go/JS, `--emit-all` language catalog, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**.
+**Shipped:** lexer/parser, quality backends for Python/Go/JS, `--emit-all` language catalog, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (one native seat), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
 
 **Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
 

@@ -1,0 +1,13 @@
+def gcd(a: int, b: int) -> int do
+    mut x = a
+    mut y = b
+    mut t = 0
+    whl y != 0 do
+        t = y
+        y = x % y
+        x = t
+    end
+    ret x
+end
+
+say(gcd(48, 18))

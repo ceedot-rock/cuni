@@ -223,6 +223,36 @@ impl Codegen {
         self.line(1, "console.log(String(x));");
         self.line(0, "}");
         self.out.push('\n');
+        self.line(0, "function range(n) {");
+        self.line(1, "n = Math.trunc(Number(n));");
+        self.line(1, "if (!(n > 0)) return [];");
+        self.line(1, "const xs = [];");
+        self.line(1, "for (let i = 0; i < n; i++) xs.push(i);");
+        self.line(1, "return xs;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function abs(n) {");
+        self.line(1, "n = Math.trunc(Number(n));");
+        self.line(1, "return n < 0 ? -n : n;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function min(a, b) {");
+        self.line(1, "a = Math.trunc(Number(a)); b = Math.trunc(Number(b));");
+        self.line(1, "return a <= b ? a : b;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function max(a, b) {");
+        self.line(1, "a = Math.trunc(Number(a)); b = Math.trunc(Number(b));");
+        self.line(1, "return a >= b ? a : b;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_slice(xs, a, b) {");
+        self.line(1, "a = Math.trunc(Number(a)); b = Math.trunc(Number(b));");
+        self.line(1, "const n = xs.length;");
+        self.line(1, "if (a < 0 || b < 0 || a > n || b > n || a > b) return typeof xs === \"string\" ? \"\" : [];");
+        self.line(1, "return xs.slice(a, b);");
+        self.line(0, "}");
+        self.out.push('\n');
         self.line(0, "function _cuni_div(a, b) {");
         self.line(1, "if (Number.isInteger(a) && Number.isInteger(b) && b !== 0) return Math.trunc(a / b);");
         self.line(1, "return a / b;");
@@ -535,6 +565,14 @@ impl Codegen {
                 if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "len" {
                         return format!("{}.length", self.gen_expr(base, scope));
+                    }
+                    if name == "slice" && args.len() == 2 {
+                        return format!(
+                            "_cuni_slice({}, {}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope),
+                            self.gen_expr(args[1].expr(), scope)
+                        );
                     }
                 }
                 // Named typ args: object literal style if we had that; JS classes use

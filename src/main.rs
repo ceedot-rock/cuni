@@ -30,6 +30,7 @@ cuni — CuNi (Code:uNiTY) compiler. 119 languages. Exactness or refuse.
 
 Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
+  cuni run <file.cuni> [--lang py] [--timeout <secs>]
   cuni ingest <file.py> [-o out.cuni]
   cuni prove <file.cuni> --against <impl>
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
@@ -42,6 +43,7 @@ Commands:
           Native seats today: py, go, js, ts, c, cpp, rs.
           Other ids: Python lowering so the 119-language gate still runs.
           Prints:  exactness: PASS (N langs)
+  run     Emit+run one native seat (default py). Not a substitute for check.
   ingest  Reverse CuNi: Python v1 subset → .cuni, or refuse.
   prove   Run a foreign implementation; it must match CuNi gold stdout.
 
@@ -69,6 +71,9 @@ fn main() -> ExitCode {
 
     if args[0] == "check" {
         return cmd_check(&args[1..]);
+    }
+    if args[0] == "run" {
+        return cmd_run(&args[1..]);
     }
     if args[0] == "ingest" {
         return cmd_ingest(&args[1..]);
@@ -210,6 +215,67 @@ fn cmd_check(args: &[String]) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+fn cmd_run(args: &[String]) -> ExitCode {
+    let mut path = None;
+    let mut lang = "py".to_string();
+    let mut timeout_secs: u64 = 60;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--lang" => {
+                lang = args
+                    .get(i + 1)
+                    .cloned()
+                    .unwrap_or_else(|| {
+                        eprintln!("cuni run: --lang requires an id (py,go,js,ts,c,cpp,rs)");
+                        std::process::exit(1);
+                    });
+                i += 2;
+            }
+            "--timeout" => {
+                let v = args.get(i + 1).unwrap_or_else(|| {
+                    eprintln!("cuni run: --timeout requires seconds");
+                    std::process::exit(1);
+                });
+                timeout_secs = v.parse().unwrap_or_else(|_| {
+                    eprintln!("cuni run: invalid --timeout value `{}`", v);
+                    std::process::exit(1);
+                });
+                i += 2;
+            }
+            s if s.starts_with('-') => {
+                eprintln!("cuni run: unknown flag `{s}`");
+                return ExitCode::FAILURE;
+            }
+            _ => {
+                path = Some(args[i].clone());
+                i += 1;
+            }
+        }
+    }
+    let Some(path) = path else {
+        eprintln!("cuni run: missing file.cuni");
+        return ExitCode::FAILURE;
+    };
+    let work = env::temp_dir().join(format!("cuni_run_{}", std::process::id()));
+    let _ = fs::create_dir_all(&work);
+    match check::run_one(
+        Path::new(&path),
+        &lang,
+        &work,
+        Duration::from_secs(timeout_secs),
+    ) {
+        Ok(stdout) => {
+            print!("{stdout}");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("cuni run: {e}");
+            ExitCode::FAILURE
+        }
     }
 }
 

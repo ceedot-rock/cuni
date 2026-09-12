@@ -1,0 +1,5 @@
+mut s = 0
+for i in range(10) do
+    s = s + i
+end
+say(s)

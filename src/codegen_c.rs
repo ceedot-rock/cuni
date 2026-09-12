@@ -287,6 +287,31 @@ impl Gen {
                     if name == "len" {
                         return format!("cuni_len({})", self.expr(base));
                     }
+                    if name == "slice" && args.len() == 2 {
+                        return format!(
+                            "cuni_slice({}, {}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr()),
+                            self.expr(args[1].expr())
+                        );
+                    }
+                }
+                if let ExprKind::Ident(n) = &callee.kind {
+                    let mapped = match n.as_str() {
+                        "range" => "cuni_range",
+                        "abs" => "cuni_abs",
+                        "min" => "cuni_min",
+                        "max" => "cuni_max",
+                        _ => "",
+                    };
+                    if !mapped.is_empty() {
+                        let a = args
+                            .iter()
+                            .map(|x| self.expr(x.expr()))
+                            .collect::<Vec<_>>()
+                            .join(", ");
+                        return format!("{mapped}({a})");
+                    }
                 }
                 let c = self.expr(callee);
                 if let ExprKind::Ident(n) = &callee.kind {
@@ -442,7 +467,42 @@ static Val cuni_index(Val s, Val idx) {
     if (s.k == K_LIST && i >= 0 && (size_t)i < s.n) return s.items[i];
     return V_none();
 }
-static Val cuni_len(Val s) { return V_int((long long)s.n); }
+static Val cuni_len(Val s) {
+    if (s.k == K_STR && s.s) return V_int((long long)strlen(s.s));
+    return V_int((long long)s.n);
+}
+static Val cuni_range(Val n) {
+    long long m = n.i;
+    if (m <= 0) return V_list(0);
+    Val v = V_list((size_t)m);
+    v.n = (size_t)m;
+    for (long long i = 0; i < m; i++) v.items[i] = V_int(i);
+    return v;
+}
+static Val cuni_abs(Val n) { long long v = n.i; return V_int(v < 0 ? -v : v); }
+static Val cuni_min(Val a, Val b) { return V_int(a.i <= b.i ? a.i : b.i); }
+static Val cuni_max(Val a, Val b) { return V_int(a.i >= b.i ? a.i : b.i); }
+static Val cuni_slice(Val s, Val a, Val b) {
+    long long ia = a.i, ib = b.i;
+    if (s.k == K_STR && s.s) {
+        long long n = (long long)strlen(s.s);
+        if (ia < 0 || ib < 0 || ia > n || ib > n || ia > ib) return V_str("");
+        size_t len = (size_t)(ib - ia);
+        char *p = (char*)malloc(len + 1);
+        memcpy(p, s.s + (size_t)ia, len);
+        p[len] = 0;
+        Val v = V_none(); v.k = K_STR; v.s = p; return v;
+    }
+    if (s.k == K_LIST) {
+        long long n = (long long)s.n;
+        if (ia < 0 || ib < 0 || ia > n || ib > n || ia > ib) return V_list(0);
+        Val v = V_list((size_t)(ib - ia));
+        v.n = (size_t)(ib - ia);
+        for (size_t i = 0; i < v.n; i++) v.items[i] = s.items[(size_t)ia + i];
+        return v;
+    }
+    return V_none();
+}
 static Val cuni_push(Val *s, Val x) {
     if (s->n + 1 > s->cap) {
         s->cap = s->cap ? s->cap * 2 : 4;
