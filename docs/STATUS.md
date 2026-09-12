@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-09-12 · **v0.1.10 on `master` (untagged)** · `cuni run` is a check seat · Studio → Rider loop live (Fly-only)
+**Last updated**: 2026-09-12 · **v0.1.10 tagged** · `cuni run` is a check seat · Studio → Rider loop live (Fly)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -21,8 +21,8 @@ Exact multi-runtime agents, coordinated.
   - Studio UI surfaces contract **count**, recent **id / sourceHash / registeredAt / status**, and a Rider link (prefers `health.rider.remote_url`)  
 - **Health**: `/api/health` exposes `rider.register`, `rider.list`, `rider.remote`, `rider.remote_url`, plus `lang_count`  
 - **Flagship proofs**: exactness (identical stdout or refuse) + `link` interop + Agent `spend` skill  
-- **Packaging**: Homebrew formula + binstall metadata advanced to **v0.1.9** — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
-  Preferred install today: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.9`  
+- **Packaging**: Homebrew formula + binstall metadata advanced to **v0.1.10** — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
+  Preferred install today: `cargo install cuni` or `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.10`  
   Linux x86_64 release asset ships on the GitHub Release; broader matrix still needs the release workflow.
 
 ## Exactness stays sacred

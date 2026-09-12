@@ -7,14 +7,32 @@
   "github": "https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md",
   "rule": "emit+run identical stdout on every catalog language, or refuse",
   "catalog_languages": 119,
-  "native_seats": ["py", "go", "js", "ts", "c", "cpp", "rs"],
-  "studio_gate": ["py", "go", "js"],
-  "commands": ["check", "run", "ingest", "prove", "emit-all"],
+  "native_seats": [
+    "py",
+    "go",
+    "js",
+    "ts",
+    "c",
+    "cpp",
+    "rs"
+  ],
+  "studio_gate": [
+    "py",
+    "go",
+    "js"
+  ],
+  "commands": [
+    "check",
+    "run",
+    "ingest",
+    "prove",
+    "emit-all"
+  ],
   "run": {
     "kind": "seat",
     "note": "in-process evaluator. cuni check refuses if stdout diverges from catalog gold. Programs with ext skip this seat."
   },
-  "public_install_tag": "v0.1.9",
+  "public_install_tag": "v0.1.10",
   "citizenship": "exactness.passed must be true before Agent-Rider register",
   "laws": {
     "suite-meter": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/suite-meter.cuni",
