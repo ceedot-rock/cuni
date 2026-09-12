@@ -17,6 +17,7 @@ Usage:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -362,12 +363,47 @@ def _critiques_from_exactness(check_out: str, stdout: dict[str, str]) -> list[di
     return critiques
 
 
+def source_hash(source: str) -> str:
+    """SHA-256 of the .cuni bytes. Path is not identity."""
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
 def compile_and_check(source: str, mode: str = "run") -> dict:
-    """mode: emit | check | run (emit + check + per-target stdout)."""
+    """mode: emit | check | run | exec. exec is in-process `cuni run` (same stdout, not the gate)."""
     cuni = find_cuni()
+    src_hash = source_hash(source)
     with tempfile.TemporaryDirectory(prefix="cuni_play_") as td:
         work = Path(td)
         main = stage_source(work, source)
+
+        if mode == "exec":
+            # Interpreter only. Do not emit — Run is the in-process seat, not the gate.
+            ran = run_cmd(
+                [str(cuni), "run", str(main), "--timeout", str(TIMEOUT)]
+            )
+            out = ran.stdout or ""
+            err = (ran.stderr or "").strip()
+            ok = ran.returncode == 0
+            return {
+                "ok": ok,
+                "phase": "exec",
+                "error": None if ok else (err or "cuni run failed"),
+                "py": "",
+                "go": "",
+                "js": "",
+                "langs": {},
+                "stdout": {"interp": out},
+                "run_errors": {} if ok else {"interp": err},
+                "exactness": "n/a",
+                "summary": (
+                    "run: ok (interpreter, same stdout)"
+                    if ok
+                    else "run: fail (interpreter)"
+                ),
+                "check_log": err,
+                "critiques": [],
+                "source_hash": src_hash,
+            }
 
         emit_res = _emit_only(cuni, work, main)
         if not emit_res["ok"]:
@@ -377,6 +413,7 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 "run_errors": {},
                 "exactness": "FAIL",
                 "check_log": "",
+                "source_hash": src_hash,
             }
 
         py_src, go_src, js_src = emit_res["py"], emit_res["go"], emit_res["js"]
@@ -397,34 +434,7 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 "summary": emit_res.get("summary") or "emit: ok",
                 "check_log": "",
                 "critiques": [],
-            }
-
-        if mode == "exec":
-            exec_cmd = [
-                str(cuni),
-                "run",
-                str(main),
-                "--timeout",
-                str(TIMEOUT),
-            ]
-            ran = run_cmd(exec_cmd)
-            out = ran.stdout or ""
-            err = (ran.stderr or "").strip()
-            ok = ran.returncode == 0
-            return {
-                "ok": ok,
-                "phase": "exec",
-                "error": None if ok else (err or "cuni run failed"),
-                "py": py_src,
-                "go": go_src,
-                "js": js_src,
-                "langs": emit_res.get("langs") or {},
-                "stdout": {"py": out},
-                "run_errors": {} if ok else {"py": err},
-                "exactness": "n/a",
-                "summary": "run py: ok" if ok else f"run py: fail",
-                "check_log": err,
-                "critiques": [],
+                "source_hash": src_hash,
             }
 
         # Exactness via official cuni check path — Studio gate = CHECK_ONLY (default py,go,js).
@@ -461,6 +471,14 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
                 except FileNotFoundError as e:
                     run_errs[label] = str(e)
 
+        ran_i = run_cmd([str(cuni), "run", str(main), "--timeout", str(TIMEOUT)])
+        if ran_i.returncode == 0:
+            stdout["interp"] = ran_i.stdout or ""
+        else:
+            run_errs["interp"] = (
+                ran_i.stderr or ran_i.stdout or "interp fail"
+            ).strip()
+
         summary_line = next(
             (ln for ln in check_out.splitlines() if "exactness:" in ln),
             "exactness: FAIL" if not exact_pass else "exactness: PASS",
@@ -485,6 +503,7 @@ def compile_and_check(source: str, mode: str = "run") -> dict:
             "summary": summary_line.strip(),
             "check_log": check_out,
             "critiques": critiques,
+            "source_hash": src_hash,
         }
 
 
@@ -1064,7 +1083,7 @@ def main() -> None:
     print(f"CuNi Playground (hosted) → http://{display}:{port}/")
     print(f"  bind {host}:{port}  timeout={TIMEOUT}s  concurrent={MAX_CONCURRENT}")
     print("  POST /api/run    emit + cuni check + stdout")
-    print("  POST /api/exec   cuni run --lang py (one seat)")
+    print("  POST /api/exec   cuni run (in-process interpreter; same stdout, not the gate)")
     print("  POST /api/emit   emit only")
     print("  POST /api/check  emit + cuni check --only " + ",".join(CHECK_ONLY))
     gate = ",".join(CHECK_ONLY)

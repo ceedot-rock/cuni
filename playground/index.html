@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CuNi Studio — every language, exact py/go/js gate (free)</title>
+    <title>CuNi Studio — same stdout or refuse (py/go/js gate)</title>
     <meta
       name="description"
       content="Critical rules that must mean the same in every runtime — or they don’t ship. Free CuNi Studio: exactness-check Python, Go, and JavaScript—or refuse. Agent mode after PASS."
@@ -14,7 +14,8 @@
     />
     <meta name="author" content="CuNi contributors" />
     <meta name="robots" content="index,follow,max-image-preview:large" />
-    <meta name="theme-color" content="#0b1020" />
+    <meta name="theme-color" content="#071018" />
+    <meta name="color-scheme" content="dark" />
     <link rel="canonical" href="https://cuni-studio.fly.dev/" />
 
 <!-- Agentic discovery -->
@@ -95,7 +96,8 @@
         "featureList": [
           "cuni emit to every coding language",
           "cuni check exactness gate on Python, Go, JavaScript",
-          "Agent mode skill routing",
+          "cuni run in-process interpreter matching that stdout",
+          "Agent mode skill routing after PASS",
           "Propose and adopt CuNi law after exactness",
           "Notelog lab journal",
           "Critic Book structured critiques"
@@ -115,26 +117,66 @@
       }
     </script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap"
+    />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
+    <a class="skip" href="#source">Skip to source</a>
+
+    <div class="spl-ticker" role="region" aria-label="CuNi contract">
+      <div class="spl-ticker-track">
+        <div class="spl-ticker-group">
+          <span><b>CuNi</b> one .cuni · same stdout or refuse</span>
+          <span><b>Studio</b> gate py · go · js</span>
+          <span><b>CLI/CI</b> 119 languages</span>
+          <span><b>cuni run</b> same answer, instant — not a bypass</span>
+          <span><b>Agent</b> after exactness PASS</span>
+          <span><b>source_hash</b> SHA-256 of the .cuni bytes</span>
+          <span><b>license</b> AGPL-3.0-or-later + commercial</span>
+          <span><b>tree</b> 0.1.10 · install tag v0.1.9</span>
+        </div>
+        <div class="spl-ticker-group" aria-hidden="true">
+          <span><b>CuNi</b> one .cuni · same stdout or refuse</span>
+          <span><b>Studio</b> gate py · go · js</span>
+          <span><b>CLI/CI</b> 119 languages</span>
+          <span><b>cuni run</b> same answer, instant — not a bypass</span>
+          <span><b>Agent</b> after exactness PASS</span>
+          <span><b>source_hash</b> SHA-256 of the .cuni bytes</span>
+          <span><b>license</b> AGPL-3.0-or-later + commercial</span>
+          <span><b>tree</b> 0.1.10 · install tag v0.1.9</span>
+        </div>
+      </div>
+    </div>
+
     <header class="top">
       <div class="brand">
-        <span class="logo" aria-hidden="true">CuNi</span>
+        <a class="logo-link" href="/" aria-label="CuNi Studio home">
+          <img
+            class="logo"
+            src="https://www.slidphilabs.com/assets/logos/logo-cuni.jpg"
+            width="40"
+            height="40"
+            alt=""
+          />
+        </a>
         <div>
           <h1>Studio</h1>
           <p class="tag">
-            Critical rules that must mean the same in every runtime —
-            <strong>or they don’t ship</strong>.
-            <span class="mono">cuni check</span> is the gate.
+            One program. Identical stdout on every gated seat —
+            <strong>or it does not ship</strong>.
             <span class="free-pill" title="No account required for Studio try">Free to try</span>
           </p>
         </div>
       </div>
       <div class="actions">
         <div class="mode-tabs" role="tablist" aria-label="Studio mode">
-          <button type="button" class="mode-tab active" data-mode="play">Playground</button>
-          <button type="button" class="mode-tab" data-mode="agent">Agent</button>
+          <button type="button" class="mode-tab active" data-mode="play" role="tab" aria-selected="true">Play</button>
+          <button type="button" class="mode-tab" data-mode="agent" role="tab" aria-selected="false">Agent</button>
         </div>
         <a
           class="btn-link"
@@ -153,7 +195,7 @@
           >GitHub</a
         >
         <a
-          class="btn-link"
+          class="btn-link hide-sm"
           href="https://github.com/ceedot-rock/cuni#cuni--agent-rider"
           target="_blank"
           rel="noopener"
@@ -164,18 +206,43 @@
       </div>
     </header>
 
+    <div class="contract-rail" aria-label="Exactness contract">
+      <span><b>gate</b> py · go · js</span>
+      <span><b>catalog</b> 119 · CLI/CI</span>
+      <span><b>run</b> same answer, instant</span>
+      <span><b>agent</b> after PASS</span>
+      <span><b>approx</b> none</span>
+    </div>
+
     <div id="mode-play" class="mode-bar">
       <label class="example-label">
         Example
         <select id="example" aria-label="Load example program"></select>
       </label>
-      <button id="emit" type="button" title="cuni --emit-all — every catalog language; check emit+runs them all">Emit</button>
-      <button id="check" type="button" title="cuni check">Check</button>
-      <button id="exec" type="button" title="cuni run — in-process, no emit">
-        Run
+      <button id="emit" type="button" title="cuni --emit-all — every catalog language; check emit+runs them all">
+        Emit
+        <span class="btn-sub">catalog</span>
       </button>
-      <button id="run" class="primary" type="button" title="emit + check + stdout">
+      <button id="check" type="button" title="cuni check --only py,go,js">
+        Check
+        <span class="btn-sub">gate only</span>
+      </button>
+      <button
+        id="exec"
+        type="button"
+        title="cuni run — in-process interpreter. Same stdout as the gate, not a substitute for exactness."
+      >
+        Run
+        <span class="btn-sub">same stdout</span>
+      </button>
+      <button
+        id="run"
+        class="primary"
+        type="button"
+        title="emit + cuni check --only py,go,js + stdout. Identical or refuse."
+      >
         Run exactness
+        <span class="btn-sub">py · go · js</span>
       </button>
       <button
         id="publish"
@@ -183,6 +250,7 @@
         title="Exactness PASS → publish metadata + auto-register into Rider stub (GET /api/rider/registered)"
       >
         Publish
+        <span class="btn-sub">after PASS</span>
       </button>
     </div>
 
@@ -203,7 +271,10 @@
           <option value="js">js</option>
         </select>
       </label>
-      <button id="agent-run" class="primary" type="button">Run skill</button>
+      <button id="agent-run" class="primary" type="button">
+        Run skill
+        <span class="btn-sub">after PASS</span>
+      </button>
       <button id="agent-propose" type="button" title="Check proposed law (quarantine)">
         Propose law
       </button>
@@ -216,38 +287,82 @@
       <section class="pane editor-pane" aria-label="CuNi source editor">
         <div class="pane-head">
           <h2>Source <span class="mono">.cuni</span></h2>
-          <span class="hint">⌘/Ctrl+Enter run · free try · no install</span>
+          <span class="hint">⌘/Ctrl+Enter exactness · UTF-8 · hash is identity</span>
         </div>
         <textarea
           id="source"
           spellcheck="false"
           autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
           aria-label="CuNi source code"
+          placeholder="def greet(name: str) -> str do&#10;    ret `hello ${name}`&#10;end&#10;&#10;say(greet(&quot;CuNi&quot;))"
         ></textarea>
         <pre id="error" class="error hidden" role="alert"></pre>
       </section>
 
-      <section class="pane results" aria-label="Emitted targets">
+      <section class="pane results" aria-label="Exactness seats">
         <div class="pane-head">
-          <h2>Targets</h2>
-          <span id="summary" class="summary mono"></span>
+          <h2>Exactness</h2>
+          <div id="stamp" class="stamp idle" aria-live="polite">
+            <span class="stamp-k">IDLE</span>
+            <span class="stamp-v">no check</span>
+          </div>
         </div>
+
+        <div class="hash-row" title="SHA-256 of the .cuni bytes. Path is not identity.">
+          <span class="hash-k">source_hash</span>
+          <code id="source-hash" class="hash-v">—</code>
+          <span id="hash-kind" class="hash-kind">live</span>
+          <button type="button" id="hash-copy" class="ghost" title="Copy full source_hash">Copy</button>
+        </div>
+        <p id="summary" class="summary mono"></p>
+
+        <div class="seats" id="seats">
+          <article class="seat" data-seat="py" id="seat-py">
+            <header class="seat-head">
+              <span class="seat-id">py</span>
+              <span class="seat-state" id="seat-py-state">n/a</span>
+            </header>
+            <pre class="seat-body" id="out-py" data-empty="n/a — Run exactness to fill this seat"></pre>
+          </article>
+          <article class="seat" data-seat="go" id="seat-go">
+            <header class="seat-head">
+              <span class="seat-id">go</span>
+              <span class="seat-state" id="seat-go-state">n/a</span>
+            </header>
+            <pre class="seat-body" id="out-go" data-empty="n/a — Run exactness to fill this seat"></pre>
+          </article>
+          <article class="seat" data-seat="js" id="seat-js">
+            <header class="seat-head">
+              <span class="seat-id">js</span>
+              <span class="seat-state" id="seat-js-state">n/a</span>
+            </header>
+            <pre class="seat-body" id="out-js" data-empty="n/a — Run exactness to fill this seat"></pre>
+          </article>
+          <article class="seat seat-interp" data-seat="interp" id="seat-interp">
+            <header class="seat-head">
+              <span class="seat-id">run <span class="seat-note">interpreter</span></span>
+              <span class="seat-state" id="seat-interp-state">same answer, instant</span>
+            </header>
+            <pre class="seat-body" id="out-interp" data-empty="Run for instant stdout. Same answer as the gate — not a bypass."></pre>
+          </article>
+        </div>
+
         <div class="tabs" role="tablist">
           <label class="tab-lang">
-            Language
+            Emit
             <select id="lang-pick" aria-label="Emitted language">
               <option value="py">Python</option>
               <option value="go">Go</option>
               <option value="js">JavaScript</option>
             </select>
           </label>
-          <button type="button" class="tab" data-tab="stdout" role="tab">Stdout / check</button>
+          <button type="button" class="tab active" data-tab="lang" role="tab">Artifact</button>
+          <button type="button" class="tab" data-tab="stdout" role="tab">Check log</button>
         </div>
-        <pre id="out-lang" class="code active"></pre>
-        <pre id="out-py" class="code hidden"></pre>
-        <pre id="out-go" class="code hidden"></pre>
-        <pre id="out-js" class="code hidden"></pre>
-        <pre id="out-stdout" class="code"></pre>
+        <pre id="out-lang" class="code active" data-empty="Emit or Run exactness to fill the catalog artifact."></pre>
+        <pre id="out-stdout" class="code" data-empty="Check log appears after Check or Run exactness."></pre>
       </section>
 
       <section class="pane books-pane" aria-label="Notelog and Critic Book">
@@ -267,7 +382,7 @@
 
         <div id="panel-notelog" class="book-panel active">
           <p class="book-blurb">
-            Lab notebook: every emit/check/run appends here. Add your own notes.
+            Lab notebook. Emit, check, run, and exactness append here. Add your own notes.
           </p>
           <div id="notelog-list" class="book-list"></div>
           <form id="notelog-form" class="book-form">
@@ -282,7 +397,7 @@
 
         <div id="panel-critic" class="book-panel">
           <p class="book-blurb">
-            Structured critiques: typeck/exactness auto-entries + your design notes.
+            Structured critiques: typeck and exactness auto-entries, plus your design notes.
           </p>
           <div id="critic-list" class="book-list"></div>
           <form id="critic-form" class="book-form">
@@ -311,7 +426,6 @@
       </section>
     </main>
 
-
     <section id="registered-contracts" class="contracts-panel" aria-label="Registered Rider contracts">
       <div class="contracts-head">
         <h2 class="contracts-title">Registered contracts <span id="contracts-count" class="mono muted">—</span></h2>
@@ -333,35 +447,36 @@
 
     <footer class="foot">
       <span id="health" class="mono muted">checking toolchain…</span>
-      <span class="muted">
+      <span class="muted foot-meta">
         <a href="https://github.com/ceedot-rock/cuni" target="_blank" rel="noopener"
           >github.com/ceedot-rock/cuni</a
         >
+        ·
+        <span title="Cargo.toml on this tree">working tree 0.1.10</span>
         ·
         <a
           href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.9"
           target="_blank"
           rel="noopener"
-          >v0.1.9</a
+          title="Public install tag — no v0.1.10 GitHub release yet"
+          >install: tag v0.1.9</a
         >
         ·
         <a href="https://cuni-studio.fly.dev/" rel="canonical">cuni-studio.fly.dev</a>
         ·
         <span title="Studio try is free; Fly hosts the app (infra cost on operator)">Free to try · fair-use limits</span>
+        ·
+        <a href="/agents.json">agents.json</a>
+        ·
+        <a href="/llms.txt">llms.txt</a>
+        ·
+        <a href="/.well-known/cuni-protocol.json">CuNi Protocol</a>
+        ·
+        <a href="https://agentrider.fly.dev/.well-known/agent.json">Agent^Rider</a>
       </span>
     </footer>
 
     <script src="/app.js"></script>
     <script src="https://www.slidphilabs.com/assets/lab-auth.js" defer></script>
-  
-<p class="agentic-marketing" style="margin:1rem;font-size:0.85rem;opacity:0.85">
-  <strong>Agents:</strong>
-  <a href="/agents.json">agents.json</a> ·
-  <a href="/llms.txt">llms.txt</a> ·
-  <a href="/.well-known/cuni-protocol.json">CuNi Protocol</a> ·
-  <a href="https://agentrider.fly.dev/.well-known/agent.json">Agent^Rider</a> ·
-  <a href="https://www.slidphilabs.com/api/agent">Lab commerce</a>
-</p>
-
-</body>
+  </body>
 </html>

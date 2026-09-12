@@ -258,9 +258,9 @@ assets/logo.png                        # brand mark
 
 ## Status (v0.1.10)
 
-**Shipped:** lexer/parser, quality backends for Python/Go/JS, `--emit-all` language catalog, bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (one native seat), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
+**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust, `--emit-all` language catalog (119), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
 
-**Not in v0.1 (by design):** tagged unions with payload, Rust target, streaming `link`, full inference — see SPEC.md §19.
+**Not in v0.1 (by design):** tagged unions with payload, streaming `link`, full inference — see SPEC.md §19.
 
 ## Design tenets
 
@@ -271,7 +271,7 @@ assets/logo.png                        # brand mark
 
 ## License
 
-**Dual license.** Public tree is **GNU GPLv3** (`GPL-3.0-only`) — see [`LICENSE`](LICENSE). To ship CuNi inside a **closed-source** product, buy a written commercial exception: [COMMERCIAL.md](COMMERCIAL.md) · corey@slidphilabs.com. Hosted [Studio](https://cuni-studio.fly.dev/) is $0 exactness, not a grant of Rider or AWARE. SoT: https://www.slidphilabs.com/licensing.json
+**Dual license.** Public tree is **AGPL-3.0-or-later** — see [`LICENSE`](LICENSE). To ship CuNi inside a **closed-source** product, buy a written commercial exception: [COMMERCIAL.md](COMMERCIAL.md) · corey@slidphilabs.com. Hosted [Studio](https://cuni-studio.fly.dev/) is $0 exactness, not a grant of Rider or PCC. SoT: https://www.slidphilabs.com/licensing.json
 
 ## Agentic discovery
 

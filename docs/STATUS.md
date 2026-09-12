@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-09-12 · **v0.1.10 on branch `cuni-0.1.10-compute-run`** · `cuni run` + compute stdlib · Studio → Rider loop live (Fly-only)
+**Last updated**: 2026-09-12 · **v0.1.10 on `master` (untagged)** · `cuni run` is a check seat · Studio → Rider loop live (Fly-only)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
