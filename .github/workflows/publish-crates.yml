@@ -1,0 +1,20 @@
+name: Publish crates.io
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  crates:
+    name: cargo publish
+    runs-on: ubuntu-latest
+    if: github.repository == 'ceedot-rock/cuni'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish
