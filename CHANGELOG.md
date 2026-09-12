@@ -3,7 +3,7 @@
 ## [0.1.10] — 2026-09-12
 
 ### Added
-- **`cuni run file.cuni`** — in-process evaluator (no emit, no subprocess). `--lang py|go|js|…` still emit+runs a seat. Not a substitute for `cuni check`.
+- **`cuni run file.cuni`** — in-process evaluator. It is a **seat**: `cuni check` runs it on `ext`-free programs and refuses if stdout diverges from catalog gold. `--lang py|go|js|…` still emit+runs a native toolchain.
 - Compute stdlib (SPEC.md §15): `range`, `abs`, `min`, `max`, `str.len`, `slice` (OOB → empty).
 - Gold algorithms under `examples/compute/` (fib, gcd, sum-range, sort, range).
 

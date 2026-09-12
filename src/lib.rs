@@ -1,4 +1,5 @@
-//! CuNi library: parse + in-process run. The CLI bin stays `src/main.rs`.
+//! CuNi library: parse + in-process run for Studio/CLI.
+//! Not a compressor front-end. Exactness remains `cuni check`.
 
 mod ast;
 mod lexer;

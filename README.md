@@ -138,9 +138,11 @@ cargo build --release
 ## Quick start
 
 ```bash
-# run in-process (no Python/Go/Node). Optional: --lang py
+# run in-process (same stdout as check, or check would have refused)
 cuni run examples/compute/fib.cuni
 # → 55
+# optional: emit a native seat instead
+cuni run examples/compute/fib.cuni --lang py
 # exactness gate — 119 languages, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
 # → exactness: PASS (119 langs)   exit 0

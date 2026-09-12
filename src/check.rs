@@ -1,9 +1,10 @@
 //! Exactness check: emit every catalog language, run each, require identical
 //! stdout. SPEC.md §2 — compile-or-refuse. Exit 0 = PASS, 1 = FAIL.
 
-use crate::ast::Program;
+use crate::ast::{Item, Program};
 use crate::checks;
 use crate::emit;
+use crate::interp;
 use crate::langs::{self, Lang};
 use crate::lexer::Lexer;
 use crate::modules;
@@ -264,10 +265,7 @@ pub fn check_file_only(
             diverged.push(t.target);
         }
     }
-    if diverged.is_empty() {
-        report.exact = true;
-        report.summary = format!("exactness: PASS ({} langs)", n);
-    } else {
+    if !diverged.is_empty() {
         report.exact = false;
         let show: Vec<_> = diverged.iter().take(8).copied().collect();
         report.summary = format!(
@@ -280,7 +278,34 @@ pub fn check_file_only(
                 String::new()
             }
         );
+        return report;
     }
+
+    let has_ext = program.items.iter().any(|i| matches!(i, Item::Ext(_)));
+    if !has_ext {
+        match interp::run(&program) {
+            Ok(ref got) if got == gold => {}
+            Ok(_) => {
+                report.exact = false;
+                report.summary = format!(
+                    "exactness: FAIL — interp stdout diverged vs {}\nfix-it: the in-process runner is a seat; it must print the same as py/go/js (no approximate mode)",
+                    report.targets[0].target
+                );
+                return report;
+            }
+            Err(e) => {
+                report.exact = false;
+                report.summary = format!(
+                    "exactness: FAIL — interp: {}\nfix-it: portable programs must run in-process; `ext` is the only skip",
+                    e.lines().next().unwrap_or("run failed")
+                );
+                return report;
+            }
+        }
+    }
+
+    report.exact = true;
+    report.summary = format!("exactness: PASS ({} langs)", n);
     report
 }
 

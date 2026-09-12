@@ -8,7 +8,7 @@
   "rule": "emit+run identical stdout on every catalog language, or refuse",
   "catalog_languages": 119,
   "native_seats": ["py", "go", "js", "ts", "c", "cpp", "rs"],
-  "commands": ["check", "ingest", "prove", "emit-all"],
+  "commands": ["check", "run", "ingest", "prove", "emit-all"],
   "citizenship": "exactness.passed must be true before Agent-Rider register",
   "laws": {
     "suite-meter": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/suite-meter.cuni",

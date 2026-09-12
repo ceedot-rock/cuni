@@ -31,6 +31,8 @@ CuNi is **119 languages** (`src/langs.rs`). `cuni check` and `--emit-all` apply 
 
 **Native seats today:** Python (`python3`), Go (`go run`), JavaScript and TypeScript (`node`), C (`gcc`), C++ (`g++`), Rust (`rustc`). See `docs/SEATS.md`.
 
+**In-process runner:** `cuni run` evaluates the AST inside the `cuni` binary. It is not a 120th emit language. It is a seat: `cuni check` runs it on portable programs (`ext`-free) and refuses if stdout diverges from catalog gold.
+
 Until a catalog id has a native backend, its exactness artifact is a Python lowering so the seat still **runs** rather than being skipped. `--receipt` records `native` vs `lowering` per id.
 
 `cuni ingest` reverses a tiny Python subset into CuNi (or refuses). `cuni prove file.cuni --against impl.py` requires a foreign implementation to match CuNi gold stdout.
