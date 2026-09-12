@@ -11,6 +11,10 @@ readme = "README.md"
 keywords = ["compiler", "transpiler", "multi-target", "python", "golang", "agentic", "mcp", "agent-rider"]
 categories = ["compilers", "development-tools"]
 
+[lib]
+name = "cuni"
+path = "src/lib.rs"
+
 [[bin]]
 name = "cuni"
 path = "src/main.rs"
