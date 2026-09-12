@@ -1,6 +1,6 @@
 # TRUSTREAM tile. Encode/decode one process. Own genes only.
 # Stream order: ZERO → MATH → PHRASE → STORE.
-# Op ids match PCC1. Host xz is not a gene.
+# Run a 16-byte tile (law size stays 4096). Host xz is not a gene.
 
 def tile_bytes() -> int do
     ret 4096
@@ -22,6 +22,49 @@ def op_store() -> int do
     ret 3
 end
 
+def packed_zeros(n: int) -> int do
+    if n < 8 do
+        ret n
+    end
+    ret 8
+end
+
+def packed_arith(n: int) -> int do
+    let coded = 11
+    if coded >= n do
+        ret n
+    end
+    ret coded
+end
+
+def u8(x: int) -> int do
+    let m = x % 256
+    if m < 0 do
+        ret m + 256
+    end
+    ret m
+end
+
+def decode_zero_sum(n: int) -> int do
+    mut s = 0
+    mut i = 0
+    whl i < n do
+        s = s + 0
+        i = i + 1
+    end
+    ret s
+end
+
+def decode_ramp_sum(a: int, step: int, n: int) -> int do
+    mut s = 0
+    mut i = 0
+    whl i < n do
+        s = s + u8(a + step * i)
+        i = i + 1
+    end
+    ret s
+end
+
 # kind: 0 = all zeros, 1 = exact u8 ramp, 2 = else
 def pick(kind: int) -> int do
     if kind == 0 do
@@ -33,7 +76,22 @@ def pick(kind: int) -> int do
     ret op_store()
 end
 
+def run_tile(kind: int, n: int) -> int do
+    if kind == 0 do
+        ret packed_zeros(n)
+    end
+    if kind == 1 do
+        ret packed_arith(n)
+    end
+    ret n
+end
+
 say(tile_bytes())
 say(pick(0))
+say(run_tile(0, 16))
+say(decode_zero_sum(16))
 say(pick(1))
+say(run_tile(1, 16))
+say(decode_ramp_sum(1, 1, 16))
 say(pick(2))
+say(run_tile(2, 16))

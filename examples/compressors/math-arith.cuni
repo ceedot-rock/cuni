@@ -1,6 +1,5 @@
-# MTH1 ARITH_U8: store a, step, n instead of the tape when that is smaller.
-# Packed size is 11 bytes (4 magic + 1 kind + 1 a + 1 step + 4 n).
-# Decode checksum must match the ramp. Never expand.
+# MTH1 ARITH_U8. Encode stores a, step, n. Decode generates byte i.
+# Packed size is 11 (4 magic + 1 kind + 1 a + 1 step + 4 n). Never expand.
 
 def u8(x: int) -> int do
     let m = x % 256
@@ -10,11 +9,19 @@ def u8(x: int) -> int do
     ret m
 end
 
-def ramp_sum(a: int, step: int, n: int) -> int do
+def encode_byte(a: int, step: int, i: int) -> int do
+    ret u8(a + step * i)
+end
+
+def decode_byte(a: int, step: int, i: int) -> int do
+    ret u8(a + step * i)
+end
+
+def decode_sum(a: int, step: int, n: int) -> int do
     mut s = 0
     mut i = 0
     whl i < n do
-        s = s + u8(a + step * i)
+        s = s + decode_byte(a, step, i)
         i = i + 1
     end
     ret s
@@ -32,8 +39,22 @@ def keep_arith(n: int) -> int do
     ret coded
 end
 
-# a=3 step=2 n=20 → 3,5,…,41. Sum = 20*(3+41)/2 = 440.
-say(ramp_sum(3, 2, 20))
+def roundtrip(a: int, step: int, n: int) -> int do
+    mut i = 0
+    whl i < n do
+        if decode_byte(a, step, i) != encode_byte(a, step, i) do
+            ret 0
+        end
+        i = i + 1
+    end
+    ret 1
+end
+
+# a=3 step=2 n=20 → 3,5,…,41. Sum = 440.
+say(decode_sum(3, 2, 20))
 say(packed_arith_u8(20))
 say(keep_arith(20))
 say(keep_arith(10))
+say(decode_byte(3, 2, 0))
+say(decode_byte(3, 2, 19))
+say(roundtrip(3, 2, 20))

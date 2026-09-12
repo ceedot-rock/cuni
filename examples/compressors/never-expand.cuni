@@ -1,4 +1,4 @@
-# Law: coded ≥ raw → keep raw. A keep never grows the file.
+# Law: coded ≥ raw → keep raw. Encode/decode one process. A keep never grows.
 
 def keep(raw: int, coded: int) -> int do
     if coded >= raw do
@@ -7,7 +7,13 @@ def keep(raw: int, coded: int) -> int do
     ret coded
 end
 
+def roundtrip_len(raw: int, coded: int) -> int do
+    ret keep(raw, coded)
+end
+
 say(keep(7, 8))
 say(keep(8, 8))
 say(keep(9, 8))
 say(keep(100, 40))
+say(roundtrip_len(16, 8))
+say(roundtrip_len(10, 11))

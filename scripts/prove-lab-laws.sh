@@ -13,10 +13,8 @@ for f in "$ROOT"/examples/laws/*.cuni; do
   "$CUNI" check "$f" --only py,go,js,c,cpp,rs --timeout 90
 done
 
-echo "== compressor laws exactness (native seats) =="
-for f in "$ROOT"/examples/compressors/*.cuni; do
-  "$CUNI" check "$f" --only py,go,js,c,cpp,rs --timeout 90
-done
+echo "== compressor laws exactness (catalog) =="
+"$CUNI" check "$ROOT/examples/compressors" --timeout 180
 
 PPS="$ROOT/../SlidPhiLabs/packages/spl-pay-per-suite/test/print-suite-meter.mjs"
 if [[ -f "$PPS" ]]; then

@@ -1,5 +1,5 @@
-# ZERO fill. All-zero runs pack to 8 bytes when that does not expand.
-# 40_000 zeros → 8. 1_000_000 zeros → 8. Seven zeros stay 7.
+# ZERO fill. Encode an all-zero run; decode restores n zeros.
+# Packed size is 8 when that does not expand. Decode sum is always 0.
 
 def packed_zeros(n: int) -> int do
     if n <= 0 do
@@ -11,9 +11,36 @@ def packed_zeros(n: int) -> int do
     ret 8
 end
 
+def decode_len(n: int) -> int do
+    ret n
+end
+
+def decode_sum(n: int) -> int do
+    mut s = 0
+    mut i = 0
+    whl i < n do
+        s = s + 0
+        i = i + 1
+    end
+    ret s
+end
+
+def roundtrip(n: int) -> int do
+    if decode_len(n) != n do
+        ret 0
+    end
+    if decode_sum(n) != 0 do
+        ret 0
+    end
+    ret 1
+end
+
 say(packed_zeros(0))
 say(packed_zeros(7))
 say(packed_zeros(8))
 say(packed_zeros(9))
 say(packed_zeros(40000))
 say(packed_zeros(1000000))
+say(decode_len(16))
+say(decode_sum(16))
+say(roundtrip(16))

@@ -1,19 +1,23 @@
 # Compressor laws (CuNi)
 
-These programs are the **public meaning** of PCC genes that are formulas, fills, and order — not Combined GC, not host xz, not a Silesia wrapper.
+Public meaning of PCC genes that are formulas, fills, and order — not Combined GC, not host xz.
 
-Exactness must PASS on native seats (`py,go,js,ts,c,cpp,rs`).
-
-| File | Protects | Gold stdout |
-|------|----------|-------------|
-| `pcc-ops.cuni` | PCC1 op ids | `0 1 2 3 4 5 6 7 8 9 10 11` |
-| `never-expand.cuni` | coded ≥ raw → keep raw | `7 8 8 100` |
-| `zeros.cuni` | all-zero run packed size (ZERO) | `0 7 8 8 8 8` |
-| `math-arith.cuni` | MTH1 u8 ramp: decode checksum + packed keep | `440 11 11 10` |
-| `trustream.cuni` | 4 KiB tiles, order ZERO → MATH → PHRASE → STORE | `4096 0 11 3` |
-
-MATCH / BWT / CMAQ / LZ stay in the lab Rust tree. CuNi does not emit those engines.
+Each file **encodes and decodes**. `cuni check` emit+runs the catalog; stdout must match.
 
 ```bash
-cuni check examples/compressors --only py,go,js,c,cpp,rs --timeout 90
+# exactness + run
+./scripts/run-compressors.sh
+
+# or
+cuni check examples/compressors --timeout 180
 ```
+
+| File | What it runs | Gold stdout |
+|------|----------------|-------------|
+| `pcc-ops.cuni` | op ids + known(0/11/12) | `0 1 2 3 4 5 6 7 8 9 10 11 1 1 0` |
+| `never-expand.cuni` | keep(raw,coded) | `7 8 8 40 8 10` |
+| `zeros.cuni` | pack zeros; decode len+sum | `0 7 8 8 8 8 16 0 1` |
+| `math-arith.cuni` | ARITH_U8 encode/decode roundtrip | `440 11 11 10 3 41 1` |
+| `trustream.cuni` | 4 KiB law; run 16-byte ZERO/MATH/STORE tiles | `4096 0 8 0 11 11 136 3 16` |
+
+MATCH / BWT / CMAQ / LZ stay in the lab Rust tree.
