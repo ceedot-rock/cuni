@@ -37,7 +37,11 @@ const els = {
   agentPropose: $("agent-propose"),
   agentAdopt: $("agent-adopt"),
   modePlay: $("mode-play"),
+  modeBank: $("mode-bank"),
   modeAgent: $("mode-agent"),
+  bankFrom: $("bank-from"),
+  bankTo: $("bank-to"),
+  bankPaste: $("bank-paste"),
   out: {
     py: $("out-py"),
     go: $("out-go"),
@@ -80,6 +84,9 @@ let lastExactness = "";
 
 const DEFAULT_SOURCE =
   "def greet(name: str) -> str do\n    ret `hello ${name}`\nend\n\nsay(greet(\"CuNi\"))\nsay(1 + 2 * 3)\n";
+
+const BANK_SOURCE =
+  "def add(a, b):\n    return a + b\n\nprint(add(2, 3))\n";
 
 function actionButtons() {
   return [els.run, els.emit, els.check, els.exec, els.publish].filter(Boolean);
@@ -707,13 +714,66 @@ async function invoke(path, label) {
 }
 
 function setMode(next) {
+  const prev = mode;
   mode = next;
   document.querySelectorAll(".mode-tab").forEach((t) => {
     t.classList.toggle("active", t.dataset.mode === next);
     t.setAttribute("aria-selected", t.dataset.mode === next ? "true" : "false");
   });
   els.modePlay.classList.toggle("hidden", next !== "play");
+  if (els.modeBank) els.modeBank.classList.toggle("hidden", next !== "bank");
   els.modeAgent.classList.toggle("hidden", next !== "agent");
+  if (next === "bank" && prev !== "bank" && els.source.value === DEFAULT_SOURCE) {
+    els.source.value = BANK_SOURCE;
+  }
+  if (next !== "bank" && prev === "bank" && els.source.value === BANK_SOURCE) {
+    els.source.value = DEFAULT_SOURCE;
+  }
+}
+
+async function bankPaste() {
+  if (running) return;
+  running = true;
+  actionButtons().forEach((b) => {
+    b.disabled = true;
+  });
+  if (els.bankPaste) els.bankPaste.disabled = true;
+  setStatus("run", "bank…");
+  setStamp("run", "…", "bank");
+  showError("");
+  try {
+    const r = await fetch("/api/bank", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: els.source.value,
+        from: (els.bankFrom && els.bankFrom.value) || "py",
+        to: (els.bankTo && els.bankTo.value) || "js",
+      }),
+    });
+    const data = await r.json();
+    setSummary(data.summary || data.error || "", data.ok ? "pass" : "fail");
+    if (els.out.lang) els.out.lang.textContent = data.artifact || "";
+    selectTab("lang");
+    if (data.ok) {
+      setStamp("pass", "PASS", "bank");
+      setStatus("pass", "bank PASS");
+      if (data.source_hash) renderHash(data.source_hash, "checked");
+    } else {
+      setStamp("fail", "FAIL", "bank");
+      setStatus("fail", "bank refuse");
+      showError(data.error || "bank refuse");
+    }
+  } catch (e) {
+    setStamp("fail", "FAIL", "bank");
+    showError(String(e));
+  } finally {
+    running = false;
+    actionButtons().forEach((b) => {
+      b.disabled = false;
+    });
+    if (els.bankPaste) els.bankPaste.disabled = false;
+  }
 }
 
 async function loadAgentSkills() {
@@ -978,8 +1038,15 @@ function wire() {
     t.addEventListener("click", () => {
       setMode(t.dataset.mode);
       if (t.dataset.mode === "agent") void loadAgentSkills();
+      if (t.dataset.mode === "bank" && location.hash !== "#bank") {
+        history.replaceState(null, "", "#bank");
+      }
     });
   });
+  if (els.bankPaste) {
+    els.bankPaste.addEventListener("click", () => void bankPaste());
+  }
+  if (location.hash === "#bank") setMode("bank");
 
   els.run.addEventListener("click", () => void invoke("/api/run", "exactness"));
   if (els.exec) {
@@ -994,6 +1061,7 @@ function wire() {
     if ((ev.metaKey || ev.ctrlKey) && ev.key === "Enter") {
       ev.preventDefault();
       if (mode === "agent") void agentRun();
+      else if (mode === "bank") void bankPaste();
       else void invoke("/api/run", "exactness");
     }
   });

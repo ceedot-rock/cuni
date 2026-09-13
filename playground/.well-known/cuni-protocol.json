@@ -25,6 +25,7 @@
     "check",
     "run",
     "ingest",
+    "bank",
     "prove",
     "emit-all"
   ],
@@ -47,5 +48,13 @@
     "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
     "mcp": "https://agentrider.fly.dev/api/mcp",
     "lab": "https://www.slidphilabs.com/api/agent"
+  },
+  "bank": {
+    "kind": "arm",
+    "note": "paste N, get X. ingest \u2192 emit \u2192 prove. v1 --from py|cuni. 119 langs remains cuni check on the deposit \u2014 not 119 ingest parsers.",
+    "paste": "POST https://cuni-studio.fly.dev/api/bank",
+    "ui": "https://cuni-studio.fly.dev/bank",
+    "law": "https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md",
+    "tag": "cuni-bank-0.1.0"
   }
 }

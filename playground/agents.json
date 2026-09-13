@@ -5,7 +5,7 @@
   "site": {
     "name": "CuNi Studio",
     "url": "https://cuni-studio.fly.dev",
-    "description": "CuNi Protocol: 119 languages, one program, same stdout or refuse. Studio publishes exact policies into Agent^Rider."
+    "description": "CuNi Protocol: 119 languages, one program, same stdout or refuse. Bank arm: paste N, get X. Studio publishes exact policies into Agent^Rider."
   },
   "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
   "mcp": [
@@ -17,6 +17,8 @@
   ],
   "discovery": {
     "studio": "https://cuni-studio.fly.dev/",
+    "bank": "https://cuni-studio.fly.dev/bank",
+    "bank_api": "https://cuni-studio.fly.dev/api/bank",
     "github": "https://github.com/ceedot-rock/cuni",
     "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
     "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",

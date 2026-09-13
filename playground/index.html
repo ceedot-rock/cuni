@@ -97,6 +97,7 @@
           "cuni emit to every coding language",
           "cuni check exactness gate on Python, Go, JavaScript",
           "cuni run in-process interpreter matching that stdout",
+          "CuNi Bank: paste N, emit X, prove or refuse",
           "Agent mode skill routing after PASS",
           "Propose and adopt CuNi law after exactness",
           "Notelog lab journal",
@@ -135,6 +136,7 @@
           <span><b>Studio</b> gate py · go · js</span>
           <span><b>CLI/CI</b> 119 languages</span>
           <span><b>cuni run</b> same answer, instant</span>
+          <span><b>Bank</b> paste N get X</span>
           <span><b>Agent</b> after exactness PASS</span>
           <span><b>source_hash</b> SHA-256 of the .cuni bytes</span>
           <span><b>license</b> AGPL-3.0-or-later + commercial</span>
@@ -145,6 +147,7 @@
           <span><b>Studio</b> gate py · go · js</span>
           <span><b>CLI/CI</b> 119 languages</span>
           <span><b>cuni run</b> same answer, instant</span>
+          <span><b>Bank</b> paste N get X</span>
           <span><b>Agent</b> after exactness PASS</span>
           <span><b>source_hash</b> SHA-256 of the .cuni bytes</span>
           <span><b>license</b> AGPL-3.0-or-later + commercial</span>
@@ -176,6 +179,7 @@
       <div class="actions">
         <div class="mode-tabs" role="tablist" aria-label="Studio mode">
           <button type="button" class="mode-tab active" data-mode="play" role="tab" aria-selected="true">Play</button>
+          <button type="button" class="mode-tab" data-mode="bank" role="tab" aria-selected="false">Bank</button>
           <button type="button" class="mode-tab" data-mode="agent" role="tab" aria-selected="false">Agent</button>
         </div>
         <a
@@ -252,6 +256,30 @@
         Publish
         <span class="btn-sub">after PASS</span>
       </button>
+    </div>
+
+    <div id="mode-bank" class="mode-bar hidden">
+      <label class="example-label">
+        From
+        <select id="bank-from" aria-label="Bank source language">
+          <option value="py" selected>Python</option>
+          <option value="cuni">CuNi</option>
+        </select>
+      </label>
+      <label class="example-label">
+        To
+        <select id="bank-to" aria-label="Bank target language">
+          <option value="py">Python</option>
+          <option value="go">Go</option>
+          <option value="js" selected>JavaScript</option>
+          <option value="ts">TypeScript</option>
+        </select>
+      </label>
+      <button id="bank-paste" class="primary" type="button" title="cuni bank paste — ingest → emit → prove">
+        Paste
+        <span class="btn-sub">N → X or refuse</span>
+      </button>
+      <a class="btn-link" href="/bank">/bank</a>
     </div>
 
     <div id="mode-agent" class="mode-bar hidden">

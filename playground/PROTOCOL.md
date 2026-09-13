@@ -10,7 +10,7 @@ CuNi is 119 languages. One program. Same stdout on every catalog seat, or the co
 
 A CuNi program with no `ext` blocks **emits and runs** on every language in the catalog. Stdout must match, or `cuni check` exits 1.
 
-`cuni run` evaluates in-process (no emit). That runner is a **seat**: `cuni check` also runs it and refuses if it diverges from catalog gold. Programs with `ext` skip the in-process seat.
+`cuni run` evaluates in-process (no emit). That runner is a **seat**: `cuni check` also runs it and refuses if it diverges from catalog gold. Programs with `ext` skip the in-process seat (they already left the portable core).
 
 Native seats today: Python, Go, JavaScript, TypeScript, C, C++, Rust. Other catalog ids still emit+run (Python lowering until that seat is native). `--receipt` records `native` vs `lowering`.
 
@@ -34,6 +34,16 @@ If they diverge, the implementation is wrong.
 
 Reverse the protocol: `cuni ingest impl.py` produces CuNi, or refuses. v1 is a Python subset.
 
+## 4b. Bank
+
+Arm of CuNi. Paste N, get X. Exactness or refuse. Not a second compiler.
+
+```
+cuni bank paste IN --from py --to c
+```
+
+`--from` is declared (v1: `py` or `cuni`). `--to` is a catalog id. Ingest must land in the Bank subset, emit X, prove X stdout matches CuNi gold. Else refuse. Receipt names the deposit by `source_hash` of N. 119 languages remains `cuni check` on the ingested deposit — Bank 0.1 does not add 119 ingest parsers. Law: `docs/BANK.md`.
+
 ## 5. Money laws
 
 Integer cents, same gold on every native seat:
@@ -47,7 +57,7 @@ Integer cents, same gold on every native seat:
 
 ## 5b. Compressor laws
 
-Formulas, fills, and order. House genes.
+Formulas, fills, and order. Not Combined GC. Not host xz.
 
 | Law | Protects |
 |-----|----------|

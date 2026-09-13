@@ -91,6 +91,36 @@ jobs:
           echo "→ exactness: PASS (py/go/js)" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+  bank:
+    name: cuni bank paste (py → py, c)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build cuni
+        run: cargo build --release
+
+      - name: Bank paste examples
+        run: |
+          set -euo pipefail
+          BIN=./target/release/cuni
+          for f in examples/bank/*.py; do
+            "$BIN" bank paste "$f" --from py --to py
+            "$BIN" bank paste "$f" --from py --to c
+          done
+
+      - name: Bank summary
+        if: always()
+        run: |
+          echo "### CuNi Bank" >> "$GITHUB_STEP_SUMMARY"
+          echo "Paste N get X. Ingest → emit → prove. v1 --from py. Not 119 ingest parsers." >> "$GITHUB_STEP_SUMMARY"
+
   link-flagship:
     name: link demo (Go server ← py/js/go clients)
     runs-on: ubuntu-latest

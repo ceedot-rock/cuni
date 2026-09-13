@@ -60,6 +60,7 @@ PHI_REST = PhiRest(
     PLAY,
     [
         "index.html",
+        "bank.html",
         "app.js",
         "styles.css",
         "agents.json",
@@ -176,6 +177,59 @@ def find_cuni() -> Path:
     raise FileNotFoundError(
         "cuni binary not found — run `cargo build --release` or set CUNI_BIN"
     )
+
+
+def bank_paste(source: str, from_lang: str, to_lang: str) -> dict:
+    """Paste N, get X. Ingest → emit → prove via `cuni bank paste`."""
+    from_lang = (from_lang or "py").strip().lower()
+    to_lang = (to_lang or "py").strip().lower()
+    if from_lang not in ("py", "cuni"):
+        return {
+            "ok": False,
+            "error": f"refuse --from {from_lang} — v1 is py|cuni (docs/BANK.md)",
+            "arm": "bank",
+        }
+    cuni = find_cuni()
+    with tempfile.TemporaryDirectory(prefix="cuni-bank-") as td:
+        td_path = Path(td)
+        ext = "cuni" if from_lang == "cuni" else "py"
+        src_path = td_path / f"n.{ext}"
+        src_path.write_text(source, encoding="utf-8")
+        out_path = td_path / "emit.out"
+        p = subprocess.run(
+            [
+                str(cuni),
+                "bank",
+                "paste",
+                str(src_path),
+                "--from",
+                from_lang,
+                "--to",
+                to_lang,
+                "-o",
+                str(out_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT,
+        )
+        artifact = ""
+        if out_path.is_file():
+            artifact = out_path.read_text(encoding="utf-8")
+        stdout = (p.stdout or "").strip()
+        stderr = (p.stderr or "").strip()
+        ok = p.returncode == 0
+        m = re.search(r"source_hash=([0-9a-f]+)", stdout)
+        return {
+            "ok": ok,
+            "from": from_lang,
+            "to": to_lang,
+            "artifact": artifact,
+            "summary": stdout or stderr,
+            "error": None if ok else (stderr or stdout or "bank refuse"),
+            "source_hash": m.group(1) if m else None,
+            "arm": "bank",
+        }
 
 
 def list_examples() -> list[dict]:
@@ -637,7 +691,9 @@ class Handler(SimpleHTTPRequestHandler):
                         "critic": len(_load_book("criticbook.json").get("entries", [])),
                     },
                     "agent": bool(agent_lib and agent_lib.agent_available()),
+                    "bank": True,
                     "studio": "https://cuni-studio.fly.dev/",
+                    "bank_url": "https://cuni-studio.fly.dev/bank",
                     "rider": {
                         "register": bool(handle_register),
                         "list": bool(handle_list_registered),
@@ -663,6 +719,11 @@ class Handler(SimpleHTTPRequestHandler):
                     "count": len(langs),
                     "exactness": list(CHECK_ONLY),
                     "langs": langs,
+                    "bank": {
+                        "from": ["py", "cuni"],
+                        "to": [x["id"] for x in langs],
+                        "paste": "POST /api/bank",
+                    },
                 },
             )
         if path == "/api/agent/skills":
@@ -691,6 +752,9 @@ class Handler(SimpleHTTPRequestHandler):
         if path in ("/PROTOCOL.md", "/protocol.md"):
             self.path = "/PROTOCOL.md"
             path = "/PROTOCOL.md"
+        if path in ("/bank", "/bank/"):
+            self.path = "/bank.html"
+            path = "/bank.html"
         if path in ("/", ""):
             self.path = "/index.html"
             path = "/index.html"
@@ -730,6 +794,33 @@ class Handler(SimpleHTTPRequestHandler):
             data = json.loads(raw.decode("utf-8") or "{}")
         except json.JSONDecodeError:
             return self._json(400, {"ok": False, "error": "invalid JSON body"})
+
+        if path == "/api/bank":
+            source = data.get("source")
+            if not isinstance(source, str) or not source.strip():
+                return self._json(400, {"ok": False, "error": "missing source"})
+            if len(source) > MAX_SOURCE:
+                return self._json(400, {"ok": False, "error": "source too large"})
+            frm = data.get("from") or data.get("frm") or "py"
+            to = data.get("to") or "py"
+            if not _run_sem.acquire(blocking=False):
+                return self._json(
+                    503,
+                    {"ok": False, "error": f"server busy (max {MAX_CONCURRENT} concurrent runs)"},
+                )
+            try:
+                result = bank_paste(source, str(frm), str(to))
+            except FileNotFoundError as e:
+                _run_sem.release()
+                return self._json(503, {"ok": False, "error": str(e)})
+            except subprocess.TimeoutExpired:
+                _run_sem.release()
+                return self._json(504, {"ok": False, "error": f"timeout after {TIMEOUT}s"})
+            except Exception as e:  # noqa: BLE001
+                _run_sem.release()
+                return self._json(500, {"ok": False, "error": str(e)})
+            _run_sem.release()
+            return self._json(200 if result.get("ok") else 422, result)
 
         if path in ("/api/run", "/api/emit", "/api/check", "/api/exec"):
             source = data.get("source")
@@ -1082,6 +1173,8 @@ def main() -> None:
     display = "localhost" if host in ("0.0.0.0", "::") else host
     print(f"CuNi Playground (hosted) → http://{display}:{port}/")
     print(f"  bind {host}:{port}  timeout={TIMEOUT}s  concurrent={MAX_CONCURRENT}")
+    print("  POST /api/bank  paste N → emit X → prove (v1 --from py)")
+    print("  GET  /bank      Bank arm UI")
     print("  POST /api/run    emit + cuni check + stdout")
     print("  POST /api/exec   cuni run (in-process interpreter; same stdout, not the gate)")
     print("  POST /api/emit   emit only")

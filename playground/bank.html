@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CuNi Bank — paste N, get X</title>
+    <meta name="description" content="CuNi Bank: paste a language, emit another, prove identical stdout or refuse. v1 from Python." />
+    <link rel="canonical" href="https://cuni-studio.fly.dev/bank" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="icon" href="https://raw.githubusercontent.com/ceedot-rock/cuni/master/assets/logo.png" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <a class="logo-link" href="/" aria-label="CuNi Studio home">
+          <img class="logo" src="https://www.slidphilabs.com/assets/logos/logo-cuni.jpg" width="40" height="40" alt="" />
+        </a>
+        <div>
+          <h1>Bank</h1>
+          <p class="tag">Paste N, get X. Exactness or refuse. Arm of CuNi — not a vibe translator.</p>
+        </div>
+      </div>
+      <div class="actions">
+        <a class="btn-link" href="/">Studio</a>
+        <a class="btn-link" href="https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md">Law</a>
+      </div>
+    </header>
+    <div class="mode-bar">
+      <label class="example-label">From
+        <select id="from">
+          <option value="py" selected>Python</option>
+          <option value="cuni">CuNi</option>
+        </select>
+      </label>
+      <label class="example-label">To
+        <select id="to">
+          <option value="py">Python</option>
+          <option value="go">Go</option>
+          <option value="js" selected>JavaScript</option>
+          <option value="ts">TypeScript</option>
+        </select>
+      </label>
+      <button id="go" class="primary" type="button">Paste <span class="btn-sub">prove or refuse</span></button>
+    </div>
+    <main class="layout studio">
+      <section class="pane editor-pane">
+        <div class="pane-head"><h2>N</h2><span class="hint">v1 Python subset · def + print</span></div>
+        <textarea id="source" spellcheck="false">def add(a, b):
+    return a + b
+
+print(add(2, 3))
+</textarea>
+        <pre id="error" class="error hidden" role="alert"></pre>
+      </section>
+      <section class="pane results">
+        <div class="pane-head">
+          <h2>X</h2>
+          <div id="stamp" class="stamp idle"><span class="stamp-k">IDLE</span><span class="stamp-v">no paste</span></div>
+        </div>
+        <p id="summary" class="summary mono"></p>
+        <pre id="out" class="seat-body"></pre>
+      </section>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id);
+      $("go").addEventListener("click", async () => {
+        $("error").classList.add("hidden");
+        $("error").textContent = "";
+        $("summary").textContent = "pasting…";
+        $("stamp").className = "stamp run";
+        $("stamp").innerHTML = "<span class='stamp-k'>…</span><span class='stamp-v'>bank</span>";
+        try {
+          const r = await fetch("/api/bank", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              source: $("source").value,
+              from: $("from").value,
+              to: $("to").value,
+            }),
+          });
+          const j = await r.json();
+          $("summary").textContent = j.summary || j.error || "";
+          $("out").textContent = j.artifact || "";
+          if (j.ok) {
+            $("stamp").className = "stamp pass";
+            $("stamp").innerHTML = "<span class='stamp-k'>PASS</span><span class='stamp-v'>bank</span>";
+          } else {
+            $("stamp").className = "stamp fail";
+            $("stamp").innerHTML = "<span class='stamp-k'>FAIL</span><span class='stamp-v'>refuse</span>";
+            $("error").textContent = j.error || "refuse";
+            $("error").classList.remove("hidden");
+          }
+        } catch (e) {
+          $("error").textContent = String(e);
+          $("error").classList.remove("hidden");
+          $("stamp").className = "stamp fail";
+        }
+      });
+    </script>
+  </body>
+</html>

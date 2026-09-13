@@ -1,5 +1,13 @@
 # Changelog
 
+## [cuni-bank-0.1.0] — 2026-09-13
+
+### Added
+- **CuNi Bank** arm: `cuni bank paste IN --from py --to <id>` — ingest → emit → prove, or refuse.
+- Studio `POST /api/bank` and `/bank`. Protocol command `bank`.
+- 10-lang gate on `examples/bank/add.py` (py go js ts c cpp rs + rb php pl lowerings). `source_hash=bd4067ac5fd8b550`.
+- Not 119 ingest parsers. 119 langs remains `cuni check` on the ingested deposit.
+
 ## [0.1.10] — 2026-09-12
 
 ### Added

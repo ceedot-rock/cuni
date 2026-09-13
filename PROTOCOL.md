@@ -34,6 +34,16 @@ If they diverge, the implementation is wrong.
 
 Reverse the protocol: `cuni ingest impl.py` produces CuNi, or refuses. v1 is a Python subset.
 
+## 4b. Bank
+
+Arm of CuNi. Paste N, get X. Exactness or refuse. Not a second compiler.
+
+```
+cuni bank paste IN --from py --to c
+```
+
+`--from` is declared (v1: `py` or `cuni`). `--to` is a catalog id. Ingest must land in the Bank subset, emit X, prove X stdout matches CuNi gold. Else refuse. Receipt names the deposit by `source_hash` of N. 119 languages remains `cuni check` on the ingested deposit — Bank 0.1 does not add 119 ingest parsers. Law: `docs/BANK.md`.
+
 ## 5. Money laws
 
 Integer cents, same gold on every native seat:

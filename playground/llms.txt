@@ -16,6 +16,15 @@
 - Agent^Rider MCP: https://agentrider.fly.dev/api/mcp
 - Lab commerce: https://www.slidphilabs.com/api/agent
 
+## Bank
+- Arm: paste N, get X. Exactness or refuse. v1 from Python.
+- UI: https://cuni-studio.fly.dev/bank
+- API: POST https://cuni-studio.fly.dev/api/bank  {source, from:"py", to:"js"}
+- CLI: cuni bank paste IN --from py --to js
+- Law: https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md
+- Tag: cuni-bank-0.1.0
+- Not 119 ingest parsers. 119 langs remains cuni check on the deposit.
+
 ## Humans
 - Studio: https://cuni-studio.fly.dev/
 - Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md

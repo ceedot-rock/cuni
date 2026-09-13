@@ -151,6 +151,7 @@ cuni check examples/full.cuni
 cuni check examples/full.cuni --only py,go,js,c,cpp,rs   # native seats
 cuni check examples/compute --timeout 180
 cuni ingest impl.py -o impl.cuni                         # reverse, or refuse
+cuni bank paste impl.py --from py --to js                # paste N, get X, prove or refuse
 cuni prove examples/full.cuni --against impl.py          # foreign code must match
 # → exactness: FAIL — …         exit 1
 

@@ -95,7 +95,7 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
                 eprintln!("cuni bank: refuse — no gold stdout");
                 return ExitCode::FAILURE;
             };
-            if let Err(e) = prove_seat(lang.id, &out_path, &gold, &work) {
+            if let Err(e) = prove_seat(lang, &out_path, &gold) {
                 eprintln!("cuni bank: prove refuse\n{e}");
                 return ExitCode::FAILURE;
             }
@@ -105,46 +105,31 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
     }
 }
 
-fn prove_seat(id: &str, artifact: &Path, gold: &str, work: &Path) -> Result<(), String> {
-    let path = artifact.to_string_lossy().into_owned();
-    match id {
-        "py" => run_cmd("python3", &[path], gold),
-        "js" | "ts" => run_cmd("node", &[path], gold),
-        "go" => run_cmd("go", &["run".into(), path], gold),
-        "c" => {
-            let bin = work.join("bank_c.bin");
-            let st = Command::new("gcc")
-                .args(["-x", "c", "-O0", "-std=gnu11", "-o", &bin.to_string_lossy(), &path])
-                .status()
-                .map_err(|e| format!("gcc: {e}"))?;
-            if !st.success() { return Err("gcc failed".into()); }
-            run_bin(&bin, gold)
-        }
-        "rs" | "cpp" => Err(format!("bank v1 prove for `{id}` is dark — emit wrote the file")),
-        _ => Err(format!("bank v1 prove refuse seat `{id}`")),
+fn prove_seat(lang: &langs::Lang, artifact: &Path, gold: &str) -> Result<(), String> {
+    let plan = emit::exec_plan(lang, artifact);
+    if let Some((cmd, args)) = &plan.compile {
+        run_plan(cmd, args)?;
     }
+    let got = run_plan(&plan.run.0, &plan.run.1)?;
+    if got != gold {
+        return Err(format!("stdout mismatch\n--- gold ---\n{gold}--- got ---\n{got}"));
+    }
+    Ok(())
 }
 
-fn run_cmd(cmd: &str, args: &[String], gold: &str) -> Result<(), String> {
-    let out = Command::new(cmd).args(args).output().map_err(|e| format!("{cmd}: {e}"))?;
+fn run_plan(cmd: &str, args: &[String]) -> Result<String, String> {
+    let out = Command::new(cmd)
+        .args(args)
+        .output()
+        .map_err(|e| format!("{cmd}: {e}"))?;
     if !out.status.success() {
-        return Err(format!("{cmd} exited {}\n{}", out.status, String::from_utf8_lossy(&out.stderr)));
+        return Err(format!(
+            "{cmd} exited {}\n{}",
+            out.status,
+            String::from_utf8_lossy(&out.stderr)
+        ));
     }
-    let got = String::from_utf8_lossy(&out.stdout);
-    if got.as_ref() != gold {
-        return Err(format!("stdout mismatch\n--- gold ---\n{gold}--- got ---\n{got}"));
-    }
-    Ok(())
-}
-
-fn run_bin(bin: &Path, gold: &str) -> Result<(), String> {
-    let out = Command::new(bin).output().map_err(|e| format!("run: {e}"))?;
-    if !out.status.success() { return Err(format!("bin exited {}", out.status)); }
-    let got = String::from_utf8_lossy(&out.stdout);
-    if got.as_ref() != gold {
-        return Err(format!("stdout mismatch\n--- gold ---\n{gold}--- got ---\n{got}"));
-    }
-    Ok(())
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 fn source_hash(bytes: &[u8]) -> String {

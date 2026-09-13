@@ -1,4 +1,5 @@
 mod ast;
+mod bank;
 mod check;
 mod checks;
 mod codegen_all;
@@ -33,6 +34,7 @@ Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
   cuni run <file.cuni> [--lang py] [--timeout <secs>]
   cuni ingest <file.py> [-o out.cuni]
+  cuni bank paste <file> --from py --to <id> [-o out]
   cuni prove <file.cuni> --against <impl>
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
                [--emit-all <dir>] [--list-langs]
@@ -47,6 +49,7 @@ Commands:
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
           Not a substitute for check.
   ingest  Reverse CuNi: Python v1 subset → .cuni, or refuse.
+  bank    Paste N, get X. Ingest → emit → prove, or refuse. v1 --from py|cuni.
   prove   Run a foreign implementation; it must match CuNi gold stdout.
 
 Emit:
@@ -79,6 +82,9 @@ fn main() -> ExitCode {
     }
     if args[0] == "ingest" {
         return cmd_ingest(&args[1..]);
+    }
+    if args[0] == "bank" {
+        return bank::cmd_bank(&args[1..]);
     }
     if args[0] == "prove" {
         return cmd_prove(&args[1..]);

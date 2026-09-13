@@ -104,6 +104,30 @@ fn check_compute_native_seats() {
 }
 
 #[test]
+fn bank_paste_py_to_py() {
+    let output = Command::new(cuni_bin())
+        .args([
+            "bank",
+            "paste",
+            "examples/bank/add.py",
+            "--from",
+            "py",
+            "--to",
+            "py",
+        ])
+        .output()
+        .expect("bank");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "bank paste failed\n{stdout}\n{stderr}"
+    );
+    assert!(stdout.contains("bank: PASS"), "{stdout}");
+    assert!(stdout.contains("source_hash="), "{stdout}");
+}
+
+#[test]
 fn ingest_python_subset_roundtrip() {
     let dir = std::env::temp_dir();
     let py = dir.join(format!("cuni_ing_{}.py", std::process::id()));
