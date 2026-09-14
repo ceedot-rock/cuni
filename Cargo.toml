@@ -1,8 +1,8 @@
 [package]
 name = "cuni"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
-description = "CuNi (Code:uNiTY) — emit every coding language; exactness gate runs the full catalog"
+description = "CuNi (Code:uNiTY) — emit catalog + Bank paste-N-get-X; exactness or refuse"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/ceedot-rock/cuni"
 homepage = "https://cuni-studio.fly.dev/"

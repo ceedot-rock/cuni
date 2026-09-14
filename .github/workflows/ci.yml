@@ -46,5 +46,10 @@ jobs:
       - name: Build
         run: cargo build --verbose
 
+      - name: Bank hook must exist
+        run: |
+          ./target/debug/cuni bank --help
+          ./target/debug/cuni bank paste examples/bank/add.py --from py --to py
+
       - name: Test
         run: cargo test --verbose

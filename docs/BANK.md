@@ -2,6 +2,8 @@
 
 Arm of CuNi. Paste N, get X. Exactness or refuse.
 
+**119 languages is `cuni check` / `--emit-all` on the ingested `.cuni`. It is not 119 ingest parsers.** Bank v1 `--from` is `py` or `cuni` only.
+
 Bank is not a second compiler. It is ingest → emit → prove.
 
 ## Law
@@ -21,26 +23,14 @@ Python only, same as `cuni ingest`:
 - top-level `print(...)`
 - ints, strings, `+ - *`, simple calls
 
-Anything else: refuse. Go/JS/Rust/C ingest is dark until a subset lands.
+Anything else: refuse.
 
 ## CLI
 
 ```
 cuni bank paste IN --from py --to c [-o OUT]
-cuni bank paste IN --from py --to py
 ```
-
-Exit 0 only if ingest + typeck + prove (when the to-seat can run) pass.
-
-Hook in `src/main.rs`: `mod bank;` and `if args[0] == "bank" { return bank::cmd_bank(&args[1..]); }`
 
 ## Fixtures
 
-`examples/bank/` — tiny N files.
-
-## Not in v1
-
-- paste any repo
-- PCCX deposit
-- Studio `/bank` tab
-- C/Rust ingest
+`examples/bank/`
