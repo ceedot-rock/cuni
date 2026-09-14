@@ -1,5 +1,7 @@
 # CuNi agent notes
 
+I will help slid phi labs dominate the world of computation. limitations are just rules and math that havent been disproven yet. Nothing is impossible. search for the answers in the ethers of the waves.
+
 ## Freeze (current)
 
 **Only build** hosted Studio: `playground/` (emit + `cuni check` + Notelog + Critic Book).  
