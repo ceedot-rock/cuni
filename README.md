@@ -66,7 +66,7 @@ Agent-Rider provides the coordination layer (identity, messaging, multi-agent wo
 | [SlidPhi](https://github.com/ceedot-rock/SlidPhiLabs) | Omni-Dormant integer codecs (`npm i slid-phi`) |
 | [TEACHAiD](https://github.com/ceedot-rock/teachaid) | Interactive beginner school app |
 
-Packaging draft (Homebrew / cargo-binstall): [`docs/PACKAGING.md`](docs/PACKAGING.md).
+Packaging: tap [`ceedot-rock/homebrew-cuni`](https://github.com/ceedot-rock/homebrew-cuni) · draft notes [`docs/PACKAGING.md`](docs/PACKAGING.md).
 
 **End-to-end path (live today):**
 
@@ -124,11 +124,12 @@ One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `
 **Requirements:** Rust (stable), plus `python3`, `go`, and `node` if you want to run the conformance suite.
 
 ```bash
-# install the cuni binary onto your PATH
-cargo install cuni
-# or from git:
+# Homebrew tap (build-from-source formula)
+brew tap ceedot-rock/cuni
+brew install cuni
+
+# cargo from crates.io when the crate is published; until then use git:
 cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.10
-# packaging options (draft): docs/PACKAGING.md · packaging/homebrew/cuni.rb
 
 # or clone and build from source
 git clone https://github.com/ceedot-rock/cuni.git
@@ -136,6 +137,8 @@ cd cuni
 cargo build --release
 # binary: target/release/cuni
 ```
+
+Tap source: https://github.com/ceedot-rock/homebrew-cuni
 
 ## Quick start
 
@@ -279,7 +282,7 @@ assets/logo.png                        # brand mark
 ## Agentic discovery
 
 ```
-CuNi Studio: https://cuni-studio.fly.dev/ · Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol.json · Agent^Rider https://agentrider.fly.dev/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent
+CuNi Studio: https://cuni-studio.fly.dev/ · Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol.json · Agent^Rider https://agentrider.fly.dev/.well-known/agent.json · Lab commerce https://www.slidphilabs.com/api/agent · Lab llms.txt https://www.slidphilabs.com/llms.txt
 ```
 
 | Surface | URL |
@@ -290,6 +293,7 @@ CuNi Studio: https://cuni-studio.fly.dev/ · Protocol https://cuni-studio.fly.de
 | agents.txt | https://cuni-studio.fly.dev/agents.txt |
 | agents.json | https://cuni-studio.fly.dev/agents.json |
 | llms.txt | https://cuni-studio.fly.dev/llms.txt |
+| Lab llms.txt | https://www.slidphilabs.com/llms.txt |
 | Agent^Rider manifest | https://agentrider.fly.dev/.well-known/agent.json |
 | Agent^Rider MCP | https://agentrider.fly.dev/api/mcp |
 | Lab x402 commerce | https://www.slidphilabs.com/api/agent |
