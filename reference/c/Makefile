@@ -1,4 +1,4 @@
-# C99 reference ScanChunk parser — CuNi exact-text wire (cuni#17)
+# C99 reference ScanChunk parser — CuNi exact-text wire (cuni#17 / Rider#22 SoT)
 CC      ?= gcc
 CFLAGS  ?= -std=c99 -Wall -Wextra -Wpedantic -O2
 LDFLAGS ?=

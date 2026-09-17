@@ -1,7 +1,7 @@
 # CuNi C99 reference — ScanChunk exact-text
 
 **Issue:** [cuni#17](https://github.com/ceedot-rock/cuni/issues/17)  
-**Pairing:** [Agent-Rider#17](https://github.com/ceedot-rock/Agent-Rider/issues/17)
+**Pairing:** [Agent-Rider#17](https://github.com/ceedot-rock/Agent-Rider/issues/17) / [Agent-Rider#22](https://github.com/ceedot-rock/Agent-Rider/pull/22) (`agent-rider-c/` SoT)
 
 Rust remains the 119-language protocol home. This directory is a **reference only** so Agent-Rider C and the protocol refuse unknown keys the same way. Not a seventh framework. Citizenship (`exactness.passed` before Rider register) is unchanged.
 
@@ -12,29 +12,31 @@ CUNI ScanChunk
 key=value
 ```
 
-Same shape as Rider’s TypeScript `CUNI SettleHop` parser (`Agent-Rider` `src/lib/settle-hop.ts`): banner line, then `key=value` lines. Extra keys do not bind.
+Banner is exact: `CUNI ScanChunk`. Same shape as Rider’s `agent-rider-c/cuni.c`.
 
-## Error token (locked)
+## Error enum + wire (do not collapse)
 
-| CuNi token | Rider Chamber wire | Meaning |
+| Enum (charggri lock) | Value | Wire via `cuni_err_str` | Meaning |
+|---|---|---|---|
+| **`CUNI_ERR_EXTRA`** | **3** | **`reject.extra`** | Unknown key, or malformed line without `=` |
+| `CUNI_ERR_MISSING` | 4 | `reject.missing` | Required field absent |
+| `CUNI_ERR_KIND` | 2 | `reject.kind` | Wrong / missing banner |
+| `CUNI_ERR_EMPTY` | 1 | `reject.empty` | Empty input / no KV lines |
+
+Spelling lock: the **enum constant** is named `CUNI_ERR_EXTRA`. The **Chamber wire** is `reject.extra`. Both are required; do not rename the enum to match the wire string or print the enum name as the wire token.
+
+## Known keys (Agent-Rider#22 SoT)
+
+| key | required | role |
 |---|---|---|
-| **`CUNI_ERR_EXTRA`** | `reject.extra` | Unknown / extra key on exact-text form |
+| `url` | yes | scanned URL |
+| `etag` | no | optional entity tag |
+| `hash` | yes | content / source hash |
+| `agent_id` | yes | scout / emitter agent |
 
-Spelling is exact: `CUNI_ERR_EXTRA` (charggri hop brief + cuni#17). Do not invent variants.
-
-## Assumed known keys (minimal)
-
-Protocol docs (`PROTOCOL.md` / `protocol.json`) do not yet list ScanChunk fields, and the local `agent-rider-c` tree is **not on GitHub** yet (empty scaffold only). Until Rider lands `cuni.c`, this reference assumes a minimal bindable set parallel to SettleHop (`hop_id`, `job_id`, …):
-
-| key | role |
-|---|---|
-| `chunk_id` | chunk identity |
-| `job_id` | open job |
-| `agent_id` | scout / emitter agent |
-| `hash` | content / source hash |
-| `body` | chunk payload (single line) |
-
-Any other key → parse fails with **`CUNI_ERR_EXTRA`**. Amend this table when `agent-rider-c` publishes the SoT key list; do not silently widen acceptance.
+Any other key → **`CUNI_ERR_EXTRA`** / wire **`reject.extra`**.  
+Malformed line without `=` → same.  
+Missing `url` / `hash` / `agent_id` → **`CUNI_ERR_MISSING`** / `reject.missing`.
 
 ## Build & golden tests
 
@@ -44,8 +46,11 @@ make
 make test
 ```
 
-- `testdata/ok.chunk` → prints `ok`, exit 0  
-- `testdata/extra.chunk` (includes `credits=…`) → prints `CUNI_ERR_EXTRA`, exit 1  
+- `testdata/ok.chunk` → stdout `ok`, exit 0  
+- `testdata/extra.chunk` → stdout `reject.extra`, stderr `CUNI_ERR_EXTRA`, exit 1  
+- `testdata/malformed.chunk` → same as extra  
+- `testdata/missing.chunk` → stdout `reject.missing`, exit 2  
+- Enum value check: `(int)CUNI_ERR_EXTRA == 3` and `cuni_err_str` → `reject.extra`
 
 CLI: `./cuni_scan_cli <file>`
 
@@ -53,12 +58,12 @@ CLI: `./cuni_scan_cli <file>`
 
 | file | purpose |
 |---|---|
-| `cuni.h` | `CUNI_ERR_EXTRA`, ScanChunk struct, API |
-| `cuni_scan_chunk.c` | C99 parser |
-| `cuni_scan_cli.c` | tiny harness |
+| `cuni.h` | `cuni_err` enum (`CUNI_ERR_EXTRA=3`), `scan_chunk`, API |
+| `cuni_scan_chunk.c` | parser + `cuni_err_str` + format (adapted from Rider) |
+| `cuni_scan_cli.c` | harness (stdout wire, stderr enum on extra) |
 | `Makefile` | build + `make test` |
 | `testdata/` | golden chunks |
 
-## Blockers noted
+## Source of truth
 
-- **`agent-rider-c` missing from GitHub** — Agent-Rider#17 describes `cuni.c` / `chamber.c` / `rider.c` in a working tree; public repo has no sources yet (local clone only has an empty `agent-rider-c/tests`). Known keys above are documented assumptions, not Rider SoT.
+ScanChunk portions vendored/adapted from public [Agent-Rider#22](https://github.com/ceedot-rock/Agent-Rider/pull/22) `agent-rider-c/cuni.h` + `cuni.c` (branch `feat/sitescan-c99-rider`).

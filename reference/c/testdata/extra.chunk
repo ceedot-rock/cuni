@@ -1,7 +1,6 @@
 CUNI ScanChunk
-chunk_id=chk_01
-job_id=job_42
-agent_id=agt_scout
-hash=deadbeefcafe
-body=hello-world
+url=https://example.com/
+etag="abc"
+hash=sha256:dead
+agent_id=agt_1
 credits=should-not-bind

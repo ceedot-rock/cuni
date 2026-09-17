@@ -1,5 +1,4 @@
 CUNI ScanChunk
 url=https://example.com/
 etag="abc"
-hash=sha256:dead
 agent_id=agt_1

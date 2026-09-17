@@ -1,8 +1,10 @@
 /*
  * Tiny CLI / test harness for ScanChunk exact-text parser.
  * Usage: cuni_scan_cli <file>
- * Prints "ok" on success, or the exact error token (e.g. CUNI_ERR_EXTRA).
+ * Prints wire token from cuni_err_str (ok / reject.*).
  * Exit 0 on ok; 1 on CUNI_ERR_EXTRA; 2 on other parse errors.
+ *
+ * Also prints enum name on stderr for golden: CUNI_ERR_EXTRA when rc==3.
  */
 #include "cuni.h"
 
@@ -39,28 +41,18 @@ int main(int argc, char **argv) {
         return 2;
     }
 
-    CuniScanChunk chunk;
-    char err[64];
-    int rc = cuni_parse_scan_chunk(text, &chunk, err, sizeof(err));
+    scan_chunk chunk;
+    cuni_err rc = cuni_parse_scan_chunk(text, &chunk);
     free(text);
 
-    if (rc == CUNI_OK) {
-        printf("ok\n");
-        return 0;
-    }
-    if (rc == CUNI_E_EXTRA) {
-        /* Exact token required by cuni#17 / charggri lock */
-        printf("%s\n", CUNI_ERR_EXTRA);
+    /* stdout: Chamber wire token (reject.extra for extras) */
+    printf("%s\n", cuni_err_str(rc));
+
+    if (rc == CUNI_OK) return 0;
+    if (rc == CUNI_ERR_EXTRA) {
+        /* stderr: locked enum spelling for golden / charggri */
+        fprintf(stderr, "CUNI_ERR_EXTRA\n");
         return 1;
     }
-    if (rc == CUNI_E_HEADER) {
-        printf("CUNI_ERR_HEADER\n");
-        return 2;
-    }
-    if (rc == CUNI_E_FORMAT) {
-        printf("CUNI_ERR_FORMAT\n");
-        return 2;
-    }
-    printf("CUNI_ERR_OTHER\n");
     return 2;
 }

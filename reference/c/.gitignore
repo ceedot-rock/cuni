@@ -1,1 +1,5 @@
-reference/c/*.o
+*.o
+cuni_scan_cli
+testdata/_*.err
+testdata/_enum_check
+testdata/_enum_check.c

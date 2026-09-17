@@ -3,7 +3,10 @@
  * Rust remains the 119-lang protocol home; this refuses unknown keys
  * the same way Agent-Rider C / Chamber expect.
  *
- * Pairing: cuni#17 ↔ Agent-Rider#17
+ * Pairing: cuni#17 ↔ Agent-Rider#17 / Agent-Rider#22 (agent-rider-c SoT)
+ *
+ * charggri lock: the enum constant MUST be named CUNI_ERR_EXTRA (value 3).
+ * Wire string via cuni_err_str is reject.extra — do not collapse the two.
  */
 #ifndef CUNI_H
 #define CUNI_H
@@ -14,58 +17,47 @@
 extern "C" {
 #endif
 
-/* Exact token (charggri / cuni#17 lock). Maps to Rider Chamber wire reject.extra */
-#define CUNI_ERR_EXTRA "CUNI_ERR_EXTRA"
+#define CUNI_MAX_LINE 512
+#define CUNI_MAX_VAL  256
 
-#define CUNI_OK            0
-#define CUNI_E_EXTRA       1  /* unknown key → emit CUNI_ERR_EXTRA */
-#define CUNI_E_HEADER      2  /* missing/wrong "CUNI ScanChunk" banner */
-#define CUNI_E_FORMAT      3  /* malformed key=value line */
-#define CUNI_E_TRUNC       4  /* value longer than field buffer */
+/*
+ * Error enum aligned with Agent-Rider agent-rider-c/cuni.h.
+ * CUNI_ERR_EXTRA == 3 is the charggri / cuni#17 locked spelling.
+ */
+typedef enum {
+  CUNI_OK = 0,
+  CUNI_ERR_EMPTY = 1,
+  CUNI_ERR_KIND = 2,
+  CUNI_ERR_EXTRA = 3,   /* maps to Chamber wire reject.extra — do not rename */
+  CUNI_ERR_MISSING = 4,
+  CUNI_ERR_HASH = 5,
+  CUNI_ERR_AGENT = 6,
+  CUNI_ERR_REPLAY = 7
+} cuni_err;
+
+/*
+ * ScanChunk known keys (Agent-Rider#22 SoT): url, etag, hash, agent_id only.
+ * Required: url, hash, agent_id. etag is optional.
+ */
+typedef struct {
+  char url[CUNI_MAX_VAL];
+  char etag[CUNI_MAX_VAL];
+  char hash[CUNI_MAX_VAL];
+  char agent_id[CUNI_MAX_VAL];
+} scan_chunk;
 
 #define CUNI_SCANCHUNK_BANNER "CUNI ScanChunk"
 
-/*
- * Assumed minimal ScanChunk known-key set (protocol docs lack ScanChunk keys;
- * agent-rider-c not on GitHub yet). Parallel to Rider SettleHop key=value form
- * (hop_id, job_id, …). Documented in reference/c/README.md — amend when Rider
- * lands the C tree.
- */
-#define CUNI_SCANCHUNK_KEY_CHUNK_ID "chunk_id"
-#define CUNI_SCANCHUNK_KEY_JOB_ID   "job_id"
-#define CUNI_SCANCHUNK_KEY_AGENT_ID "agent_id"
-#define CUNI_SCANCHUNK_KEY_HASH     "hash"
-#define CUNI_SCANCHUNK_KEY_BODY     "body"
+cuni_err cuni_parse_scan_chunk(const char *text, scan_chunk *out);
 
-#define CUNI_FIELD_MAX 512
-
-typedef struct CuniScanChunk {
-    char chunk_id[CUNI_FIELD_MAX];
-    char job_id[CUNI_FIELD_MAX];
-    char agent_id[CUNI_FIELD_MAX];
-    char hash[CUNI_FIELD_MAX];
-    char body[CUNI_FIELD_MAX];
-    int  has_chunk_id;
-    int  has_job_id;
-    int  has_agent_id;
-    int  has_hash;
-    int  has_body;
-} CuniScanChunk;
+/* Format into buf; returns bytes written (excl NUL) or -1. */
+int cuni_format_scan_chunk(const scan_chunk *in, char *buf, size_t cap);
 
 /*
- * Parse exact-text ScanChunk:
- *   CUNI ScanChunk
- *   key=value
- *   …
- * On unknown key: returns CUNI_E_EXTRA and writes CUNI_ERR_EXTRA into
- * err_token (if non-NULL, size err_token_sz). Citizenship / exactness.passed
- * gates are unchanged — this only refuses extra keys on the wire form.
+ * Wire tokens (Rider Chamber). CUNI_ERR_EXTRA → "reject.extra".
+ * Enum name CUNI_ERR_EXTRA and wire reject.extra are both required; do not collapse.
  */
-int cuni_parse_scan_chunk(const char *text, CuniScanChunk *out,
-                          char *err_token, size_t err_token_sz);
-
-/* Non-zero if key is in the known ScanChunk set. */
-int cuni_scanchunk_key_known(const char *key);
+const char *cuni_err_str(cuni_err e);
 
 #ifdef __cplusplus
 }
