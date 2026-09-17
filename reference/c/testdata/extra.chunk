@@ -1,0 +1,7 @@
+CUNI ScanChunk
+chunk_id=chk_01
+job_id=job_42
+agent_id=agt_scout
+hash=deadbeefcafe
+body=hello-world
+credits=should-not-bind
