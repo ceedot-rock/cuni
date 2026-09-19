@@ -1,0 +1,4 @@
+# should hard-fail: Rust lifetime marker
+def f(x: 'a int) -> int do
+    ret x
+end

@@ -14,6 +14,7 @@ mod interp;
 mod langs;
 mod lexer;
 mod modules;
+mod oddity;
 mod parser;
 mod said;
 mod token;

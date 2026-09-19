@@ -1,0 +1,3 @@
+# should hard-fail: await in portable core
+let x = await fetch()
+say(x)
