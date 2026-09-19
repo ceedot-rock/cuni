@@ -10,6 +10,7 @@ mod codegen_py;
 mod codegen_rs;
 mod emit;
 mod ingest;
+mod ir;
 mod interp;
 mod langs;
 mod lexer;
