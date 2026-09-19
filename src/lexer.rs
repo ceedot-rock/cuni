@@ -1,3 +1,4 @@
+use crate::oddity;
 use crate::token::{keyword, StrPart, Tok, Token};
 
 pub struct Lexer<'a> {
@@ -44,7 +45,7 @@ impl<'a> Lexer<'a> {
                 continue;
             }
 
-            self.skip_trivia();
+            self.skip_trivia()?;
             let start = self.pos;
             if self.pos >= self.src.len() {
                 out.push(Tok { kind: Token::Eof, start, end: start });
@@ -110,18 +111,51 @@ impl<'a> Lexer<'a> {
         Ok(Token::ExtTarget(name, raw))
     }
 
-    fn skip_trivia(&mut self) {
+    fn skip_trivia(&mut self) -> LexResult<()> {
         loop {
             while self.peek().map_or(false, |c| c.is_ascii_whitespace()) {
                 self.pos += 1;
             }
             if self.peek() == Some(b'#') {
+                // `# comment` stays trivia. C/Rust preprocessor-shaped `#define`
+                // etc. are oddity-matrix **macros** hard-fails (not silent skip).
+                if let Some(msg) = self.macro_oddity_at_hash() {
+                    return Err(self.err(&msg));
+                }
                 while self.peek().map_or(false, |c| c != b'\n') {
                     self.pos += 1;
                 }
             } else {
                 break;
             }
+        }
+        Ok(())
+    }
+
+    /// If `pos` is on `#` and the following word is a preprocessor directive,
+    /// return a labeled macros hard-fail message. Otherwise `None` (normal comment).
+    fn macro_oddity_at_hash(&self) -> Option<String> {
+        debug_assert_eq!(self.peek(), Some(b'#'));
+        let mut i = self.pos + 1;
+        while self.src.get(i).copied() == Some(b' ') || self.src.get(i).copied() == Some(b'\t') {
+            i += 1;
+        }
+        let start = i;
+        while self.src.get(i).map_or(false, |c| c.is_ascii_alphabetic()) {
+            i += 1;
+        }
+        if start == i {
+            return None;
+        }
+        let word = std::str::from_utf8(&self.src[start..i]).ok()?;
+        if oddity::macro_directive_word(word) {
+            Some(oddity::refuse(
+                oddity::MACROS,
+                &format!("preprocessor-shaped `#{}` is not in the portable CuNi core", word),
+                "remove macros / `#define` / `#include` from portable `.cuni`; put foreign metaprogramming only inside an explicit `ext … do … end` body (leave-core), never as catalog 1-for-1",
+            ))
+        } else {
+            None
         }
     }
 
@@ -228,6 +262,16 @@ impl<'a> Lexer<'a> {
             b'`' => self.lex_interp_string().map(Token::InterpStr),
             b'0'..=b'9' => self.lex_number(),
             c if c == b'_' || c.is_ascii_alphabetic() => Ok(self.lex_ident()),
+            b'&' => Err(self.err(&oddity::refuse(
+                oddity::POINTERS,
+                "raw `&` / address-of is not in the portable CuNi core",
+                "do not take addresses; use values, `list`/`map` indices, or closed `typ` fields — CuNi refuses pointer provenance across seats",
+            ))),
+            b'\'' => Err(self.err(&oddity::refuse(
+                oddity::OWNERSHIP,
+                "lifetime / borrow marker `'` is not in the portable CuNi core",
+                "use `let` / `mut` and the shared Val model only — seat-specific move/drop/lifetime syntax hard-fails (no approximate borrow-check)",
+            ))),
             other => Err(self.err(&format!("unexpected character '{}'", other as char))),
         }
     }

@@ -1,0 +1,3 @@
+# should hard-fail: unary dereference
+let x = 1
+say(*x)

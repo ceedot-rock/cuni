@@ -1,0 +1,4 @@
+# should hard-fail: pointer type
+def f(p: *int) -> int do
+    ret 0
+end

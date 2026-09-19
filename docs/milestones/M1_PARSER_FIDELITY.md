@@ -1,6 +1,6 @@
 # M1 — Parser fidelity (Universal AST v0)
 
-**Status:** Milestone card (measure + gaps). Not a completeness claim.  
+**Status:** Milestone card (measure + gaps). Not a completeness claim. Partial eng progress: labeled oddity hard-fails for pointers / async / macros / ownership / prototypes (see `tests/oddity_matrix.rs`).  
 **Parent design:** [`docs/UNIVERSAL_AST_V0.md`](../UNIVERSAL_AST_V0.md) (merged via [#19](https://github.com/ceedot-rock/cuni/pull/19)).  
 **Touches:** `src/parser.rs`, `src/ast.rs`, `src/token.rs`, `src/lexer.rs`  
 **Spine:** Translate (CuNi) → Fund (Rider / XPay, **not** PCC) → Execute (Rider)  
@@ -80,10 +80,10 @@ Inventory against live code (master tip after #19), not aspirational IR:
 
 ## Done-when (M1 exit — still incremental)
 
-- [ ] Oddity matrix rows each have ≥1 **hard-fail** (or documented **map**) fixture under tests.
-- [ ] Refuse diagnostics can cite matrix category where applicable.
-- [ ] Span coverage on public AST names used in diagnostics is complete enough for Rider/Studio error surfaces.
-- [ ] Doc + tests still say: **119 catalog / ~7 native / majority lowering; Studio gate py/go/js; IR not done.**
+- [x] Oddity matrix rows each have ≥1 **hard-fail** (or documented **map**) fixture under tests. *(landed: pointers / async / macros / ownership / prototypes in `tests/oddity_hardfail/`; floats/`ext` remain documented map-or-downstream — not fake-complete)*
+- [x] Refuse diagnostics can cite matrix category where applicable. *(`oddity hard-fail [row]` + fix-it; `src/oddity.rs`)*
+- [ ] Span coverage on public AST names used in diagnostics is complete enough for Rider/Studio error surfaces. *(lex/parse oddity refuses carry file:line:col; AST name-span gaps from the inventory remain)*
+- [x] Doc + tests still say: **119 catalog / ~7 native / majority lowering; Studio gate py/go/js; IR not done.**
 
 Out of scope for M1: implementing IR, changing emit seat families, SettleHop, PCC payment framing.
 

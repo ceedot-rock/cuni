@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::oddity;
 use crate::token::{StrPart, Tok, Token};
 
 pub struct Parser<'a> {
@@ -63,11 +64,33 @@ impl<'a> Parser<'a> {
     fn expect_ident(&mut self) -> PResult<(String, Span)> {
         match self.peek().clone() {
             Token::Ident(name) => {
+                if let Some(err) = self.oddity_ident_refuse(&name) {
+                    return Err(err);
+                }
                 let tok = self.advance();
                 Ok((name, Span::new(tok.start, tok.end)))
             }
             other => Err(self.error(&format!("expected identifier, found {:?}", other))),
         }
+    }
+
+    /// Named oddity-matrix hard-fails for idents that must not enter the portable core.
+    fn oddity_ident_refuse(&self, name: &str) -> Option<ParseError> {
+        if oddity::async_oddity_ident(name) {
+            return Some(self.error(&oddity::refuse(
+                oddity::ASYNC,
+                &format!("`{}` is not in the portable CuNi core (sync only in v0)", name),
+                "remove async/await/spawn from portable `.cuni`; keep the sync core and use `link` as a process boundary — no auto-async rewrite",
+            )));
+        }
+        if oddity::prototype_oddity_ident(name) {
+            return Some(self.error(&oddity::refuse(
+                oddity::PROTOTYPES,
+                &format!("`{}` open-prototype / dynamic OO is not in the portable CuNi core", name),
+                "use closed `typ` / `iface` with structural fields/methods; CuNi refuses prototype-chain mutation and dynamic `this` games",
+            )));
+        }
+        None
     }
 
     fn error(&self, message: &str) -> ParseError {
@@ -283,6 +306,13 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_type(&mut self) -> PResult<Type> {
+        if self.check(&Token::Star) {
+            return Err(self.error(&oddity::refuse(
+                oddity::POINTERS,
+                "pointer type `*T` is not in the portable CuNi core",
+                "use a named type (`int`, `str`, `list<T>`, `typ`, …) — raw pointer types hard-fail across seats",
+            )));
+        }
         let (name, _) = self.expect_ident()?;
         if self.check(&Token::Lt) {
             self.advance();
@@ -562,6 +592,11 @@ impl<'a> Parser<'a> {
                     span,
                 ))
             }
+            Token::Star => Err(self.error(&oddity::refuse(
+                oddity::POINTERS,
+                "unary `*` dereference is not in the portable CuNi core",
+                "do not dereference pointers; use values / indices / fields — CuNi refuses pointer provenance and unsafe aliasing across seats",
+            ))),
             _ => self.parse_postfix(),
         }
     }
@@ -728,6 +763,9 @@ impl<'a> Parser<'a> {
                 Ok(self.expr(ExprKind::InterpStr(out), Span::new(tok.start, tok.end)))
             }
             Token::Ident(name) => {
+                if let Some(err) = self.oddity_ident_refuse(&name) {
+                    return Err(err);
+                }
                 let tok = self.advance();
                 Ok(self.expr(ExprKind::Ident(name), Span::new(tok.start, tok.end)))
             }
