@@ -3,6 +3,7 @@
 
 mod ast;
 mod lexer;
+mod oddity;
 mod parser;
 mod token;
 mod typeck;

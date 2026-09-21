@@ -1,0 +1,4 @@
+# should hard-fail: raw address-of
+let x = 1
+let p = &x
+say(p)
