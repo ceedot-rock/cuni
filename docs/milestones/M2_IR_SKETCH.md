@@ -28,7 +28,7 @@ Receipts must keep marking `native` vs `lowering`. Lowering ≠ skip; lowering �
 | How IR should relate to current AST / emit / langs | A rewrite schedule pretending emit already consumes IR |
 | Exactness-seat preservation constraints | Permission to approximate when seats diverge |
 
-**Explicit:** Universal AST v0 remains a **constraint design + roadmap**. Pipeline today is still **parse → `src/ast.rs` → `src/emit.rs`**. There is no separate IR crate/module yet.
+**Explicit:** Universal AST v0 remains a **constraint design + roadmap**. Pipeline today is still **parse → `src/ast.rs` → `src/emit.rs`**. `src/ir.rs` exists as an **unfinished** M2 stub only — emit does **not** consume IR yet.
 
 ---
 
@@ -65,8 +65,8 @@ Receipts must keep marking `native` vs `lowering`. Lowering ≠ skip; lowering �
   → emit per seat           (src/emit.rs → codegen_*)
   → catalog ids             (src/langs.rs: 119)
         │
-        ▼ (M2 target — not present yet)
-  explicit portable IR      (module TBD)
+        ▼ (M2 stub — NOT DONE)
+  explicit portable IR      (src/ir.rs sketch)
         │
         ▼ (M3)
   emit from IR              (still src/emit.rs family)
@@ -116,7 +116,7 @@ Anything beyond this is **M3+** (emit-from-IR, native graduation).
 ## Done-when (M2 exit — still a sketch)
 
 - [ ] Written IR goals/non-goals agreed (this card + any small follow-up).
-- [ ] Named candidate module boundary (even if empty stub later) without claiming completion.
+- [x] Named candidate module boundary: `src/ir.rs` (thin stub, wired from `lib` + `main`) — **still unfinished / NOT DONE**; no claim of completion.
 - [ ] Explicit statement remains true: **IR is not done**; pipeline still AST→emit.
 - [ ] Honesty tiers unchanged in docs: 119 / ~7 native / majority lowering; Studio py/go/js.
 

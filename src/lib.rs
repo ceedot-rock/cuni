@@ -2,6 +2,7 @@
 //! Not a compressor front-end. Exactness remains `cuni check`.
 
 mod ast;
+mod ir;
 mod lexer;
 mod oddity;
 mod parser;
