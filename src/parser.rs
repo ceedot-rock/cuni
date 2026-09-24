@@ -125,8 +125,8 @@ impl<'a> Parser<'a> {
 
     fn parse_use(&mut self) -> PResult<Item> {
         self.expect(&Token::Use)?;
-        let (name, _) = self.expect_ident()?;
-        Ok(Item::Use(name))
+        let (name, name_span) = self.expect_ident()?;
+        Ok(Item::Use(UseDecl { name, name_span }))
     }
 
     fn parse_ext(&mut self) -> PResult<Item> {
@@ -201,7 +201,7 @@ impl<'a> Parser<'a> {
         self.expect(&Token::Do)?;
         let mut methods = Vec::new();
         while !self.check(&Token::End) {
-            let (mname, _) = self.expect_ident()?;
+            let (mname, mspan) = self.expect_ident()?;
             self.expect(&Token::LParen)?;
             let params = self.parse_params()?;
             self.expect(&Token::RParen)?;
@@ -209,6 +209,7 @@ impl<'a> Parser<'a> {
             let ret_type = self.parse_type()?;
             methods.push(MethodSig {
                 name: mname,
+                name_span: mspan,
                 params,
                 ret_type,
             });
@@ -227,7 +228,11 @@ impl<'a> Parser<'a> {
         self.expect(&Token::Do)?;
         let mut variants = Vec::new();
         while !self.check(&Token::End) {
-            variants.push(self.expect_ident()?.0);
+            let (vname, vspan) = self.expect_ident()?;
+            variants.push(EnumVariant {
+                name: vname,
+                name_span: vspan,
+            });
         }
         self.expect(&Token::End)?;
         Ok(Item::Enum(EnumDecl {

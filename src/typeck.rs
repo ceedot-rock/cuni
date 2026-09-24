@@ -177,10 +177,34 @@ impl<'a> Checker<'a> {
                     );
                 }
                 Item::Iface(i) => {
+                    if ifaces.contains_key(&i.name) {
+                        return err_at(
+                            i.name_span,
+                            format!("duplicate iface `{}`", i.name),
+                        );
+                    }
                     ifaces.insert(i.name.clone(), i);
                 }
                 Item::Enum(e) => {
-                    enums.insert(e.name.clone(), e.variants.iter().cloned().collect());
+                    if enums.contains_key(&e.name) {
+                        return err_at(
+                            e.name_span,
+                            format!("duplicate enum `{}`", e.name),
+                        );
+                    }
+                    let mut variant_set = HashSet::new();
+                    for v in &e.variants {
+                        if !variant_set.insert(v.name.clone()) {
+                            return err_at(
+                                v.name_span,
+                                format!(
+                                    "duplicate variant `{}` in enum `{}`",
+                                    v.name, e.name
+                                ),
+                            );
+                        }
+                    }
+                    enums.insert(e.name.clone(), variant_set);
                 }
                 Item::Use(_) | Item::Stmt(_) => {}
             }
@@ -294,7 +318,7 @@ impl<'a> Checker<'a> {
                         for p in &m.params {
                             self.validate_type(&p.ty, &empty, p.span)?;
                         }
-                        self.validate_type(&m.ret_type, &empty, i.name_span)?;
+                        self.validate_type(&m.ret_type, &empty, m.name_span)?;
                     }
                 }
                 Item::Use(_) | Item::Enum(_) | Item::Stmt(_) => {}

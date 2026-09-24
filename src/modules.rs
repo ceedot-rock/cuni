@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 /// Error while resolving `use` imports into a single compilation unit.
 pub struct ModuleError {
     pub message: String,
+    /// Span of the `use` name in the importing file, when known.
+    pub span: Option<crate::ast::Span>,
 }
 
 /// Resolves every `use name` in `program` by loading `<dir>/<name>.cuni`
@@ -31,8 +33,9 @@ pub fn resolve_uses(program: Program, source_path: &Path) -> Result<Program, Mod
 
     for item in program.items {
         match item {
-            Item::Use(name) => {
-                load_module(&name, base_dir, &mut seen, &mut imported)?;
+            Item::Use(u) => {
+                // Span is root-source-relative — check.rs line_cols against the root file.
+                load_module(&u.name, Some(u.name_span), base_dir, &mut seen, &mut imported)?;
             }
             other => local.push(other),
         }
@@ -48,7 +51,7 @@ fn path_key(p: &Path) -> String {
         .unwrap_or_else(|_| p.to_string_lossy().into_owned())
 }
 
-fn load_module(name: &str, from_dir: &Path, seen: &mut HashSet<String>, out: &mut Vec<Item>) -> Result<(), ModuleError> {
+fn load_module(name: &str, name_span: Option<crate::ast::Span>, from_dir: &Path, seen: &mut HashSet<String>, out: &mut Vec<Item>) -> Result<(), ModuleError> {
     let path = from_dir.join(format!("{}.cuni", name));
     let key = path_key(&path);
     if seen.contains(&key) {
@@ -71,25 +74,31 @@ fn load_module(name: &str, from_dir: &Path, seen: &mut HashSet<String>, out: &mu
                 name,
                 path.display()
             ),
+            span: name_span,
         });
     }
     seen.insert(key);
 
     let source = fs::read_to_string(&path).map_err(|e| ModuleError {
         message: format!("couldn't read module `{}` ({}): {}", name, path.display(), e),
+        span: name_span,
     })?;
     let tokens = Lexer::tokenize(&source).map_err(|e| ModuleError {
         message: format!("{}: lex error: {}", path.display(), e.message),
+        span: name_span,
     })?;
     let mut parser = Parser::new(tokens, &source);
     let prog = parser.parse_program().map_err(|e| ModuleError {
         message: format!("{}: parse error: {}", path.display(), e.message),
+        span: name_span,
     })?;
 
     let mod_dir = path.parent().unwrap_or(from_dir);
     for item in prog.items {
         match item {
-            Item::Use(dep) => load_module(&dep, mod_dir, seen, out)?,
+            // Nested use spans live in the nested file; do not pass them up
+            // (root check.rs would mis-map them against the root source).
+            Item::Use(dep) => load_module(&dep.name, None, mod_dir, seen, out)?,
             other => out.push(other),
         }
     }

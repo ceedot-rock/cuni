@@ -22,7 +22,10 @@ pub fn generate(program: &Program) -> String {
             Item::Typ(t) => {
                 g.typs.insert(t.name.clone());
             }
-            Item::Enum(e) => g.enums.push((e.name.clone(), e.variants.clone())),
+            Item::Enum(e) => g.enums.push((
+                e.name.clone(),
+                e.variants.iter().map(|v| v.name.clone()).collect(),
+            )),
             _ => {}
         }
     }

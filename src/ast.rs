@@ -29,7 +29,7 @@ pub struct Program {
 
 #[derive(Debug)]
 pub enum Item {
-    Use(String),
+    Use(UseDecl),
     Ext(ExtDecl),
     Typ(TypDecl),
     Iface(IfaceDecl),
@@ -38,13 +38,26 @@ pub enum Item {
     Stmt(Stmt),
 }
 
+/// `use name` — module import (SPEC.md §9).
+#[derive(Debug)]
+pub struct UseDecl {
+    pub name: String,
+    pub name_span: Span,
+}
+
+/// One payload-free enum variant name with its source span.
+#[derive(Debug, Clone)]
+pub struct EnumVariant {
+    pub name: String,
+    pub name_span: Span,
+}
+
 /// Payload-free enum: a closed set of named variants, no attached data.
 #[derive(Debug)]
 pub struct EnumDecl {
     pub name: String,
-    #[allow(dead_code)] // reserved for future enum-related diagnostics
     pub name_span: Span,
-    pub variants: Vec<String>,
+    pub variants: Vec<EnumVariant>,
 }
 
 /// A non-portable, per-target binding: `ext name(...) -> T do py: ... go: ... end`.
@@ -75,6 +88,7 @@ pub struct IfaceDecl {
 #[derive(Debug)]
 pub struct MethodSig {
     pub name: String,
+    pub name_span: Span,
     pub params: Vec<Param>,
     pub ret_type: Type,
 }
