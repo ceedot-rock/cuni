@@ -1,7 +1,7 @@
 {
   "name": "CuNi Protocol",
   "id": "cuni-protocol",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "spec": "https://cuni-studio.fly.dev/PROTOCOL.md",
   "canonical": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
   "github": "https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md",
@@ -56,5 +56,14 @@
     "ui": "https://cuni-studio.fly.dev/bank",
     "law": "https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md",
     "tag": "cuni-bank-0.1.0"
+  },
+  "citizen_pass": {
+    "kind": "studio_gate",
+    "note": "Exactness PASS/refuse for Rider pre-execute. Same py/go/js gate as /api/check. Does not fund.",
+    "pass": "POST https://cuni-studio.fly.dev/api/pass",
+    "alias": "POST https://cuni-studio.fly.dev/api/citizen/pass",
+    "publish_push": "POST /api/publish \u2192 Rider POST /api/v0/contracts with citizen_receipt when CUNI_RIDER_URL set",
+    "docs": "https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md",
+    "studio_marker": "called"
   }
 }

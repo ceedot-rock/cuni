@@ -92,9 +92,10 @@ except ImportError:
     handle_list_registered = None  # type: ignore
 
 try:
-    from rider_client import register_remote
+    from rider_client import register_remote, build_citizen_receipt
 except ImportError:
     register_remote = None  # type: ignore
+    build_citizen_receipt = None  # type: ignore
 
 
 def list_remote_contracts(timeout: float = 8.0) -> dict:
@@ -1040,6 +1041,164 @@ class Handler(SimpleHTTPRequestHandler):
             _save_book("criticbook.json", {"entries": []})
             return self._json(200, {"ok": True})
 
+
+        # Machine-facing PASS/refuse gate — Rider may call pre-execute (verify-by-source).
+        # Same Studio exactness gate as /api/check (CHECK_ONLY). Exactness or refuse.
+        # Does NOT fund. Does NOT auto-push to Rider (publish path does the push).
+        if path in ("/api/pass", "/api/citizen/pass"):
+            source = data.get("source")
+            if not isinstance(source, str) or not source.strip():
+                return self._json(
+                    400,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": "missing source",
+                        "diagnostics": "JSON body requires { \"source\": \"...\" }",
+                        "studio": "called",
+                    },
+                )
+            if len(source) > MAX_SOURCE:
+                return self._json(
+                    400,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": "source too large",
+                        "diagnostics": f"max {MAX_SOURCE} bytes",
+                        "studio": "called",
+                    },
+                )
+            if not _run_sem.acquire(blocking=False):
+                return self._json(
+                    503,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": "server busy",
+                        "diagnostics": "concurrent exactness slots full",
+                        "studio": "called",
+                    },
+                )
+            try:
+                from datetime import datetime, timezone
+
+                result = compile_and_check(source, mode="check")
+                exact = (result.get("exactness") or "").upper()
+                passed = result.get("ok") is True or exact.startswith("PASS")
+                src_hash = result.get("source_hash") or source_hash(source)
+                if not passed:
+                    diagnostics = (
+                        result.get("check_log")
+                        or result.get("summary")
+                        or result.get("error")
+                        or result.get("exactness")
+                        or "exactness FAIL"
+                    )
+                    append_note(
+                        "[pass] exactness FAIL — refuse",
+                        kind="run",
+                        meta={"ok": False, "source_hash": src_hash},
+                    )
+                    return self._json(
+                        400,
+                        {
+                            "ok": False,
+                            "verdict": "REFUSE",
+                            "citizen_receipt": None,
+                            "exactness": {"passed": False},
+                            "error": "Exactness FAILED – refusing PASS",
+                            "diagnostics": diagnostics,
+                            "gate": list(CHECK_ONLY),
+                            "studio": "called",
+                        },
+                    )
+                ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+                if build_citizen_receipt:
+                    receipt = build_citizen_receipt(
+                        src_hash,
+                        checked_at=ts,
+                        targets=list(CHECK_ONLY),
+                        stdout_match=True,
+                    )
+                else:
+                    receipt = {
+                        "source_hash": src_hash,
+                        "sourceHash": src_hash,
+                        "exactness": {
+                            "passed": True,
+                            "checkedAt": ts,
+                            "targets": list(CHECK_ONLY),
+                            "stdoutMatch": True,
+                        },
+                    }
+                append_note(
+                    f"[pass] exactness PASS hash={src_hash[:12]}…",
+                    kind="system",
+                    meta={"source_hash": src_hash, "ok": True},
+                )
+                return self._json(
+                    200,
+                    {
+                        "ok": True,
+                        "verdict": "PASS",
+                        "citizen_receipt": {
+                            "source_hash": receipt["source_hash"],
+                            "exactness": {"passed": True},
+                        },
+                        "citizen_receipt_full": receipt,
+                        "gate": list(CHECK_ONLY),
+                        "studio": "called",
+                    },
+                )
+            except FileNotFoundError as e:
+                return self._json(
+                    503,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": str(e),
+                        "diagnostics": str(e),
+                        "studio": "called",
+                    },
+                )
+            except subprocess.TimeoutExpired:
+                return self._json(
+                    504,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": f"timeout after {TIMEOUT}s",
+                        "diagnostics": f"timeout after {TIMEOUT}s",
+                        "studio": "called",
+                    },
+                )
+            except Exception as e:  # noqa: BLE001
+                return self._json(
+                    500,
+                    {
+                        "ok": False,
+                        "verdict": "REFUSE",
+                        "citizen_receipt": None,
+                        "exactness": {"passed": False},
+                        "error": f"internal: {e}",
+                        "diagnostics": f"internal: {e}",
+                        "studio": "called",
+                    },
+                )
+            finally:
+                _run_sem.release()
+
         # Studio → Rider publish prototype: exactness gate, then metadata JSON
         if path == "/api/publish":
             import hashlib
@@ -1066,32 +1225,62 @@ class Handler(SimpleHTTPRequestHandler):
                         400,
                         {
                             "ok": False,
+                            "verdict": "REFUSE",
+                            "citizen_receipt": None,
                             "error": "Exactness FAILED – refusing to publish",
-                            "exactness": result.get("exactness") or result.get("summary"),
+                            "exactness": {"passed": False},
+                            "diagnostics": result.get("exactness")
+                            or result.get("summary")
+                            or result.get("check_log"),
                             "result": result,
+                            "studio": "called",
                         },
                     )
                 ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
                 source_hash = hashlib.sha256(source.encode("utf-8")).hexdigest()
+                if build_citizen_receipt:
+                    citizen_receipt = build_citizen_receipt(
+                        source_hash,
+                        checked_at=ts,
+                        targets=list(CHECK_ONLY),
+                        stdout_match=True,
+                    )
+                else:
+                    citizen_receipt = {
+                        "source_hash": source_hash,
+                        "sourceHash": source_hash,
+                        "exactness": {
+                            "passed": True,
+                            "checkedAt": ts,
+                            "targets": list(CHECK_ONLY),
+                            "stdoutMatch": True,
+                        },
+                    }
                 meta = {
                     "version": "0.1",
                     "source": source,
                     "sourceHash": source_hash,
+                    "source_hash": source_hash,
                     "exactness": {
                         "passed": True,
                         "checkedAt": ts,
                         "targets": list(CHECK_ONLY),
                         "stdoutMatch": True,
                     },
+                    "citizen_receipt": {
+                        "source_hash": source_hash,
+                        "exactness": {"passed": True},
+                    },
                     "publishedAt": ts,
                     "publisher": "studio",
+                    "studio": "called",
                 }
                 pub_dir = DATA / "published"
                 pub_dir.mkdir(parents=True, exist_ok=True)
                 out_path = pub_dir / f"{source_hash[:16]}.publish.json"
                 out_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
                 append_note(
-                    f"[publish] exactness PASS hash={source_hash[:12]}… → Rider metadata",
+                    f"[publish] exactness PASS hash={source_hash[:12]}… → Rider citizen_receipt",
                     kind="system",
                     meta={"sourceHash": source_hash, "ok": True},
                 )
@@ -1099,13 +1288,15 @@ class Handler(SimpleHTTPRequestHandler):
                 registration = None
                 if handle_register:
                     _code, registration = handle_register(
-                        {"meta": meta}, DATA, append_note
+                        {"meta": meta, "citizen_receipt": citizen_receipt},
+                        DATA,
+                        append_note,
                     )
-                # Real Agent-Rider (when CUNI_RIDER_URL set)
+                # Real Agent-Rider (when CUNI_RIDER_URL set): push meta + citizen_receipt
                 rider = None
                 if register_remote:
                     try:
-                        rider = register_remote(meta)
+                        rider = register_remote(meta, citizen_receipt=citizen_receipt)
                         if rider and rider.get("ok") is not False:
                             append_note(
                                 f"[publish] Rider remote ok "
@@ -1130,12 +1321,21 @@ class Handler(SimpleHTTPRequestHandler):
                     200,
                     {
                         "ok": True,
+                        "verdict": "PASS",
                         "meta": meta,
+                        "citizen_receipt": {
+                            "source_hash": source_hash,
+                            "exactness": {"passed": True},
+                        },
                         "stored": str(out_path.name),
                         "registration": registration,
                         "rider": rider,
-                        "next": "Remote Rider when CUNI_RIDER_URL set; local stub still available",
-                        "docs": "docs/RIDER_CUTOVER.md + docs/PUBLISH_FLOW.md",
+                        "studio": "called",
+                        "next": (
+                            "citizen_receipt pushed to Rider when CUNI_RIDER_URL set; "
+                            "local stub still available. Fund = Rider settle/XPay (not PCC)."
+                        ),
+                        "docs": "docs/PASS_GATE.md + docs/RIDER_CUTOVER.md + docs/PUBLISH_FLOW.md",
                     },
                 )
             except FileNotFoundError as e:
@@ -1181,7 +1381,8 @@ def main() -> None:
     print("  POST /api/check  emit + cuni check --only " + ",".join(CHECK_ONLY))
     gate = ",".join(CHECK_ONLY)
     print(f"  exactness gate (Studio): {gate}  (full catalog = CLI/CI)")
-    print("  POST /api/publish  exactness gate → Rider metadata (+ remote if CUNI_RIDER_URL)")
+    print("  POST /api/pass    exactness PASS/refuse → citizen_receipt (Rider pre-execute)")
+    print("  POST /api/publish  exactness gate → citizen_receipt push (+ remote if CUNI_RIDER_URL)")
     print("  POST /api/rider/register  |  GET /api/rider/registered  (Studio Rider stub)")
     print("  GET/POST /api/notelog   |  /api/criticbook")
     print("  GET /api/langs   emit catalog (exactness runs every id)")

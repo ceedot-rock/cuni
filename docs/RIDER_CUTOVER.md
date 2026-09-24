@@ -67,3 +67,9 @@ fly secrets set CUNI_RIDER_URL=https://agentrider.fly.dev -a cuni-studio
 ## Rules (unchanged)
 - `exactness.passed` must be `true` or Rider refuses
 - Idempotent on `sourceHash`
+
+## Citizen receipt push (2026-09-24)
+
+`register_remote(meta)` now POSTs `{ meta, citizen_receipt, studio: "called" }` to Rider.
+Refuse never pushes. See [`PASS_GATE.md`](PASS_GATE.md).
+

@@ -51,5 +51,9 @@ jobs:
           ./target/debug/cuni bank --help
           ./target/debug/cuni bank paste examples/bank/add.py --from py --to py
 
+
+      - name: Studio citizen PASS shape smoke
+        run: python3 -m unittest playground.test_citizen_pass -v
+
       - name: Test
         run: cargo test --verbose

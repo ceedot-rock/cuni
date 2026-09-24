@@ -5,3 +5,5 @@
 Protocol: https://cuni-studio.fly.dev/.well-known/cuni-protocol.json
 MCP: https://agentrider.fly.dev/api/mcp
 A2A: https://agentrider.fly.dev/.well-known/agent.json
+Pass: https://cuni-studio.fly.dev/api/pass
+PassDocs: https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md

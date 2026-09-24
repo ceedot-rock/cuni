@@ -25,6 +25,14 @@
 - Tag: cuni-bank-0.1.0
 - Not 119 ingest parsers. 119 langs remains cuni check on the deposit.
 
+
+## Citizen PASS gate (Agent-Rider)
+- Verify-by-source: POST https://cuni-studio.fly.dev/api/pass  {"source":"..."}
+- Alias: POST https://cuni-studio.fly.dev/api/citizen/pass
+- Publish push: POST /api/publish → Rider /api/v0/contracts with citizen_receipt (when CUNI_RIDER_URL set)
+- Exactness or refuse (py/go/js). Fund = Rider settle/XPay — not PCC.
+- Docs: https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md
+
 ## Humans
 - Studio: https://cuni-studio.fly.dev/
 - Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md

@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-09-12 · **v0.1.10 tagged** · `cuni run` is a check seat · Studio → Rider loop live (Fly)
+**Last updated**: 2026-09-24 · **v0.1.10 tagged** · `cuni run` is a check seat · Studio → Rider loop live (Fly)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -15,6 +15,8 @@ Exact multi-runtime agents, coordinated.
 - **Agent-Rider (live face)**: https://agentrider.fly.dev — Fly-only. The old Vercel edge (`*.vercel.app`) returning HTTP 402 is a **historical dead door**, not the current live path.  
 - **Exactness CI**: green on every push (examples + cargo test)  
 - **v0.1.9 gate**: `cuni check` emit+runs the **119-language catalog**; `--receipt` records `source_hash` (SHA-256 of `.cuni` bytes) so Rider can refuse a mismatched claim  
+
+- **Citizen receipt (this PR):** Studio publish pushes explicit `citizen_receipt` (`source_hash` + `exactness.passed`) to Rider; `POST /api/pass` is the Rider-callable verify door. See [`PASS_GATE.md`](PASS_GATE.md). Fund = Rider/XPay — never PCC.
 - **Publish → register**:  
   - Local stub: `/api/rider/register` + `/api/rider/registered` → `{ok, count, contracts[]}`  
   - Remote: `CUNI_RIDER_URL=https://agentrider.fly.dev` → `POST /api/v0/contracts` (exactness-gated, idempotent on `sourceHash`)  
