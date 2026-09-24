@@ -23,15 +23,18 @@
     "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
     "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
     "lab_commerce": "https://www.slidphilabs.com/api/agent",
-    "one_liner": "CuNi Studio · exact multi-runtime · Lab dual surface: humans https://www.slidphilabs.com/humans · agents GET https://www.slidphilabs.com/api/agent · map https://www.slidphilabs.com/platform.json",
+    "one_liner": "CuNi Studio \u00b7 exact multi-runtime \u00b7 Lab dual surface: humans https://www.slidphilabs.com/humans \u00b7 agents GET https://www.slidphilabs.com/api/agent \u00b7 map https://www.slidphilabs.com/platform.json",
     "lab_platform": "https://www.slidphilabs.com/platform.json",
     "lab_welcome": "https://www.slidphilabs.com/api/welcome",
     "lab_humans": "https://www.slidphilabs.com/humans",
     "lab_agents": "https://www.slidphilabs.com/agents",
-    "lab_openapi": "https://www.slidphilabs.com/openapi.yaml"
+    "lab_openapi": "https://www.slidphilabs.com/openapi.yaml",
+    "pass_api": "https://cuni-studio.fly.dev/api/pass",
+    "pass_docs": "https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md",
+    "publish_api": "https://cuni-studio.fly.dev/api/publish"
   },
   "platform": {
-    "slogan": "One mission · two attack vectors · one team",
+    "slogan": "One mission \u00b7 two attack vectors \u00b7 one team",
     "parent_lab": "https://www.slidphilabs.com",
     "pub_facing": "https://www.slidphilabs.com/humans",
     "agentic_minded": "https://www.slidphilabs.com/agents"

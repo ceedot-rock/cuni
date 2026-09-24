@@ -69,3 +69,11 @@ curl -s -X POST https://cuni-studio.fly.dev/api/publish \
 | 2026-08-07 | `ctr_1ec3e1bdb32541f0` from Studio publish; contracts count 2 |
 | 2026-08-12 | Local stub healthy (`count: 2`). Remote Vercel edge returned HTTP 402 (historical dead door). |
 | 2026-09-11 | Fly-only Rider face https://agentrider.fly.dev. Studio UI surfaces `/api/rider/registered`. Remote register re-verify still pending GRANT/`service_role` match on Rider. |
+
+## Citizen receipt cutover (2026-09-24)
+
+- **Publish push:** `/api/publish` POSTs `{ meta, citizen_receipt, studio: "called" }` to Rider `POST /api/v0/contracts` when `CUNI_RIDER_URL` is set (PASS only).
+- **Rider pre-execute verify:** `POST /api/pass` (alias `/api/citizen/pass`) — same py/go/js exactness gate; returns citizen_receipt or REFUSE. Does not fund.
+- Docs: [`PASS_GATE.md`](PASS_GATE.md). Fund remains Rider settle / XPay (not PCC).
+- Honesty: until this PR is merged + Studio redeployed, live Fly may still be meta-only register.
+
