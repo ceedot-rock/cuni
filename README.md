@@ -117,7 +117,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 </p>
 
 [Full MP4 (30s)](assets/demo-30s.mp4) · [HTML](assets/demo-30s.html) · live: `./examples/demo-30s.sh`  
-One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `cuni`. 119-language gate.
+One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `cuni`. 144-language gate.
 
 ## Install
 
@@ -148,9 +148,9 @@ cuni run examples/compute/fib.cuni
 # → 55
 # optional: emit a native seat instead
 cuni run examples/compute/fib.cuni --lang py
-# exactness gate — 119 languages, emit+run, identical stdout or refuse
+# exactness gate — 144 languages, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
-# → exactness: PASS (119 langs)   exit 0
+# → exactness: PASS (144 langs)   exit 0
 cuni check examples/full.cuni --only py,go,js,c,cpp,rs   # native seats
 cuni check examples/compute --timeout 180
 cuni ingest impl.py -o impl.cuni                         # reverse, or refuse
@@ -264,7 +264,7 @@ assets/logo.png                        # brand mark
 
 ## Status (v0.1.10)
 
-**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust, `--emit-all` language catalog (119), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
+**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust, `--emit-all` language catalog (144), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
 
 **Not in v0.1 (by design):** tagged unions with payload, streaming `link`, full inference — see SPEC.md §19.
 

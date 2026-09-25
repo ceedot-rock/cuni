@@ -12,7 +12,7 @@ Exactness refuse is sacred. No approximate mode. Prefer hard-fail.
 
 ## Honesty (say out loud)
 
-> **119 catalog seats; ~7 native; majority lowering.**  
+> **144 catalog seats; ~7 native; majority lowering.**  
 > Studio / Publish gate: **py / go / js** only.  
 > Do **not** soft-claim “120 languages” 1-for-1.
 
@@ -46,7 +46,7 @@ Receipts must keep marking `native` vs `lowering`. Lowering ≠ skip; lowering �
 ## Non-goals
 
 - Shipping a finished optimizing compiler IR in this milestone.
-- Claiming 119 (or ~120) first-class native 1-for-1 seats.
+- Claiming 144 (or ~145) first-class native 1-for-1 seats.
 - Approximate / best-effort emit when seats diverge.
 - Folding Fund into PCC or treating compression as payment.
 - Silent macro/pointer/async rewriting to “make emit work.”
@@ -63,7 +63,7 @@ Receipts must keep marking `native` vs `lowering`. Lowering ≠ skip; lowering �
   → front-end AST           (src/ast.rs)          ← today
   → typeck / check          (src/typeck.rs, src/check.rs)
   → emit per seat           (src/emit.rs → codegen_*)
-  → catalog ids             (src/langs.rs: 119)
+  → catalog ids             (src/langs.rs: 144)
         │
         ▼ (M2 stub — NOT DONE)
   explicit portable IR      (src/ir.rs sketch)
@@ -76,7 +76,7 @@ Receipts must keep marking `native` vs `lowering`. Lowering ≠ skip; lowering �
 |----------|-------------------|
 | **`src/ast.rs`** | Current front-end AST. Likely *source* of IR (lower/validate), not the final IR name forever. |
 | **`src/emit.rs`** | SeatKind (`Native` / `Lowering`) + `generate_exact`. IR must not erase that honesty; emit stays the seat spelling layer. |
-| **`src/langs.rs`** | 119 catalog ids. IR does not invent seats; it must remain checkable against this catalog law. |
+| **`src/langs.rs`** | 144 catalog ids. IR does not invent seats; it must remain checkable against this catalog law. |
 | **codegen_\*** | Native families today (`py`/`go`/`js`/`ts`/`c`/`cpp`/`rs`); rest Python-lower. IR sketch must plan seat-by-seat graduation without soft 120 claims. |
 
 ---
@@ -118,7 +118,7 @@ Anything beyond this is **M3+** (emit-from-IR, native graduation).
 - [ ] Written IR goals/non-goals agreed (this card + any small follow-up).
 - [x] Named candidate module boundary: `src/ir.rs` (thin stub, wired from `lib` + `main`) — **still unfinished / NOT DONE**; no claim of completion.
 - [ ] Explicit statement remains true: **IR is not done**; pipeline still AST→emit.
-- [ ] Honesty tiers unchanged in docs: 119 / ~7 native / majority lowering; Studio py/go/js.
+- [ ] Honesty tiers unchanged in docs: 144 / ~7 native / majority lowering; Studio py/go/js.
 
 **Non-done:** implementing IR, migrating emit, freezing receipt schema (that’s M4), native graduation (M5).
 

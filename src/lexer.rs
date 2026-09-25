@@ -23,7 +23,12 @@ type LexResult<T> = Result<T, LexError>;
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
-        Lexer { src: src.as_bytes(), pos: 0, after_ext_header: false, in_ext_body: false }
+        Lexer {
+            src: src.as_bytes(),
+            pos: 0,
+            after_ext_header: false,
+            in_ext_body: false,
+        }
     }
 
     pub fn tokenize(src: &'a str) -> LexResult<Vec<Tok>> {
@@ -41,14 +46,22 @@ impl<'a> Lexer<'a> {
                     return Err(self.err("unterminated ext block"));
                 }
                 let kind = self.scan_ext_body_token()?;
-                out.push(Tok { kind, start, end: self.pos });
+                out.push(Tok {
+                    kind,
+                    start,
+                    end: self.pos,
+                });
                 continue;
             }
 
             self.skip_trivia()?;
             let start = self.pos;
             if self.pos >= self.src.len() {
-                out.push(Tok { kind: Token::Eof, start, end: start });
+                out.push(Tok {
+                    kind: Token::Eof,
+                    start,
+                    end: start,
+                });
                 break;
             }
             let kind = self.next_token()?;
@@ -59,7 +72,11 @@ impl<'a> Lexer<'a> {
                 self.after_ext_header = false;
                 self.in_ext_body = true;
             }
-            out.push(Tok { kind, start, end: self.pos });
+            out.push(Tok {
+                kind,
+                start,
+                end: self.pos,
+            });
         }
         Ok(out)
     }
@@ -75,7 +92,10 @@ impl<'a> Lexer<'a> {
     fn scan_ext_body_token(&mut self) -> LexResult<Token> {
         if self.src[self.pos..].starts_with(b"end") {
             let after = self.pos + 3;
-            let word_continues = self.src.get(after).map_or(false, |c| c.is_ascii_alphanumeric() || *c == b'_');
+            let word_continues = self
+                .src
+                .get(after)
+                .map_or(false, |c| c.is_ascii_alphanumeric() || *c == b'_');
             if !word_continues {
                 self.pos = after;
                 self.in_ext_body = false;
@@ -84,13 +104,18 @@ impl<'a> Lexer<'a> {
         }
 
         let name_start = self.pos;
-        while self.peek().map_or(false, |c| c == b'_' || c.is_ascii_alphanumeric()) {
+        while self
+            .peek()
+            .map_or(false, |c| c == b'_' || c.is_ascii_alphanumeric())
+        {
             self.pos += 1;
         }
         if self.pos == name_start {
             return Err(self.err("expected a target name (e.g. 'py') or 'end' in ext block"));
         }
-        let name = std::str::from_utf8(&self.src[name_start..self.pos]).unwrap().to_string();
+        let name = std::str::from_utf8(&self.src[name_start..self.pos])
+            .unwrap()
+            .to_string();
 
         while self.peek().map_or(false, |c| c == b' ' || c == b'\t') {
             self.pos += 1;
@@ -107,7 +132,10 @@ impl<'a> Lexer<'a> {
         while self.peek().map_or(false, |c| c != b'\n') {
             self.pos += 1;
         }
-        let raw = std::str::from_utf8(&self.src[text_start..self.pos]).unwrap().trim_end().to_string();
+        let raw = std::str::from_utf8(&self.src[text_start..self.pos])
+            .unwrap()
+            .trim_end()
+            .to_string();
         Ok(Token::ExtTarget(name, raw))
     }
 
@@ -181,8 +209,12 @@ impl<'a> Lexer<'a> {
     /// (1 byte == 1 char) or a full multi-byte char via this method — so the
     /// slice from `pos` onward is always valid UTF-8.
     fn bump_char(&mut self) -> char {
-        let rest = std::str::from_utf8(&self.src[self.pos..]).expect("source is valid utf8 at a char boundary");
-        let ch = rest.chars().next().expect("bump_char called at end of input");
+        let rest = std::str::from_utf8(&self.src[self.pos..])
+            .expect("source is valid utf8 at a char boundary");
+        let ch = rest
+            .chars()
+            .next()
+            .expect("bump_char called at end of input");
         self.pos += ch.len_utf8();
         ch
     }
@@ -277,12 +309,18 @@ impl<'a> Lexer<'a> {
     }
 
     fn err(&self, message: &str) -> LexError {
-        LexError { message: message.to_string(), pos: self.pos }
+        LexError {
+            message: message.to_string(),
+            pos: self.pos,
+        }
     }
 
     fn lex_ident(&mut self) -> Token {
         let start = self.pos - 1;
-        while self.peek().map_or(false, |c| c == b'_' || c.is_ascii_alphanumeric()) {
+        while self
+            .peek()
+            .map_or(false, |c| c == b'_' || c.is_ascii_alphanumeric())
+        {
             self.pos += 1;
         }
         let word = std::str::from_utf8(&self.src[start..self.pos]).unwrap();
@@ -412,10 +450,13 @@ impl<'a> Lexer<'a> {
                                 self.skip_over_interp_string_body()?;
                             }
                             Some(_) => self.pos += 1,
-                            None => return Err(self.err("unterminated ${...} in interpolated string")),
+                            None => {
+                                return Err(self.err("unterminated ${...} in interpolated string"))
+                            }
                         }
                     }
-                    let inner_src = std::str::from_utf8(&self.src[expr_start..self.pos - 1]).unwrap();
+                    let inner_src =
+                        std::str::from_utf8(&self.src[expr_start..self.pos - 1]).unwrap();
                     let mut inner_toks = Lexer::tokenize(inner_src)?;
                     inner_toks.retain(|t| t.kind != Token::Eof);
                     parts.push(StrPart::Expr(inner_toks));

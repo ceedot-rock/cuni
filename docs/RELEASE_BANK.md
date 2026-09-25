@@ -13,7 +13,7 @@ rb, php, pl (catalog lowerings, python3 — same as `cuni check`)
 
 `source_hash=bd4067ac5fd8b550`
 
-119 languages remains `cuni check` on the ingested deposit. Bank 0.1 does not add 119 ingest parsers.
+144 languages remains `cuni check` on the ingested deposit. Bank 0.1 does not add 144 ingest parsers.
 
 ## Install (after this lands on the tagged commit with `mod bank` in main.rs)
 

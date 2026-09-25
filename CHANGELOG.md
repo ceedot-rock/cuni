@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased] — 119 → 144 language seats
+
+### Added
+- 25 new catalog seats in `src/langs.rs`: Ballerina, Ceylon, Xtend, Gosu, NetRexx (Java family); Frege, Eta, Agda, Curry, Clean, Roc, Koka (Haskell family); ATS, Chapel, Jai, HolyC, Cyclone, C--, Pawn, S-Lang (C family); Carbon, Cpp2 (C++ family); Datalog, Mercury, Oz (Prolog family).
+- All 25 verified 25/25 emit+run exactness PASS via `cuni check --only` on `full.cuni`, plus `structs.cuni` + `enums.cuni`; spot-checked artifacts byte-identical to the py gold.
+- Docs sweep: every live "119" claim now reads 144. Historical entries below keep their original numbers.
+
+### Honesty
+- New seats verify through the repo's Python lowering and stay header-labeled "Seat pending a native toolchain" — catalog seats that emit+run, not native toolchains. Native seats remain py, go, js, ts, c, cpp, rs.
+
 ## [cuni-bank-0.1.0] — 2026-09-13
 
 ### Added

@@ -12,8 +12,21 @@ use crate::ast::{FnDecl, Item, Program, Type};
 /// Go has no entry here: Go has no ambient/global identifiers of this kind
 /// (imports are explicit, so there's nothing an `ext` name could silently
 /// shadow) — this check is a no-op for the Go backend.
-const JS_RESERVED: &[&str] = &["fetch", "console", "Math", "JSON", "Promise", "require", "module", "process", "globalThis"];
-const PY_RESERVED: &[&str] = &["print", "len", "open", "input", "list", "dict", "set", "str", "int", "float", "map", "filter", "range", "sorted", "format", "exec", "eval"];
+const JS_RESERVED: &[&str] = &[
+    "fetch",
+    "console",
+    "Math",
+    "JSON",
+    "Promise",
+    "require",
+    "module",
+    "process",
+    "globalThis",
+];
+const PY_RESERVED: &[&str] = &[
+    "print", "len", "open", "input", "list", "dict", "set", "str", "int", "float", "map", "filter",
+    "range", "sorted", "format", "exec", "eval",
+];
 
 /// Checks every `ext` declaration in `program` against the reserved-name list
 /// for `target` ("py", "go", or "js"). Returns the first colliding `ext` name
@@ -51,7 +64,14 @@ fn is_wire_scalar(ty: &Type) -> bool {
 /// link's name and the bad type's source text, if any.
 pub fn find_bad_link_type(program: &Program) -> Option<(&str, String)> {
     for item in &program.items {
-        if let Item::Def(FnDecl { is_link: true, name, params, ret_type, .. }) = item {
+        if let Item::Def(FnDecl {
+            is_link: true,
+            name,
+            params,
+            ret_type,
+            ..
+        }) = item
+        {
             for p in params {
                 if !is_wire_scalar(&p.ty) {
                     return Some((name, format!("param `{}` has type {:?}", p.name, p.ty)));

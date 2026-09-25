@@ -36,7 +36,8 @@ pub fn generate(program: &Program) -> String {
     if !g.enums.is_empty() {
         g.out.push_str("static void cuni_enums_init(void) {\n");
         for (name, vars) in &g.enums {
-            g.out.push_str(&format!("    {name} = V_struct(\"{name}\");\n"));
+            g.out
+                .push_str(&format!("    {name} = V_struct(\"{name}\");\n"));
             for v in vars {
                 g.out.push_str(&format!(
                     "    cuni_set(&{name}, \"{v}\", V_enum(\"{name}\", \"{v}\"));\n"
@@ -50,18 +51,19 @@ pub fn generate(program: &Program) -> String {
             Item::Typ(t) => g.typ(t),
             Item::Def(f) => g.func(f),
             Item::Ext(e) => {
-                g.out.push_str(&format!("/* ext {} — no c: body; returns none */\n", e.name));
+                g.out.push_str(&format!(
+                    "/* ext {} — no c: body; returns none */\n",
+                    e.name
+                ));
                 let ps = (0..e.params.len())
                     .map(|i| format!("Val p{i}"))
                     .collect::<Vec<_>>()
                     .join(", ");
-                let ps = if ps.is_empty() {
-                    "void".into()
-                } else {
-                    ps
-                };
-                g.out
-                    .push_str(&format!("static Val {}({}) {{ return V_none(); }}\n\n", e.name, ps));
+                let ps = if ps.is_empty() { "void".into() } else { ps };
+                g.out.push_str(&format!(
+                    "static Val {}({}) {{ return V_none(); }}\n\n",
+                    e.name, ps
+                ));
             }
             _ => {}
         }
@@ -102,10 +104,13 @@ impl Gen {
             .map(|(i, _)| format!("Val a{i}"))
             .collect::<Vec<_>>()
             .join(", ");
-        self.out.push_str(&format!("static Val {}({}) {{\n", t.name, args));
-        self.out.push_str(&format!("    Val s = V_struct(\"{}\");\n", t.name));
+        self.out
+            .push_str(&format!("static Val {}({}) {{\n", t.name, args));
+        self.out
+            .push_str(&format!("    Val s = V_struct(\"{}\");\n", t.name));
         for (i, f) in t.fields.iter().enumerate() {
-            self.out.push_str(&format!("    cuni_set(&s, \"{}\", a{i});\n", f.name));
+            self.out
+                .push_str(&format!("    cuni_set(&s, \"{}\", a{i});\n", f.name));
         }
         self.out.push_str("    return s;\n}\n\n");
     }
@@ -122,7 +127,8 @@ impl Gen {
         } else {
             ps
         };
-        self.out.push_str(&format!("static Val {}({}) {{\n", f.name, ps));
+        self.out
+            .push_str(&format!("static Val {}({}) {{\n", f.name, ps));
         if f.body.is_empty() {
             self.out.push_str("    return V_none();\n}\n\n");
             return;
@@ -151,7 +157,8 @@ impl Gen {
                         self.out.push_str(&format!("{pad}}}\n"));
                     } else {
                         self.out.push_str(&format!("{pad}Val {name} = {inner};\n"));
-                        self.out.push_str(&format!("{pad}if ({name}.k == K_NONE) {{\n"));
+                        self.out
+                            .push_str(&format!("{pad}if ({name}.k == K_NONE) {{\n"));
                         for h in handler {
                             self.stmt(h, indent + 1);
                         }
@@ -169,9 +176,11 @@ impl Gen {
             }
             StmtKind::Ret(Some(e)) => {
                 if self.in_main {
-                    self.out.push_str(&format!("{pad}(void){};\n{pad}return 0;\n", self.expr(e)));
+                    self.out
+                        .push_str(&format!("{pad}(void){};\n{pad}return 0;\n", self.expr(e)));
                 } else {
-                    self.out.push_str(&format!("{pad}return {};\n", self.expr(e)));
+                    self.out
+                        .push_str(&format!("{pad}return {};\n", self.expr(e)));
                 }
             }
             StmtKind::Ret(None) => {
@@ -182,10 +191,8 @@ impl Gen {
                 }
             }
             StmtKind::Fail(e) => {
-                self.out.push_str(&format!(
-                    "{pad}return fail_with({});\n",
-                    self.expr(e)
-                ));
+                self.out
+                    .push_str(&format!("{pad}return fail_with({});\n", self.expr(e)));
             }
             StmtKind::If {
                 cond,
@@ -205,11 +212,17 @@ impl Gen {
                 }
                 self.out.push_str(&format!("{pad}}}\n"));
             }
-            StmtKind::For { binding, iter, body } => {
+            StmtKind::For {
+                binding,
+                iter,
+                body,
+            } => {
                 let it = self.expr(iter);
                 self.out.push_str(&format!("{pad}{{\n"));
                 self.out.push_str(&format!("{pad}    Val __it = {it};\n"));
-                self.out.push_str(&format!("{pad}    for (size_t __i = 0; __i < __it.n; __i++) {{\n"));
+                self.out.push_str(&format!(
+                    "{pad}    for (size_t __i = 0; __i < __it.n; __i++) {{\n"
+                ));
                 if let Some(v) = &binding.1 {
                     self.out.push_str(&format!(
                         "{pad}        Val {} = V_int((long long)__i);\n",
@@ -230,8 +243,10 @@ impl Gen {
                 self.out.push_str(&format!("{pad}}}\n"));
             }
             StmtKind::Whl { cond, body } => {
-                self.out
-                    .push_str(&format!("{pad}while (cuni_truthy({})) {{\n", self.expr(cond)));
+                self.out.push_str(&format!(
+                    "{pad}while (cuni_truthy({})) {{\n",
+                    self.expr(cond)
+                ));
                 for s in body {
                     self.stmt(s, indent + 1);
                 }
@@ -251,9 +266,12 @@ impl Gen {
                         }
                     }
                 }
-                self.out.push_str(&format!("{pad}(void){};\n", self.expr(e)));
+                self.out
+                    .push_str(&format!("{pad}(void){};\n", self.expr(e)));
             }
-            StmtKind::Todo => self.out.push_str(&format!("{pad}return fail_with(V_str(\"...\"));\n")),
+            StmtKind::Todo => self
+                .out
+                .push_str(&format!("{pad}return fail_with(V_str(\"...\"));\n")),
         }
     }
 
@@ -270,8 +288,15 @@ impl Gen {
                 if xs.is_empty() {
                     "V_list(0)".into()
                 } else {
-                    let inner = xs.iter().map(|x| self.expr(x)).collect::<Vec<_>>().join(", ");
-                    format!("({{ Val __xs[] = {{ {inner} }}; cuni_list_build({}u, __xs); }})", xs.len())
+                    let inner = xs
+                        .iter()
+                        .map(|x| self.expr(x))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!(
+                        "({{ Val __xs[] = {{ {inner} }}; cuni_list_build({}u, __xs); }})",
+                        xs.len()
+                    )
                 }
             }
             ExprKind::Map(_) => "V_none()".into(),
@@ -389,7 +414,12 @@ impl Gen {
 }
 
 fn c_string(s: &str) -> String {
-    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"))
+    format!(
+        "\"{}\"",
+        s.replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('\n', "\\n")
+    )
 }
 
 const CUNI_RT: &str = r#"

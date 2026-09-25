@@ -14,7 +14,7 @@ Exactness refuse is sacred. There is **no approximate mode**. Prefer **hard-fail
 
 | Tier | Fact |
 |------|------|
-| Catalog | **119** seat ids in `src/langs.rs` |
+| Catalog | **144** seat ids in `src/langs.rs` |
 | Native | **~7:** `py`, `go`, `js`, `ts`, `c`, `cpp`, `rs` |
 | Studio / Publish gate | **`py`, `go`, `js` only** (Fly image) |
 | Rest | **Majority lowering** (Python until native); receipt marks `native` vs `lowering` |
@@ -73,7 +73,7 @@ Inventory against live code (master tip after #19), not aspirational IR:
 3. **Span incompleteness** — ~~`Use` name, enum variant names, iface method names lack first-class spans~~ **landed (name spans + diagnostic use for missing-use / dup variant / iface method)**. Remaining: other AST name sites (e.g. `ExprKind::Field` name, `TypDecl.implements` ident) still lack first-class spans — not claimed complete for every identifier.
 4. **Float accepted in AST** — fidelity debt: exactness sacred means float formatting divergence must refuse; parser doesn’t help yet.
 5. **Ingest / foreign paths** — if non-`.cuni` or rewritten input enters the pipeline, parser fidelity alone doesn’t police oddities; need clear refuse before emit.
-6. **Lowering honesty** — parser doesn’t know seats; `src/emit.rs` marks `native` vs `lowering`. M1 must not pretend parser success ⇒ 119 native 1-for-1.
+6. **Lowering honesty** — parser doesn’t know seats; `src/emit.rs` marks `native` vs `lowering`. M1 must not pretend parser success ⇒ 144 native 1-for-1.
 7. **No claim that AST = Universal AST IR** — today’s `src/ast.rs` is the front-end AST. Explicit IR is **M2** and **is not done**.
 
 ---
@@ -83,7 +83,7 @@ Inventory against live code (master tip after #19), not aspirational IR:
 - [x] Oddity matrix rows each have ≥1 **hard-fail** (or documented **map**) fixture under tests. *(landed: pointers / async / macros / ownership / prototypes in `tests/oddity_hardfail/`; floats/`ext` remain documented map-or-downstream — not fake-complete)*
 - [x] Refuse diagnostics can cite matrix category where applicable. *(`oddity hard-fail [row]` + fix-it; `src/oddity.rs`)*
 - [x] Span coverage on public AST names used in diagnostics is complete enough for Rider/Studio error surfaces. *(Use / enum variant / iface method name spans + refuse locations; lex/parse oddity refuses already file:line:col. Other ident sites may still lack spans — incremental, not fake-total.)*
-- [x] Doc + tests still say: **119 catalog / ~7 native / majority lowering; Studio gate py/go/js; IR not done.**
+- [x] Doc + tests still say: **144 catalog / ~7 native / majority lowering; Studio gate py/go/js; IR not done.**
 
 Out of scope for M1: implementing IR, changing emit seat families, SettleHop, PCC payment framing.
 

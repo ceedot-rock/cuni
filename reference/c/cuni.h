@@ -1,6 +1,6 @@
 /*
  * CuNi exact-text wire — C99 reference (not a seventh framework).
- * Rust remains the 119-lang protocol home; this refuses unknown keys
+ * Rust remains the 144-lang protocol home; this refuses unknown keys
  * the same way Agent-Rider C / Chamber expect.
  *
  * Pairing: cuni#17 ↔ Agent-Rider#17 / Agent-Rider#22 (agent-rider-c SoT)

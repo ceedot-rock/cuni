@@ -62,17 +62,30 @@ fn line_col(source: &str, byte_pos: usize) -> (usize, usize) {
 
 /// Load, parse, resolve modules, type-check, and static refuse checks.
 pub fn load_program(path: &Path) -> Result<Program, String> {
-    let source = fs::read_to_string(path).map_err(|e| format!("couldn't read {}: {}", path.display(), e))?;
+    let source =
+        fs::read_to_string(path).map_err(|e| format!("couldn't read {}: {}", path.display(), e))?;
 
     let tokens = Lexer::tokenize(&source).map_err(|e| {
         let (line, col) = line_col(&source, e.pos);
-        format!("{}:{}:{}: lex error: {}", path.display(), line, col, e.message)
+        format!(
+            "{}:{}:{}: lex error: {}",
+            path.display(),
+            line,
+            col,
+            e.message
+        )
     })?;
 
     let mut parser = Parser::new(tokens, &source);
     let program = parser.parse_program().map_err(|e| {
         let (line, col) = line_col(&source, e.pos);
-        format!("{}:{}:{}: parse error: {}", path.display(), line, col, e.message)
+        format!(
+            "{}:{}:{}: parse error: {}",
+            path.display(),
+            line,
+            col,
+            e.message
+        )
     })?;
 
     let program = modules::resolve_uses(program, path).map_err(|e| {
@@ -197,10 +210,7 @@ pub fn check_file_only(
         }
     };
 
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("prog");
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("prog");
 
     let langs: Vec<&Lang> = langs::LANGS
         .iter()
@@ -357,7 +367,10 @@ pub fn print_report(report: &CheckReport, verbose: bool) {
     let label = report.path.display();
     println!("check {}", label);
     if !report.front_ok {
-        println!("  front-end  FAIL  {}", report.front_err.as_deref().unwrap_or(""));
+        println!(
+            "  front-end  FAIL  {}",
+            report.front_err.as_deref().unwrap_or("")
+        );
         println!("  {}", report.summary);
         return;
     }
@@ -507,10 +520,7 @@ pub fn run_one(
         ));
     }
     let program = load_program(path)?;
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("prog");
+    let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("prog");
     let _ = fs::create_dir_all(work_dir);
     let out = work_dir.join(format!("{}_{}", stem, lang.out_file()));
     emit_for(&program, lang, &out)?;

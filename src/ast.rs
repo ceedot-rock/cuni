@@ -191,7 +191,9 @@ impl CallArg {
     pub fn span(&self) -> Span {
         match self {
             CallArg::Pos(e) => e.span,
-            CallArg::Named { name_span, value, .. } => name_span.union(value.span),
+            CallArg::Named {
+                name_span, value, ..
+            } => name_span.union(value.span),
         }
     }
 

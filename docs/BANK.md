@@ -2,7 +2,7 @@
 
 Arm of CuNi. Paste N, get X. Exactness or refuse.
 
-**119 languages is `cuni check` / `--emit-all` on the ingested `.cuni`. It is not 119 ingest parsers.** Bank v1 `--from` is `py` or `cuni` only.
+**144 languages is `cuni check` / `--emit-all` on the ingested `.cuni`. It is not 144 ingest parsers.** Bank v1 `--from` is `py` or `cuni` only.
 
 Bank is not a second compiler. It is ingest → emit → prove.
 

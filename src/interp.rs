@@ -13,8 +13,14 @@ enum Val {
     None,
     List(Vec<Val>),
     Map(Vec<(Val, Val)>),
-    Struct { name: String, fields: Vec<(String, Val)> },
-    Enum { ty: String, variant: String },
+    Struct {
+        name: String,
+        fields: Vec<(String, Val)>,
+    },
+    Enum {
+        ty: String,
+        variant: String,
+    },
 }
 
 enum Flow {
@@ -139,7 +145,11 @@ impl<'a> Vm<'a> {
                 }
                 Ok(Flow::Next)
             }
-            StmtKind::For { binding, iter, body } => {
+            StmtKind::For {
+                binding,
+                iter,
+                body,
+            } => {
                 let seq = self.eval(iter, env)?;
                 let pairs = seq.iter_pairs()?;
                 for (k, v) in pairs {
@@ -161,10 +171,8 @@ impl<'a> Vm<'a> {
                     if let ExprKind::Field { base, name } = &callee.kind {
                         if name == "push" {
                             if let ExprKind::Ident(n) = &base.kind {
-                                let x = self.eval(
-                                    args.first().ok_or("push needs a value")?.expr(),
-                                    env,
-                                )?;
+                                let x = self
+                                    .eval(args.first().ok_or("push needs a value")?.expr(), env)?;
                                 match env.get_mut(n) {
                                     Some(Val::List(xs)) => {
                                         xs.push(x);
@@ -390,11 +398,7 @@ impl<'a> Vm<'a> {
                     }
                 } else {
                     if av.len() != t.fields.len() {
-                        return Err(format!(
-                            "`{}` wants {} fields",
-                            t.name,
-                            t.fields.len()
-                        ));
+                        return Err(format!("`{}` wants {} fields", t.name, t.fields.len()));
                     }
                     for (f, v) in t.fields.iter().zip(av.into_iter()) {
                         fields.push((f.name.clone(), v));
@@ -407,11 +411,7 @@ impl<'a> Vm<'a> {
             }
             if let Some(f) = self.fns.get(fname).copied() {
                 if av.len() != f.params.len() {
-                    return Err(format!(
-                        "`{}` expects {} args",
-                        f.name,
-                        f.params.len()
-                    ));
+                    return Err(format!("`{}` expects {} args", f.name, f.params.len()));
                 }
                 let mut local: HashMap<String, Val> = HashMap::new();
                 for (p, v) in f.params.iter().zip(av.into_iter()) {
@@ -614,12 +614,7 @@ fn bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
     }
 }
 
-fn num2(
-    l: Val,
-    r: Val,
-    i: fn(i64, i64) -> i64,
-    f: fn(f64, f64) -> f64,
-) -> Result<Val, String> {
+fn num2(l: Val, r: Val, i: fn(i64, i64) -> i64, f: fn(f64, f64) -> f64) -> Result<Val, String> {
     match (l, r) {
         (Val::Int(a), Val::Int(b)) => Ok(Val::Int(i(a, b))),
         (Val::Float(a), Val::Float(b)) => Ok(Val::Float(f(a, b))),
@@ -660,7 +655,9 @@ fn cmp(l: &Val, r: &Val) -> Result<i32, String> {
     }
     match (l, r) {
         (Val::Int(a), Val::Int(b)) => Ok(ord(a.cmp(b))),
-        (Val::Float(a), Val::Float(b)) => Ok(ord(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))),
+        (Val::Float(a), Val::Float(b)) => {
+            Ok(ord(a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)))
+        }
         (Val::Str(a), Val::Str(b)) => Ok(ord(a.cmp(b))),
         _ => Err("cannot compare".into()),
     }

@@ -131,12 +131,20 @@ fn bank_paste_py_to_py() {
 fn ingest_python_subset_roundtrip() {
     let dir = std::env::temp_dir();
     let py = dir.join(format!("cuni_ing_{}.py", std::process::id()));
-    std::fs::write(&py, "def add(a, b):\n    return a + b\nprint(add(2, 40))\nprint(\"cuni\")\n").unwrap();
+    std::fs::write(
+        &py,
+        "def add(a, b):\n    return a + b\nprint(add(2, 40))\nprint(\"cuni\")\n",
+    )
+    .unwrap();
     let output = Command::new(cuni_bin())
         .args(["ingest", py.to_str().unwrap()])
         .output()
         .expect("ingest");
-    assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let cuni = String::from_utf8_lossy(&output.stdout);
     assert!(cuni.contains("def add"));
     assert!(cuni.contains("say(add(2, 40))"));

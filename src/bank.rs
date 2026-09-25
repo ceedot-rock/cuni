@@ -28,14 +28,26 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
-            "--from" => { from = args.get(i + 1).cloned(); i += 2; }
-            "--to" => { to = args.get(i + 1).cloned(); i += 2; }
-            "-o" | "--output" => { output = args.get(i + 1).cloned(); i += 2; }
+            "--from" => {
+                from = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "--to" => {
+                to = args.get(i + 1).cloned();
+                i += 2;
+            }
+            "-o" | "--output" => {
+                output = args.get(i + 1).cloned();
+                i += 2;
+            }
             s if s.starts_with('-') => {
                 eprintln!("cuni bank: unknown flag `{s}`");
                 return ExitCode::FAILURE;
             }
-            _ => { input = Some(args[i].clone()); i += 1; }
+            _ => {
+                input = Some(args[i].clone());
+                i += 1;
+            }
         }
     }
     let Some(input) = input else {
@@ -57,11 +69,17 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
     };
     let src = match fs::read(&input) {
         Ok(b) => b,
-        Err(e) => { eprintln!("cuni bank: {e}"); return ExitCode::FAILURE; }
+        Err(e) => {
+            eprintln!("cuni bank: {e}");
+            return ExitCode::FAILURE;
+        }
     };
     let hash = source_hash(&src);
     match ingest::ingest_file(Path::new(&input)) {
-        Err(e) => { eprintln!("cuni bank: ingest refuse\n{e}"); ExitCode::FAILURE }
+        Err(e) => {
+            eprintln!("cuni bank: ingest refuse\n{e}");
+            ExitCode::FAILURE
+        }
         Ok(cuni_src) => {
             let work = std::env::temp_dir().join(format!("cuni_bank_{}", std::process::id()));
             let _ = fs::create_dir_all(&work);
@@ -79,16 +97,24 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
             };
             let artifact = emit::generate_exact(&program, lang);
             let ext = lang.ext;
-            let out_path = output.map(PathBuf::from).unwrap_or_else(|| work.join(format!("emit.{ext}")));
+            let out_path = output
+                .map(PathBuf::from)
+                .unwrap_or_else(|| work.join(format!("emit.{ext}")));
             if let Err(e) = fs::write(&out_path, &artifact) {
                 eprintln!("cuni bank: {e}");
                 return ExitCode::FAILURE;
             }
             let report = check::check_file_only(
-                &cuni_path, &work, Duration::from_secs(60), Some(&["py".to_string()]),
+                &cuni_path,
+                &work,
+                Duration::from_secs(60),
+                Some(&["py".to_string()]),
             );
             if !report.passed() {
-                eprintln!("cuni bank: refuse — gold exactness failed\n{}", report.summary);
+                eprintln!(
+                    "cuni bank: refuse — gold exactness failed\n{}",
+                    report.summary
+                );
                 return ExitCode::FAILURE;
             }
             let Some(gold) = check::gold_stdout(&report).map(|s| s.to_string()) else {
@@ -99,7 +125,11 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
                 eprintln!("cuni bank: prove refuse\n{e}");
                 return ExitCode::FAILURE;
             }
-            println!("bank: PASS — from={from} to={} out={} source_hash={hash}", lang.id, out_path.display());
+            println!(
+                "bank: PASS — from={from} to={} out={} source_hash={hash}",
+                lang.id,
+                out_path.display()
+            );
             ExitCode::SUCCESS
         }
     }
@@ -112,7 +142,9 @@ fn prove_seat(lang: &langs::Lang, artifact: &Path, gold: &str) -> Result<(), Str
     }
     let got = run_plan(&plan.run.0, &plan.run.1)?;
     if got != gold {
-        return Err(format!("stdout mismatch\n--- gold ---\n{gold}--- got ---\n{got}"));
+        return Err(format!(
+            "stdout mismatch\n--- gold ---\n{gold}--- got ---\n{got}"
+        ));
     }
     Ok(())
 }
@@ -134,6 +166,9 @@ fn run_plan(cmd: &str, args: &[String]) -> Result<String, String> {
 
 fn source_hash(bytes: &[u8]) -> String {
     let mut h = 0xcbf29ce484222325u64;
-    for &b in bytes { h ^= b as u64; h = h.wrapping_mul(0x100000001b3); }
+    for &b in bytes {
+        h ^= b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
     format!("{h:016x}")
 }

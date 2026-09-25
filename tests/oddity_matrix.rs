@@ -3,7 +3,7 @@
 //! Proves labeled refuse diagnostics (category + fix-it + file:line:col) for
 //! matrix rows that previously fell through as generic lex/parse errors or
 //! silent `#` trivia. Measured gaps only — not a completeness claim.
-//! Honesty: 119 catalog / ~7 native / majority lowering; IR not done.
+//! Honesty: 144 catalog / ~7 native / majority lowering; IR not done.
 
 use std::path::PathBuf;
 use std::process::Command;
@@ -72,8 +72,7 @@ fn assert_oddity_hardfail(source: &str, category: &str) {
     assert!(
         has_loc,
         "{} oddity refuse missing file:line:col:\n{}",
-        source,
-        err
+        source, err
     );
 }
 
@@ -114,10 +113,7 @@ fn prototypes_proto_hardfails_with_label() {
 
 #[test]
 fn ordinary_hash_comment_still_compiles() {
-    let out_path = std::env::temp_dir().join(format!(
-        "cuni_oddity_ok_{}.py",
-        std::process::id()
-    ));
+    let out_path = std::env::temp_dir().join(format!("cuni_oddity_ok_{}.py", std::process::id()));
     let output = Command::new(cuni_bin())
         .arg("tests/oddity_hardfail/ok_hash_comment.cuni")
         .arg("--emit-py")

@@ -47,9 +47,19 @@ impl Gen {
 
     fn comment(&mut self, s: &str) {
         let c = match self.lang.family {
-            Family::Python | Family::Ruby | Family::Perl | Family::R | Family::Julia
-            | Family::Elixir | Family::Bash | Family::Powershell | Family::Nim | Family::Crystal
-            | Family::Awk | Family::Tcl | Family::Sql => format!("# {s}"),
+            Family::Python
+            | Family::Ruby
+            | Family::Perl
+            | Family::R
+            | Family::Julia
+            | Family::Elixir
+            | Family::Bash
+            | Family::Powershell
+            | Family::Nim
+            | Family::Crystal
+            | Family::Awk
+            | Family::Tcl
+            | Family::Sql => format!("# {s}"),
             Family::Lua | Family::Ada | Family::Haskell => format!("-- {s}"),
             Family::Lisp | Family::Clojure | Family::Erlang | Family::Prolog => format!("; {s}"),
             Family::Fortran => format!("! {s}"),
@@ -148,7 +158,9 @@ impl Gen {
                 self.line(1, "return 0;");
                 self.line(0, "}");
             }
-            Family::Go | Family::Rust | Family::Zig | Family::D | Family::Vlang => self.line(0, "}"),
+            Family::Go | Family::Rust | Family::Zig | Family::D | Family::Vlang => {
+                self.line(0, "}")
+            }
             Family::Java => {
                 self.line(1, "}");
                 self.line(0, "}");
@@ -181,7 +193,11 @@ impl Gen {
             "ext {} — add a `{}:` body in the CuNi source for this target",
             e.name, self.lang.id
         ));
-        if let Some((_, body)) = e.targets.iter().find(|(t, _)| t == self.lang.id || (*t == "js" && self.lang.id == "ts") || (*t == "py" && self.lang.id == "py")) {
+        if let Some((_, body)) = e.targets.iter().find(|(t, _)| {
+            t == self.lang.id
+                || (*t == "js" && self.lang.id == "ts")
+                || (*t == "py" && self.lang.id == "py")
+        }) {
             self.line(0, body.trim());
         }
     }
@@ -190,14 +206,27 @@ impl Gen {
         let fields: Vec<String> = t.fields.iter().map(|f| f.name.clone()).collect();
         match self.lang.family {
             Family::Python => self.line(0, &format!("class {}:", t.name)),
-            Family::Go => self.line(0, &format!("type {} struct {{ {} }}", t.name, fields.join(" "))),
+            Family::Go => self.line(
+                0,
+                &format!("type {} struct {{ {} }}", t.name, fields.join(" ")),
+            ),
             Family::Js | Family::Ts => self.line(0, &format!("class {} {{}}", t.name)),
             Family::Rust => self.line(0, &format!("struct {} {{ {} }}", t.name, fields.join(", "))),
-            Family::Java | Family::CSharp | Family::Kotlin | Family::Scala | Family::Swift
-            | Family::Dart | Family::Groovy => {
-                self.line(0, &format!("class {} {{}}", t.name))
-            }
-            Family::C | Family::Cpp => self.line(0, &format!("typedef struct {{ /* {} */ }} {};", fields.join(", "), t.name)),
+            Family::Java
+            | Family::CSharp
+            | Family::Kotlin
+            | Family::Scala
+            | Family::Swift
+            | Family::Dart
+            | Family::Groovy => self.line(0, &format!("class {} {{}}", t.name)),
+            Family::C | Family::Cpp => self.line(
+                0,
+                &format!(
+                    "typedef struct {{ /* {} */ }} {};",
+                    fields.join(", "),
+                    t.name
+                ),
+            ),
             _ => self.comment(&format!("typ {} fields={}", t.name, fields.join(","))),
         }
     }
@@ -231,9 +260,7 @@ impl Gen {
             Family::C | Family::Cpp | Family::Objc => {
                 self.line(0, &format!("void {}({}) {{", f.name, params))
             }
-            Family::Java => {
-                self.line(1, &format!("static void {}({}) {{", f.name, params))
-            }
+            Family::Java => self.line(1, &format!("static void {}({}) {{", f.name, params)),
             Family::CSharp => self.line(1, &format!("static void {}({}) {{", f.name, params)),
             Family::Kotlin => self.line(0, &format!("fun {}({}) {{", f.name, params)),
             Family::Scala => self.line(0, &format!("def {}({}): Unit = {{", f.name, params)),
@@ -250,7 +277,11 @@ impl Gen {
             Family::Matlab => self.line(0, &format!("function {}({})", f.name, params)),
             Family::Pascal => self.line(0, &format!("procedure {}({});", f.name, params)),
             Family::Fortran => self.line(0, &format!("subroutine {}({})", f.name, params)),
-            Family::Groovy | Family::Crystal | Family::Haxe | Family::Hack | Family::Vlang
+            Family::Groovy
+            | Family::Crystal
+            | Family::Haxe
+            | Family::Hack
+            | Family::Vlang
             | Family::D => self.line(0, &format!("fn {}({}) {{", f.name, params)),
             Family::Awk => self.line(0, &format!("function {}({}) {{", f.name, params)),
             Family::Tcl => self.line(0, &format!("proc {} {{{}}} {{", f.name, params)),
@@ -267,9 +298,21 @@ impl Gen {
             self.stmt(s, 1);
         }
         match self.lang.family {
-            Family::Python | Family::Ruby | Family::Nim | Family::Haskell | Family::Ocaml
-            | Family::Fsharp | Family::Erlang | Family::Prolog | Family::Matlab | Family::Fortran
-            | Family::Assembly | Family::Sql | Family::Cobol | Family::Smalltalk | Family::Ada => {}
+            Family::Python
+            | Family::Ruby
+            | Family::Nim
+            | Family::Haskell
+            | Family::Ocaml
+            | Family::Fsharp
+            | Family::Erlang
+            | Family::Prolog
+            | Family::Matlab
+            | Family::Fortran
+            | Family::Assembly
+            | Family::Sql
+            | Family::Cobol
+            | Family::Smalltalk
+            | Family::Ada => {}
             Family::Lua | Family::Elixir | Family::Pascal => self.line(0, "end"),
             Family::Julia => self.line(0, "end"),
             Family::Lisp | Family::Clojure => self.line(0, ")"),
@@ -285,14 +328,30 @@ impl Gen {
             StmtKind::Let { name, value, .. } | StmtKind::Mut { name, value, .. } => {
                 let v = self.expr(value);
                 let line = match self.lang.family {
-                    Family::Python | Family::Ruby | Family::R | Family::Julia
-                    | Family::Nim | Family::Crystal => format!("{name} = {v}"),
+                    Family::Python
+                    | Family::Ruby
+                    | Family::R
+                    | Family::Julia
+                    | Family::Nim
+                    | Family::Crystal => format!("{name} = {v}"),
                     Family::Js | Family::Ts => format!("const {name} = {v};"),
                     Family::Go => format!("{name} := {v}"),
                     Family::Rust => format!("let {name} = {v};"),
-                    Family::C | Family::Cpp | Family::Java | Family::CSharp | Family::Kotlin
-                    | Family::Scala | Family::Swift | Family::Dart | Family::Zig | Family::D
-                    | Family::Vlang | Family::Groovy | Family::Haxe | Family::Hack | Family::Php => {
+                    Family::C
+                    | Family::Cpp
+                    | Family::Java
+                    | Family::CSharp
+                    | Family::Kotlin
+                    | Family::Scala
+                    | Family::Swift
+                    | Family::Dart
+                    | Family::Zig
+                    | Family::D
+                    | Family::Vlang
+                    | Family::Groovy
+                    | Family::Haxe
+                    | Family::Hack
+                    | Family::Php => {
                         format!("var {name} = {v};")
                     }
                     Family::Perl => format!("my ${name} = {v};"),
@@ -333,9 +392,18 @@ impl Gen {
                     Family::Python | Family::Ruby | Family::Lua | Family::Julia | Family::Nim => {
                         format!("return {v}")
                     }
-                    Family::Go | Family::Rust | Family::C | Family::Cpp | Family::Java
-                    | Family::Js | Family::Ts | Family::Php | Family::Kotlin | Family::Swift
-                    | Family::Dart | Family::CSharp => format!("return {v};"),
+                    Family::Go
+                    | Family::Rust
+                    | Family::C
+                    | Family::Cpp
+                    | Family::Java
+                    | Family::Js
+                    | Family::Ts
+                    | Family::Php
+                    | Family::Kotlin
+                    | Family::Swift
+                    | Family::Dart
+                    | Family::CSharp => format!("return {v};"),
                     Family::Haskell => format!("return {v}"),
                     Family::Lisp => format!("{v}"),
                     Family::Bash => format!("echo {v}; return"),
@@ -363,10 +431,15 @@ impl Gen {
                     Family::Haskell => self.line(indent, &format!("if {c} then")),
                     Family::Lisp => self.line(indent, &format!("(if {c}")),
                     Family::Bash => self.line(indent, &format!("if [ {c} ]; then")),
-                    Family::Go | Family::Rust | Family::Js | Family::Ts | Family::C
-                    | Family::Cpp | Family::Java | Family::Php | Family::Kotlin => {
-                        self.line(indent, &format!("if ({c}) {{"))
-                    }
+                    Family::Go
+                    | Family::Rust
+                    | Family::Js
+                    | Family::Ts
+                    | Family::C
+                    | Family::Cpp
+                    | Family::Java
+                    | Family::Php
+                    | Family::Kotlin => self.line(indent, &format!("if ({c}) {{")),
                     _ => self.line(indent, &format!("if ({c}) {{")),
                 }
                 for s in then_body {
@@ -389,7 +462,11 @@ impl Gen {
                     _ => self.line(indent, "}"),
                 }
             }
-            StmtKind::For { binding, iter, body } => {
+            StmtKind::For {
+                binding,
+                iter,
+                body,
+            } => {
                 let it = self.expr(iter);
                 let k = &binding.0;
                 match self.lang.family {
@@ -569,7 +646,11 @@ impl Gen {
             },
             ExprKind::Ident(s) => s.clone(),
             ExprKind::List(xs) => {
-                let inner = xs.iter().map(|x| self.expr(x)).collect::<Vec<_>>().join(", ");
+                let inner = xs
+                    .iter()
+                    .map(|x| self.expr(x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 match self.lang.family {
                     Family::Lisp | Family::Clojure => format!("(list {inner})"),
                     Family::Haskell => format!("[{inner}]"),

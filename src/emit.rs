@@ -1,7 +1,7 @@
 //! Exactness emit + run plan for every catalog language.
 //!
 //! Native seats compile with that language's toolchain. Other ids use the
-//! Python lowering so the 119-language gate still emit+runs instead of skipping.
+//! Python lowering so the 144-language gate still emit+runs instead of skipping.
 
 use crate::ast::Program;
 use crate::codegen_c;

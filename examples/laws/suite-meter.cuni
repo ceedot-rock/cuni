@@ -1,6 +1,8 @@
 # Lab suite meter — the charge the user actually pays.
-# First 2 GiB / calendar month free, then 8¢/GiB, $1 card minimum.
-# Integer cents only. Must match packages/spl-pay-per-suite and the site API.
+# First 2 GiB / calendar month free, then tiered by op cost:
+# compress 8¢/GiB (×1), decompress 3.2¢/GiB (×2/5), roundtrip 9.2¢/GiB (×23/20).
+# $1 card minimum. Integer cents only.
+# Must match packages/spl-pay-per-suite and the site API.
 
 def max0(x: int) -> int do
     if x < 0 do
@@ -13,21 +15,24 @@ def billable(bytes: int, used: int, free_cap: int) -> int do
     ret max0(bytes - max0(free_cap - used))
 end
 
-def usage_cents(billable_bytes: int) -> int do
+# Round-half-up of (billable GiB × 8¢ × mult_num/mult_den), integer math.
+# Mirrors JS: Math.round(usageFeeCents(billable) * num/den).
+def usage_cents_op(billable_bytes: int, mult_num: int, mult_den: int) -> int do
     let gib = 1073741824
     if billable_bytes <= 0 do
         ret 0
     end
-    ret (billable_bytes * 8 + gib / 2) / gib
+    let u1 = (billable_bytes * 8 + gib / 2) / gib
+    ret (u1 * mult_num * 2 + mult_den) / (mult_den * 2)
 end
 
-def quote_cents(bytes: int, used: int) -> int do
+def quote_cents_op(bytes: int, used: int, mult_num: int, mult_den: int) -> int do
     let free_cap = 2147483648
     let b = billable(bytes, used, free_cap)
     if b <= 0 do
         ret 0
     end
-    let u = usage_cents(b)
+    let u = usage_cents_op(b, mult_num, mult_den)
     if u < 100 do
         ret 100
     end
@@ -37,8 +42,14 @@ def quote_cents(bytes: int, used: int) -> int do
     ret u
 end
 
+def quote_cents(bytes: int, used: int) -> int do
+    ret quote_cents_op(bytes, used, 1, 1)
+end
+
 let gib = 1073741824
 say(quote_cents(0, 0))
 say(quote_cents(gib * 2, 0))
 say(quote_cents(gib * 3, 0))
 say(quote_cents(gib * 20, 0))
+say(quote_cents_op(gib * 20, 0, 2, 5))
+say(quote_cents_op(gib * 20, 0, 23, 20))

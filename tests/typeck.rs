@@ -16,8 +16,17 @@ fn cuni_bin() -> PathBuf {
 }
 
 fn compile_error(source: &str) -> Option<String> {
-    let out_path = std::env::temp_dir().join(format!("cuni_typeck_test_{}_{}.py", std::process::id(), source.replace(['/', '.'], "_")));
-    let output = Command::new(cuni_bin()).arg(source).arg("--emit-py").arg(&out_path).output().expect("failed to invoke cuni binary");
+    let out_path = std::env::temp_dir().join(format!(
+        "cuni_typeck_test_{}_{}.py",
+        std::process::id(),
+        source.replace(['/', '.'], "_")
+    ));
+    let output = Command::new(cuni_bin())
+        .arg(source)
+        .arg("--emit-py")
+        .arg(&out_path)
+        .output()
+        .expect("failed to invoke cuni binary");
     let _ = std::fs::remove_file(&out_path);
     if output.status.success() {
         None
@@ -27,9 +36,25 @@ fn compile_error(source: &str) -> Option<String> {
 }
 
 fn assert_rejected(source: &str, must_contain: &str) {
-    let err = compile_error(source).unwrap_or_else(|| panic!("{} was expected to be rejected by the type checker, but compiled successfully", source));
-    assert!(err.contains("type error"), "{} was rejected, but not by the type checker:\n{}", source, err);
-    assert!(err.contains(must_contain), "{} was rejected, but the message didn't mention {:?}:\n{}", source, must_contain, err);
+    let err = compile_error(source).unwrap_or_else(|| {
+        panic!(
+            "{} was expected to be rejected by the type checker, but compiled successfully",
+            source
+        )
+    });
+    assert!(
+        err.contains("type error"),
+        "{} was rejected, but not by the type checker:\n{}",
+        source,
+        err
+    );
+    assert!(
+        err.contains(must_contain),
+        "{} was rejected, but the message didn't mention {:?}:\n{}",
+        source,
+        must_contain,
+        err
+    );
     // Step 2: type errors must include file:line:col (byte span → location).
     // e.g. cuni: tests/.../x.cuni:1:9: type error: ...
     let has_loc = err.lines().any(|l| {
@@ -54,7 +79,10 @@ fn assert_rejected(source: &str, must_contain: &str) {
 
 #[test]
 fn undefined_variable_is_rejected() {
-    assert_rejected("tests/typeck_invalid/undefined_var.cuni", "undefined variable `y`");
+    assert_rejected(
+        "tests/typeck_invalid/undefined_var.cuni",
+        "undefined variable `y`",
+    );
     assert_rejected("tests/typeck_invalid/undefined_var.cuni", "fix-it:");
 }
 
@@ -70,18 +98,27 @@ fn assign_to_let_binding_is_rejected() {
 
 #[test]
 fn fail_outside_fallible_function_is_rejected() {
-    assert_rejected("tests/typeck_invalid/fail_outside_fallible.cuni", "non-fallible");
+    assert_rejected(
+        "tests/typeck_invalid/fail_outside_fallible.cuni",
+        "non-fallible",
+    );
 }
 
 #[test]
 fn wrong_call_arg_count_is_rejected() {
-    assert_rejected("tests/typeck_invalid/wrong_arg_count.cuni", "`add` expects 2 argument(s), found 3");
+    assert_rejected(
+        "tests/typeck_invalid/wrong_arg_count.cuni",
+        "`add` expects 2 argument(s), found 3",
+    );
     assert_rejected("tests/typeck_invalid/wrong_arg_count.cuni", "fix-it:");
 }
 
 #[test]
 fn unknown_type_name_is_rejected() {
-    assert_rejected("tests/typeck_invalid/unknown_type.cuni", "unknown type `sttr`");
+    assert_rejected(
+        "tests/typeck_invalid/unknown_type.cuni",
+        "unknown type `sttr`",
+    );
     assert_rejected("tests/typeck_invalid/unknown_type.cuni", "fix-it:");
 }
 
@@ -92,7 +129,10 @@ fn typ_is_iface_without_matching_function_is_rejected() {
 
 #[test]
 fn ret_type_mismatch_is_rejected() {
-    assert_rejected("tests/typeck_invalid/ret_mismatch.cuni", "declares `-> int`");
+    assert_rejected(
+        "tests/typeck_invalid/ret_mismatch.cuni",
+        "declares `-> int`",
+    );
 }
 
 #[test]
@@ -102,7 +142,10 @@ fn fallible_call_without_unwrap_is_rejected() {
 
 #[test]
 fn struct_constructor_wrong_arity_is_rejected() {
-    assert_rejected("tests/typeck_invalid/bad_struct_arity.cuni", "`Point` expects 2 field argument(s)");
+    assert_rejected(
+        "tests/typeck_invalid/bad_struct_arity.cuni",
+        "`Point` expects 2 field argument(s)",
+    );
 }
 
 /// The positive control: `Circle is Shape` with a matching `def area(c:

@@ -4,7 +4,7 @@ Small algorithms in CuNi. `cuni run` executes one native seat. `cuni check` is t
 
 ```bash
 cuni run examples/compute/fib.cuni          # 55
-cuni check examples/compute --timeout 180   # exactness: PASS (119 langs)
+cuni check examples/compute --timeout 180   # exactness: PASS (144 langs)
 ```
 
 | File | What it runs | Gold stdout |

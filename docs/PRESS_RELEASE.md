@@ -6,7 +6,7 @@
 
 Cherry Hill, N.J. — September 14, 2026 — Slid Phi Labs today made **CuNi Bank 0.1.0** public as an arm of **CuNi** (Code:uNiTY), the lab’s exactness compiler: one source, many languages, identical behavior or no build.
 
-CuNi already ships a 119-language emit catalog. Native seats are Python, Go, JavaScript, TypeScript, C, C++, and Rust. Every other catalog id is a Python lowering so the gate still runs. `cuni check` emit+runs those seats and **refuses** if stdout diverges.
+CuNi already ships a 144-language emit catalog. Native seats are Python, Go, JavaScript, TypeScript, C, C++, and Rust. Every other catalog id is a Python lowering so the gate still runs. `cuni check` emit+runs those seats and **refuses** if stdout diverges.
 
 Bank is the reverse direction the lab would sell to agents: **paste N, get X**.
 
@@ -17,7 +17,7 @@ cuni bank paste examples/bank/add.py --from py --to c
 
 On the measured gate, `examples/bank/add.py` passed **ten** catalog seats: py, go, js, ts, c, cpp, rs (native) and rb, php, pl (catalog lowerings). Receipt name is `source_hash`, not a file path.
 
-Bank v1 ingest is a **Python subset** (or existing `.cuni`). It is not “any GitHub repo in, any language out.” One hundred nineteen languages remains `cuni check` on the ingested deposit — not 119 ingest parsers.
+Bank v1 ingest is a **Python subset** (or existing `.cuni`). It is not “any GitHub repo in, any language out.” One hundred forty-four languages remains `cuni check` on the ingested deposit — not 144 ingest parsers.
 
 **CuNi Studio** (free exactness in the browser): https://cuni-studio.fly.dev/  
 **Source and release:** https://github.com/ceedot-rock/cuni/releases/tag/cuni-bank-0.1.0  

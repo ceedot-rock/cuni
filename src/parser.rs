@@ -418,10 +418,7 @@ impl<'a> Parser<'a> {
                 self.expect(&Token::Do)?;
                 let body = self.parse_stmts_until(&[Token::End])?;
                 let end_tok = self.expect(&Token::End)?;
-                Ok(self.stmt(
-                    StmtKind::Whl { cond, body },
-                    Span::new(start, end_tok.end),
-                ))
+                Ok(self.stmt(StmtKind::Whl { cond, body }, Span::new(start, end_tok.end)))
             }
             Token::Ellipsis => {
                 let tok = self.advance();
@@ -510,63 +507,87 @@ impl<'a> Parser<'a> {
 
     fn parse_or(&mut self) -> PResult<Expr> {
         let lhs = self.parse_and()?;
-        self.bin_fold(lhs, |p| p.parse_and(), |t| {
-            if matches!(t, Token::Or) {
-                Some(BinOp::Or)
-            } else {
-                None
-            }
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_and(),
+            |t| {
+                if matches!(t, Token::Or) {
+                    Some(BinOp::Or)
+                } else {
+                    None
+                }
+            },
+        )
     }
 
     fn parse_and(&mut self) -> PResult<Expr> {
         let lhs = self.parse_equality()?;
-        self.bin_fold(lhs, |p| p.parse_equality(), |t| {
-            if matches!(t, Token::And) {
-                Some(BinOp::And)
-            } else {
-                None
-            }
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_equality(),
+            |t| {
+                if matches!(t, Token::And) {
+                    Some(BinOp::And)
+                } else {
+                    None
+                }
+            },
+        )
     }
 
     fn parse_equality(&mut self) -> PResult<Expr> {
         let lhs = self.parse_comparison()?;
-        self.bin_fold(lhs, |p| p.parse_comparison(), |t| match t {
-            Token::EqEq => Some(BinOp::Eq),
-            Token::NotEq => Some(BinOp::Ne),
-            _ => None,
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_comparison(),
+            |t| match t {
+                Token::EqEq => Some(BinOp::Eq),
+                Token::NotEq => Some(BinOp::Ne),
+                _ => None,
+            },
+        )
     }
 
     fn parse_comparison(&mut self) -> PResult<Expr> {
         let lhs = self.parse_additive()?;
-        self.bin_fold(lhs, |p| p.parse_additive(), |t| match t {
-            Token::Lt => Some(BinOp::Lt),
-            Token::Gt => Some(BinOp::Gt),
-            Token::LtEq => Some(BinOp::Le),
-            Token::GtEq => Some(BinOp::Ge),
-            _ => None,
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_additive(),
+            |t| match t {
+                Token::Lt => Some(BinOp::Lt),
+                Token::Gt => Some(BinOp::Gt),
+                Token::LtEq => Some(BinOp::Le),
+                Token::GtEq => Some(BinOp::Ge),
+                _ => None,
+            },
+        )
     }
 
     fn parse_additive(&mut self) -> PResult<Expr> {
         let lhs = self.parse_multiplicative()?;
-        self.bin_fold(lhs, |p| p.parse_multiplicative(), |t| match t {
-            Token::Plus => Some(BinOp::Add),
-            Token::Minus => Some(BinOp::Sub),
-            _ => None,
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_multiplicative(),
+            |t| match t {
+                Token::Plus => Some(BinOp::Add),
+                Token::Minus => Some(BinOp::Sub),
+                _ => None,
+            },
+        )
     }
 
     fn parse_multiplicative(&mut self) -> PResult<Expr> {
         let lhs = self.parse_unary()?;
-        self.bin_fold(lhs, |p| p.parse_unary(), |t| match t {
-            Token::Star => Some(BinOp::Mul),
-            Token::Slash => Some(BinOp::Div),
-            Token::Percent => Some(BinOp::Mod),
-            _ => None,
-        })
+        self.bin_fold(
+            lhs,
+            |p| p.parse_unary(),
+            |t| match t {
+                Token::Star => Some(BinOp::Mul),
+                Token::Slash => Some(BinOp::Div),
+                Token::Percent => Some(BinOp::Mod),
+                _ => None,
+            },
+        )
     }
 
     fn parse_unary(&mut self) -> PResult<Expr> {

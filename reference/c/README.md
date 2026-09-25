@@ -3,7 +3,7 @@
 **Issue:** [cuni#17](https://github.com/ceedot-rock/cuni/issues/17)  
 **Pairing:** [Agent-Rider#17](https://github.com/ceedot-rock/Agent-Rider/issues/17) / [Agent-Rider#22](https://github.com/ceedot-rock/Agent-Rider/pull/22) (`agent-rider-c/` SoT)
 
-Rust remains the 119-language protocol home. This directory is a **reference only** so Agent-Rider C and the protocol refuse unknown keys the same way. Not a seventh framework. Citizenship (`exactness.passed` before Rider register) is unchanged.
+Rust remains the 144-language protocol home. This directory is a **reference only** so Agent-Rider C and the protocol refuse unknown keys the same way. Not a seventh framework. Citizenship (`exactness.passed` before Rider register) is unchanged.
 
 ## Wire form
 

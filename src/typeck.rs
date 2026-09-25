@@ -164,8 +164,11 @@ impl<'a> Checker<'a> {
                     );
                 }
                 Item::Typ(t) => {
-                    let fields: HashMap<String, Type> =
-                        t.fields.iter().map(|p| (p.name.clone(), p.ty.clone())).collect();
+                    let fields: HashMap<String, Type> = t
+                        .fields
+                        .iter()
+                        .map(|p| (p.name.clone(), p.ty.clone()))
+                        .collect();
                     typs.insert(
                         t.name.clone(),
                         TypInfo {
@@ -407,7 +410,12 @@ impl<'a> Checker<'a> {
                     );
                 }
                 let generics: HashSet<String> = f.generics.iter().cloned().collect();
-                self.check_block(&f.body, &mut scope, &generics, Some((f.fallible, &f.ret_type)))
+                self.check_block(
+                    &f.body,
+                    &mut scope,
+                    &generics,
+                    Some((f.fallible, &f.ret_type)),
+                )
             }
             _ => Ok(()),
         }
@@ -761,7 +769,10 @@ impl<'a> Checker<'a> {
             ExprKind::Unary { expr: inner, .. } => {
                 self.check_expr(inner, scope, generics, false)?;
             }
-            ExprKind::Unwrap { expr: inner, handler } => {
+            ExprKind::Unwrap {
+                expr: inner,
+                handler,
+            } => {
                 self.check_expr(inner, scope, generics, true)?;
                 let mut handler_scope: HashMap<String, VarInfo> = scope
                     .iter()
@@ -792,21 +803,19 @@ impl<'a> Checker<'a> {
             let mut seen = HashSet::new();
             for a in args {
                 let CallArg::Named {
-                    name,
-                    name_span,
-                    ..
+                    name, name_span, ..
                 } = a
                 else {
                     unreachable!()
                 };
                 if !info.fields.contains_key(name) {
-                    return err_at(
-                        *name_span,
-                        format!("`{}` has no field `{}`", fname, name),
-                    );
+                    return err_at(*name_span, format!("`{}` has no field `{}`", fname, name));
                 }
                 if !seen.insert(name.clone()) {
-                    return err_at(*name_span, format!("duplicate field `{}` in `{}` constructor", name, fname));
+                    return err_at(
+                        *name_span,
+                        format!("duplicate field `{}` in `{}` constructor", name, fname),
+                    );
                 }
             }
             for f in &info.field_order {
@@ -838,7 +847,10 @@ impl<'a> Checker<'a> {
         }
         // positional
         if args.iter().any(|a| a.is_named()) {
-            return err_at(span, "cannot mix positional and named arguments in one call");
+            return err_at(
+                span,
+                "cannot mix positional and named arguments in one call",
+            );
         }
         if args.len() != info.field_order.len() {
             return err_at(
@@ -896,11 +908,7 @@ impl<'a> Checker<'a> {
                 }
             }
             // list<T> where T is generic: bind element type when actual is list<concrete>
-            if let (
-                Type::Generic(pn, pargs),
-                Type::Generic(an, aargs),
-            ) = (param_ty, &actual)
-            {
+            if let (Type::Generic(pn, pargs), Type::Generic(an, aargs)) = (param_ty, &actual) {
                 if pn == "list" && an == "list" && pargs.len() == 1 && aargs.len() == 1 {
                     if let Type::Named(pname) = &pargs[0] {
                         if gen_set.contains(pname) {
@@ -960,7 +968,9 @@ impl<'a> Checker<'a> {
             ExprKind::NoneLit => None,
             ExprKind::Ident(name) => scope.get(name).and_then(|v| v.ty.clone()),
             ExprKind::List(items) => {
-                let elem = items.first().and_then(|e| self.infer_expr(e, scope, generics))?;
+                let elem = items
+                    .first()
+                    .and_then(|e| self.infer_expr(e, scope, generics))?;
                 Some(Type::Generic("list".to_string(), vec![elem]))
             }
             ExprKind::Map(pairs) => {
@@ -989,9 +999,7 @@ impl<'a> Checker<'a> {
                 ExprKind::Field { base, name } if name == "slice" => {
                     match self.infer_expr(base, scope, generics) {
                         Some(Type::Named(n)) if n == "str" => Some(Type::Named("str".to_string())),
-                        Some(Type::Generic(n, args)) if n == "list" => {
-                            Some(Type::Generic(n, args))
-                        }
+                        Some(Type::Generic(n, args)) if n == "list" => Some(Type::Generic(n, args)),
                         _ => None,
                     }
                 }
@@ -1014,8 +1022,14 @@ impl<'a> Checker<'a> {
                 None
             }
             ExprKind::Binary { op, lhs, rhs } => match op {
-                BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge
-                | BinOp::And | BinOp::Or => Some(Type::Named("bool".to_string())),
+                BinOp::Eq
+                | BinOp::Ne
+                | BinOp::Lt
+                | BinOp::Gt
+                | BinOp::Le
+                | BinOp::Ge
+                | BinOp::And
+                | BinOp::Or => Some(Type::Named("bool".to_string())),
                 _ => self
                     .infer_expr(lhs, scope, generics)
                     .or_else(|| self.infer_expr(rhs, scope, generics)),

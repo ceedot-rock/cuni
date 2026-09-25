@@ -6,7 +6,7 @@
   "canonical": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
   "github": "https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md",
   "rule": "emit+run identical stdout on every catalog language, or refuse",
-  "catalog_languages": 119,
+  "catalog_languages": 144,
   "native_seats": [
     "py",
     "go",
@@ -51,7 +51,7 @@
   },
   "bank": {
     "kind": "arm",
-    "note": "paste N, get X. ingest \u2192 emit \u2192 prove. v1 --from py|cuni. 119 langs remains cuni check on the deposit \u2014 not 119 ingest parsers.",
+    "note": "paste N, get X. ingest \u2192 emit \u2192 prove. v1 --from py|cuni. 144 langs remains cuni check on the deposit \u2014 not 144 ingest parsers.",
     "paste": "POST https://cuni-studio.fly.dev/api/bank",
     "ui": "https://cuni-studio.fly.dev/bank",
     "law": "https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md",

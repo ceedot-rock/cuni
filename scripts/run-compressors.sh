@@ -11,7 +11,7 @@ if [[ ! -x "$CUNI" ]]; then
   exit 1
 fi
 
-echo "== exactness (119 langs) =="
+echo "== exactness (144 langs) =="
 "$CUNI" check "$ROOT/examples/compressors" --timeout 180
 
 echo "== run (python emit) =="

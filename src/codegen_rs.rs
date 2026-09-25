@@ -6,7 +6,9 @@ use std::collections::HashSet;
 
 pub fn generate(program: &Program) -> String {
     let mut g = Gen {
-        out: String::from("#![allow(dead_code, unused_mut, unused_variables, unused_assignments)]\n") + RT,
+        out: String::from(
+            "#![allow(dead_code, unused_mut, unused_variables, unused_assignments)]\n",
+        ) + RT,
         fallible: HashSet::new(),
         typs: HashSet::new(),
         enums: Vec::new(),
@@ -30,7 +32,9 @@ pub fn generate(program: &Program) -> String {
         }
     }
     for (name, vars) in &g.enums {
-        g.out.push_str(&format!("fn enum_{name}() -> Val {{\n    let mut s = v_struct(\"{name}\");\n"));
+        g.out.push_str(&format!(
+            "fn enum_{name}() -> Val {{\n    let mut s = v_struct(\"{name}\");\n"
+        ));
         for v in vars {
             g.out.push_str(&format!(
                 "    v_set(&mut s, \"{v}\", v_enum(\"{name}\", \"{v}\"));\n"
@@ -86,7 +90,8 @@ impl Gen {
             .map(|f| format!("{}: Val", f.name))
             .collect::<Vec<_>>()
             .join(", ");
-        self.out.push_str(&format!("fn {}({}) -> Val {{\n", t.name, args));
+        self.out
+            .push_str(&format!("fn {}({}) -> Val {{\n", t.name, args));
         self.out
             .push_str(&format!("    let mut s = v_struct(\"{}\");\n", t.name));
         for f in &t.fields {
@@ -119,19 +124,23 @@ impl Gen {
                     let inner = self.expr(expr);
                     let fallible = matches!(&expr.kind, ExprKind::Call { callee, .. } if matches!(&callee.kind, ExprKind::Ident(n) if self.fallible.contains(n)));
                     if fallible {
-                        self.out.push_str(&format!("{pad}FAILING.store(false, Relaxed);\n"));
-                        self.out.push_str(&format!("{pad}let mut {name} = {inner};\n"));
-                        self.out.push_str(&format!("{pad}if FAILING.load(Relaxed) {{\n"));
-                        self.out.push_str(&format!("{pad}    FAILING.store(false, Relaxed);\n"));
+                        self.out
+                            .push_str(&format!("{pad}FAILING.store(false, Relaxed);\n"));
+                        self.out
+                            .push_str(&format!("{pad}let mut {name} = {inner};\n"));
+                        self.out
+                            .push_str(&format!("{pad}if FAILING.load(Relaxed) {{\n"));
+                        self.out
+                            .push_str(&format!("{pad}    FAILING.store(false, Relaxed);\n"));
                         for h in handler {
                             self.stmt(h, indent + 1);
                         }
                         self.out.push_str(&format!("{pad}}}\n"));
                     } else {
-                        self.out.push_str(&format!("{pad}let mut {name} = {inner};\n"));
-                        self.out.push_str(&format!(
-                            "{pad}if matches!({name}, Val::None) {{\n"
-                        ));
+                        self.out
+                            .push_str(&format!("{pad}let mut {name} = {inner};\n"));
+                        self.out
+                            .push_str(&format!("{pad}if matches!({name}, Val::None) {{\n"));
                         for h in handler {
                             self.stmt(h, indent + 1);
                         }
@@ -185,7 +194,11 @@ impl Gen {
                 }
                 self.out.push_str(&format!("{pad}}}\n"));
             }
-            StmtKind::For { binding, iter, body } => {
+            StmtKind::For {
+                binding,
+                iter,
+                body,
+            } => {
                 let it = self.expr(iter);
                 if let Some(v) = &binding.1 {
                     self.out.push_str(&format!(
@@ -193,10 +206,8 @@ impl Gen {
                         binding.0
                     ));
                 } else {
-                    self.out.push_str(&format!(
-                        "{pad}for {} in list_iter({it}) {{\n",
-                        binding.0
-                    ));
+                    self.out
+                        .push_str(&format!("{pad}for {} in list_iter({it}) {{\n", binding.0));
                 }
                 for s in body {
                     self.stmt(s, indent + 1);
@@ -237,11 +248,12 @@ impl Gen {
                         }
                     }
                 }
-                self.out.push_str(&format!("{pad}let _ = {};\n", self.expr(e)));
+                self.out
+                    .push_str(&format!("{pad}let _ = {};\n", self.expr(e)));
             }
-            StmtKind::Todo => self
-                .out
-                .push_str(&format!("{pad}return fail_with(Val::Str(\"...\".into()));\n")),
+            StmtKind::Todo => self.out.push_str(&format!(
+                "{pad}return fail_with(Val::Str(\"...\".into()));\n"
+            )),
         }
     }
 
@@ -254,7 +266,11 @@ impl Gen {
             ExprKind::NoneLit => "Val::None".into(),
             ExprKind::Ident(s) => format!("{s}.clone()"),
             ExprKind::List(xs) => {
-                let inner = xs.iter().map(|x| self.expr(x)).collect::<Vec<_>>().join(", ");
+                let inner = xs
+                    .iter()
+                    .map(|x| self.expr(x))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 format!("Val::List(vec![{inner}])")
             }
             ExprKind::Map(_) => "Val::None".into(),

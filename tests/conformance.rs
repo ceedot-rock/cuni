@@ -35,7 +35,10 @@ fn emit(source: &str, target: &str, out: &Path) -> Result<(), String> {
 }
 
 fn run(cmd: &str, args: &[&str]) -> String {
-    let output = Command::new(cmd).args(args).output().unwrap_or_else(|e| panic!("failed to run {}: {}", cmd, e));
+    let output = Command::new(cmd)
+        .args(args)
+        .output()
+        .unwrap_or_else(|e| panic!("failed to run {}: {}", cmd, e));
     assert!(
         output.status.success(),
         "{} {:?} exited non-zero:\nstdout: {}\nstderr: {}",
@@ -64,7 +67,11 @@ fn assert_exact(source: &str, expected: &str) {
 
     assert_eq!(out_py, out_go, "python and go diverged for {}", source);
     assert_eq!(out_py, out_js, "python and js diverged for {}", source);
-    assert_eq!(out_py, expected, "output for {} didn't match expected", source);
+    assert_eq!(
+        out_py, expected,
+        "output for {} didn't match expected",
+        source
+    );
 
     let _ = std::fs::remove_file(&py);
     let _ = std::fs::remove_file(&go);
@@ -72,7 +79,9 @@ fn assert_exact(source: &str, expected: &str) {
 }
 
 fn sanitize(s: &str) -> String {
-    s.chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect()
+    s.chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect()
 }
 
 #[test]
@@ -81,11 +90,7 @@ fn emit_all_writes_every_catalog_language() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let output = Command::new(cuni_bin())
-        .args([
-            "examples/full.cuni",
-            "--emit-all",
-            dir.to_str().unwrap(),
-        ])
+        .args(["examples/full.cuni", "--emit-all", dir.to_str().unwrap()])
         .output()
         .expect("failed to invoke cuni --emit-all");
     assert!(
@@ -120,17 +125,17 @@ fn emit_all_writes_every_catalog_language() {
     let js = dir.join("js.js");
     assert!(py.is_file() && go.is_file() && js.is_file());
     let py_src = std::fs::read_to_string(&py).unwrap();
-    assert!(py_src.contains("print") || py_src.contains("def "), "python emit empty?");
+    assert!(
+        py_src.contains("print") || py_src.contains("def "),
+        "python emit empty?"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
 fn full_example_is_exact_across_targets() {
     // parse("42") succeeds → 42; Circle(2.0).area → ~12.56636; then names.push + say
-    assert_exact(
-        "examples/full.cuni",
-        "12.56636\nfound at 3, n is 42\n",
-    );
+    assert_exact("examples/full.cuni", "12.56636\nfound at 3, n is 42\n");
 }
 
 #[test]
@@ -183,10 +188,18 @@ fn compute_range_stdlib_is_exact() {
 #[test]
 fn modules_example_refuses_js_due_to_ext_collision() {
     let js = tmp_path("modules_refusal.js");
-    let err = emit("examples/modules.cuni", "js", &js).expect_err("expected --emit-js to refuse to compile");
-    assert!(err.contains("ext fetch"), "unexpected error message: {}", err);
+    let err = emit("examples/modules.cuni", "js", &js)
+        .expect_err("expected --emit-js to refuse to compile");
+    assert!(
+        err.contains("ext fetch"),
+        "unexpected error message: {}",
+        err
+    );
     assert!(err.contains("shadows"), "unexpected error message: {}", err);
-    assert!(!js.exists(), "refused compilation should not write an output file");
+    assert!(
+        !js.exists(),
+        "refused compilation should not write an output file"
+    );
 
     // py/go are unaffected by the collision check (no reserved-name match for
     // either), so they should still emit successfully.
@@ -225,7 +238,10 @@ fn link_interop_go_server_python_client() {
         "func main() {\n}\n",
         "func main() {\n\thttp.HandleFunc(\"/Greet\", Greet_handler)\n\thttp.ListenAndServe(\"127.0.0.1:8947\", nil)\n}\n",
     );
-    assert!(go_code.contains("127.0.0.1:8947"), "replacement of the generated empty main() didn't match — codegen output shape changed");
+    assert!(
+        go_code.contains("127.0.0.1:8947"),
+        "replacement of the generated empty main() didn't match — codegen output shape changed"
+    );
     std::fs::write(&go_src, go_code).unwrap();
 
     let py_dir = py_src.parent().unwrap();
@@ -244,7 +260,12 @@ fn link_interop_go_server_python_client() {
     // not a cold `go run` compile (CI runners often exceed 15s on first compile).
     let go_bin = tmp_path("link_server_bin");
     let build = Command::new("go")
-        .args(["build", "-o", go_bin.to_str().unwrap(), go_src.to_str().unwrap()])
+        .args([
+            "build",
+            "-o",
+            go_bin.to_str().unwrap(),
+            go_src.to_str().unwrap(),
+        ])
         .output()
         .expect("failed to invoke go build");
     assert!(
@@ -253,7 +274,9 @@ fn link_interop_go_server_python_client() {
         String::from_utf8_lossy(&build.stdout),
         String::from_utf8_lossy(&build.stderr)
     );
-    let mut server = Command::new(&go_bin).spawn().expect("failed to start go server binary");
+    let mut server = Command::new(&go_bin)
+        .spawn()
+        .expect("failed to start go server binary");
     // No readiness signal from the server itself (it's a hand-written driver,
     // not part of the generated contract) — poll for the port.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);

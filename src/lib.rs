@@ -17,11 +17,7 @@ pub fn run_source(src: &str) -> Result<String, String> {
     let tokens = lexer::Lexer::tokenize(src).map_err(|e| e.message)?;
     let mut parser = parser::Parser::new(tokens, src);
     let program = parser.parse_program().map_err(|e| e.message)?;
-    if program
-        .items
-        .iter()
-        .any(|i| matches!(i, ast::Item::Use(_)))
-    {
+    if program.items.iter().any(|i| matches!(i, ast::Item::Use(_))) {
         return Err("run_source refuses `use` (needs files)".into());
     }
     typeck::check_program(&program).map_err(|e| e.message)?;

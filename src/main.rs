@@ -30,12 +30,12 @@ use std::time::Duration;
 fn print_usage() {
     eprintln!(
         "\
-cuni — CuNi (Code:uNiTY) compiler. 119 languages. Exactness or refuse.
+cuni — CuNi (Code:uNiTY) compiler. 144 languages. Exactness or refuse.
 
 Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
   cuni run <file.cuni> [--lang py] [--timeout <secs>]
-  cuni ingest <file.py> [-o out.cuni]
+  cuni ingest <file.ext> [-o out.cuni]
   cuni bank paste <file> --from py --to <id> [-o out]
   cuni prove <file.cuni> --against <impl>
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
@@ -46,11 +46,15 @@ Usage:
 Commands:
   check   Exactness gate: emit+run every catalog language (or --only).
           Native seats today: py, go, js, ts, c, cpp, rs.
-          Other ids: Python lowering so the 119-language gate still runs.
+          Other ids: Python lowering so the 144-language gate still runs.
           Prints:  exactness: PASS (N langs)
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
           Not a substitute for check.
-  ingest  Reverse CuNi: Python v1 subset → .cuni, or refuse.
+  ingest  Reverse CuNi: CuNi-shaped subsets of py, go, js/ts, c/cpp, rs, awk,
+          pl, sh, sql, wat → .cuni, or refuse. Other catalog seats: only
+          artifacts carrying the CuNi lowering header (via the Python
+          subset); anything else refuses. The result must pass the CuNi
+          front-end or ingest refuses.
   bank    Paste N, get X. Ingest → emit → prove, or refuse. v1 --from py|cuni.
   prove   Run a foreign implementation; it must match CuNi gold stdout.
 
@@ -122,7 +126,12 @@ fn cmd_check(args: &[String]) -> ExitCode {
                     eprintln!("cuni check: --only requires id,id");
                     std::process::exit(1);
                 });
-                only = Some(v.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect());
+                only = Some(
+                    v.split(',')
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                        .collect(),
+                );
                 i += 2;
             }
             "--timeout" => {
@@ -177,11 +186,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
     let mut passed = 0usize;
 
     for src in &sources {
-        let work = work_root.join(
-            src.file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("prog"),
-        );
+        let work = work_root.join(src.file_stem().and_then(|s| s.to_str()).unwrap_or("prog"));
         let _ = fs::create_dir_all(&work);
         let report = check::check_file_only(src, &work, timeout, only.as_deref());
         check::print_report(&report, verbose);
@@ -520,9 +525,7 @@ fn cmd_prove(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let output = std::process::Command::new(&cmd)
-        .args(&cmd_args)
-        .output();
+    let output = std::process::Command::new(&cmd).args(&cmd_args).output();
     match output {
         Ok(o) if o.status.success() => {
             let got = String::from_utf8_lossy(&o.stdout);
