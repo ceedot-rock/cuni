@@ -22,7 +22,10 @@ pub fn generate(program: &Program) -> String {
             g.typs.insert(t.name.clone());
         }
         if let Item::Enum(e) = item {
-            g.enums.push((e.name.clone(), e.variants.clone()));
+            g.enums.push((
+                e.name.clone(),
+                e.variants.iter().map(|v| v.name.clone()).collect(),
+            ));
         }
     }
     g.out.push_str(CUNI_RT);

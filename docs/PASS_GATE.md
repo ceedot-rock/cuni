@@ -1,8 +1,9 @@
 # CuNi Studio PASS gate — citizen receipt for Agent-Rider
 
 **Date stamp:** 2026-09-24 (America/New_York)  
-**Status:** Implemented in this PR (callable surface + Studio→Rider push on publish). Live Fly deploy follows Cos GREEN + merge.  
-**Locks:** Exactness or refuse (no approximate mode) · Fund = Rider settle / XPay (never PCC) · Never print `ar_` / JWT keys · Do not soften refuse.
+**Status:** **LIVE on Fly** — Studio→Rider citizen-receipt push + Studio `POST /api/pass` (landed [#23](https://github.com/ceedot-rock/cuni/pull/23)).  
+**Not live:** Rider→Studio Execute wire (Agent-Rider [PR #62](https://github.com/ceedot-rock/Agent-Rider/pull/62) OPEN, env-gated default **OFF** — needs Cos GREEN + Ship). Attestation 501 / sealed Nitro **PARKED**.  
+**Locks:** Exactness or refuse (no approximate mode) · Fund = Rider settle / XPay (never PCC) · PCC = compressor-only · Never print `ar_` / JWT keys · Do not soften refuse.
 
 Related: [`E2E_STUDIO_RIDER.md`](./E2E_STUDIO_RIDER.md) · [`RIDER_CUTOVER.md`](./RIDER_CUTOVER.md) · [`STATUS.md`](./STATUS.md) · Agent-Rider [`CUNI_CITIZEN_GATE.md`](https://github.com/ceedot-rock/Agent-Rider/blob/main/docs/CUNI_CITIZEN_GATE.md)
 
@@ -52,7 +53,7 @@ X-Cuni-Studio: called
 3. Exactness FAIL → **HTTP 400 REFUSE** — **no** remote push.
 4. Local stub (`POST /api/rider/register`) still runs as fallback.
 
-Live Studio today (pre-merge deploy may still push meta-only until this PR is on Fly): https://cuni-studio.fly.dev/ · Rider: https://agentrider.fly.dev/
+Live Studio: https://cuni-studio.fly.dev/ · Rider: https://agentrider.fly.dev/
 
 ### 2. Rider-callable verify — `POST /api/pass` (second door)
 
@@ -100,16 +101,18 @@ Optional later: `sourceHash` lookup against registered contracts — **not** in 
 
 ---
 
-## Honesty
+## Honesty (live vs not — 2026-09-24 ET)
 
-| Claim | Truth after this PR lands on Fly |
+| Claim | Truth now |
 | --- | --- |
-| Studio publish pushes `citizen_receipt` to Rider `/api/v0/contracts` | **Yes** when `CUNI_RIDER_URL` set and exactness PASS |
-| `POST /api/pass` exists for Rider pre-execute verify | **Yes** (code in PR; live after deploy) |
-| Studio funds hops | **No** — Fund = Rider settle / XPay |
+| Studio publish pushes `citizen_receipt` to Rider `/api/v0/contracts` | **LIVE** when `CUNI_RIDER_URL` set and exactness PASS |
+| Studio `POST /api/pass` (REFUSE missing/broken; PASS spend-control) | **LIVE** on Fly |
+| Rider→Studio Execute calls `/api/pass` before sealed ride | **Not Fly-live required** — Agent-Rider PR #62 **OPEN**, env-gated, default **OFF** until Cos GREEN + Ship |
+| Attestation 501 / sealed Nitro | **PARKED** |
+| Studio funds hops / PCC pays | **No** — Fund = Rider settle / XPay; PCC = lossless compressor only |
 | Soften refuse / approximate mode | **Forbidden** |
-
-Until Cos GREEN + merge + Studio redeploy, treat live Fly as **prior** behavior (meta register may already work; explicit `citizen_receipt` envelope is this PR).
+| IR M2 | Stub unfinished; emit does **not** consume IR |
+| TNSSRC board | **43.72M** — do not invent other metrics |
 
 ---
 
@@ -142,6 +145,7 @@ curl -sS -X POST https://cuni-studio.fly.dev/api/pass \
 
 ## agent^rider wire-up follow-up
 
-- Rider Execute should prefer Studio `POST /api/pass` (or trust pushed receipt from publish) **before** sealed ride.
+- Rider Execute → Studio `POST /api/pass` is **wired in Agent-Rider PR #62** (env-gated, default OFF). Ask Cos **GREEN**; do not set Fly `CUNI_STUDIO_PASS_REQUIRED=true` until then.
+- Until #62 ships, Rider may still trust pushed publish receipts / local shape gate; do not claim soft “Execute always verifies with Studio.”
 - Local Rider gate (`src/lib/cuni-citizen-gate.ts`) remains validate-when-present / optional strict.
-- Coord seats: CuNi `44beb26e49c64d67` · agent^rider `6e1031b9adb12231`. Never paste keys into chat.
+- Coord seats exist; never print `ar_` / JWT keys into chat.

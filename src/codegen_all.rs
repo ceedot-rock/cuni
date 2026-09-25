@@ -14,7 +14,7 @@ pub fn generate(program: &Program, lang: &Lang) -> String {
     let mut script: Vec<&Stmt> = Vec::new();
     for item in &program.items {
         match item {
-            Item::Use(name) => g.comment(&format!("use {name}")),
+            Item::Use(u) => g.comment(&format!("use {}", u.name)),
             Item::Ext(e) => g.ext(e),
             Item::Typ(t) => g.typ(t),
             Item::Iface(i) => g.comment(&format!("iface {}", i.name)),
@@ -203,7 +203,8 @@ impl Gen {
     }
 
     fn enom(&mut self, e: &EnumDecl) {
-        self.comment(&format!("enum {} = {}", e.name, e.variants.join(" | ")));
+        let names: Vec<&str> = e.variants.iter().map(|v| v.name.as_str()).collect();
+        self.comment(&format!("enum {} = {}", e.name, names.join(" | ")));
     }
 
     fn func(&mut self, f: &FnDecl) {

@@ -293,8 +293,8 @@ impl Codegen {
 
     fn gen_item(&mut self, item: &Item, scope: &mut HashMap<String, VarKind>) {
         match item {
-            Item::Use(name) => {
-                self.line(0, &format!("// use {} — portable CuNi module, not resolved by this toy backend", name));
+            Item::Use(u) => {
+                self.line(0, &format!("// use {} — portable CuNi module, not resolved by this toy backend", u.name));
             }
             Item::Ext(ext) => match ext.targets.iter().find(|(t, _)| t == "js") {
                 Some((_, raw)) => {
@@ -337,7 +337,7 @@ impl Codegen {
                 }
             }
             Item::Enum(e) => {
-                let pairs = e.variants.iter().map(|v| format!("{}: {:?}", v, v)).collect::<Vec<_>>().join(", ");
+                let pairs = e.variants.iter().map(|v| format!("{}: {:?}", v.name, v.name)).collect::<Vec<_>>().join(", ");
                 self.line(0, &format!("const {} = Object.freeze({{{}}});", e.name, pairs));
             }
             Item::Def(f) => {

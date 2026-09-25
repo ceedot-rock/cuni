@@ -176,8 +176,8 @@ impl Codegen {
 
     fn gen_item(&mut self, item: &Item, scope: &mut HashMap<String, VarKind>) {
         match item {
-            Item::Use(name) => {
-                self.line(0, &format!("# use {} — portable CuNi module, not resolved by this toy backend", name));
+            Item::Use(u) => {
+                self.line(0, &format!("# use {} — portable CuNi module, not resolved by this toy backend", u.name));
             }
             Item::Ext(ext) => {
                 self.line(0, &format!("def {}({}):", ext.name, params_sig(&ext.params)));
@@ -228,7 +228,7 @@ impl Codegen {
                     self.line(1, "pass");
                 } else {
                     for v in &e.variants {
-                        self.line(1, &format!("{} = auto()", v));
+                        self.line(1, &format!("{} = auto()", v.name));
                     }
                 }
             }

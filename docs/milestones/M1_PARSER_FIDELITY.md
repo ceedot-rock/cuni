@@ -70,7 +70,7 @@ Inventory against live code (master tip after #19), not aspirational IR:
 
 1. **No oddity-matrix test harness** tied to `src/parser.rs` — no checked corpus of “must hard-fail” / “must map” cases per row.
 2. **Generic parse errors only** — refuse messages don’t yet name matrix rows (`pointers`, `async`, …).
-3. **Span incompleteness** — e.g. `Use` name, enum variant names, iface method names lack first-class spans (some `#[allow(dead_code)]` on reserved spans). Hurts precise refuse UX.
+3. **Span incompleteness** — ~~`Use` name, enum variant names, iface method names lack first-class spans~~ **landed (name spans + diagnostic use for missing-use / dup variant / iface method)**. Remaining: other AST name sites (e.g. `ExprKind::Field` name, `TypDecl.implements` ident) still lack first-class spans — not claimed complete for every identifier.
 4. **Float accepted in AST** — fidelity debt: exactness sacred means float formatting divergence must refuse; parser doesn’t help yet.
 5. **Ingest / foreign paths** — if non-`.cuni` or rewritten input enters the pipeline, parser fidelity alone doesn’t police oddities; need clear refuse before emit.
 6. **Lowering honesty** — parser doesn’t know seats; `src/emit.rs` marks `native` vs `lowering`. M1 must not pretend parser success ⇒ 119 native 1-for-1.
@@ -82,7 +82,7 @@ Inventory against live code (master tip after #19), not aspirational IR:
 
 - [x] Oddity matrix rows each have ≥1 **hard-fail** (or documented **map**) fixture under tests. *(landed: pointers / async / macros / ownership / prototypes in `tests/oddity_hardfail/`; floats/`ext` remain documented map-or-downstream — not fake-complete)*
 - [x] Refuse diagnostics can cite matrix category where applicable. *(`oddity hard-fail [row]` + fix-it; `src/oddity.rs`)*
-- [ ] Span coverage on public AST names used in diagnostics is complete enough for Rider/Studio error surfaces. *(lex/parse oddity refuses carry file:line:col; AST name-span gaps from the inventory remain)*
+- [x] Span coverage on public AST names used in diagnostics is complete enough for Rider/Studio error surfaces. *(Use / enum variant / iface method name spans + refuse locations; lex/parse oddity refuses already file:line:col. Other ident sites may still lack spans — incremental, not fake-total.)*
 - [x] Doc + tests still say: **119 catalog / ~7 native / majority lowering; Studio gate py/go/js; IR not done.**
 
 Out of scope for M1: implementing IR, changing emit seat families, SettleHop, PCC payment framing.

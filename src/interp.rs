@@ -49,7 +49,10 @@ pub fn run(program: &Program) -> Result<String, String> {
                 vm.typs.insert(t.name.clone(), t);
             }
             Item::Enum(e) => {
-                vm.enums.insert(e.name.clone(), e.variants.clone());
+                vm.enums.insert(
+                    e.name.clone(),
+                    e.variants.iter().map(|v| v.name.clone()).collect(),
+                );
             }
             _ => {}
         }
