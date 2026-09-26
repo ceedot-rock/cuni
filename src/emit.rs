@@ -7,8 +7,11 @@ use crate::ast::Program;
 use crate::codegen_c;
 use crate::codegen_go;
 use crate::codegen_js;
+use crate::codegen_lua;
 use crate::codegen_py;
+use crate::codegen_rb;
 use crate::codegen_rs;
+use crate::codegen_sol;
 use crate::langs::Lang;
 use std::path::{Path, PathBuf};
 
@@ -20,18 +23,24 @@ pub enum SeatKind {
 
 pub fn seat_kind(lang: &Lang) -> SeatKind {
     match lang.id {
-        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" => SeatKind::Native,
+        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" | "rb" | "lua" | "sol" => SeatKind::Native,
         _ => SeatKind::Lowering,
     }
 }
 
-pub fn generate_exact(program: &Program, lang: &Lang) -> String {
+pub fn generate_exact(program: &Program, lang: &Lang) -> Result<String, String> {
     match lang.id {
-        "go" => codegen_go::generate(program),
-        "js" | "ts" => codegen_js::generate(program),
-        "py" => codegen_py::generate(program),
-        "c" | "cpp" => codegen_c::generate(program),
-        "rs" => codegen_rs::generate(program),
+        "go" => Ok(codegen_go::generate(program)),
+        "js" | "ts" => Ok(codegen_js::generate(program)),
+        "py" => Ok(codegen_py::generate(program)),
+        "rb" => Ok(codegen_rb::generate(program)),
+        "lua" => Ok(codegen_lua::generate(program)),
+        "c" | "cpp" => Ok(codegen_c::generate(program)),
+        "rs" => Ok(codegen_rs::generate(program)),
+        // Solidity is the only seat that can honestly refuse: an unsupported
+        // construct must fail the emit, never produce a comment-only file
+        // that solc would accept with exit 0 (a false pass).
+        "sol" => codegen_sol::generate(program).map_err(|e| format!("Solidity refused: {e}")),
         _ => {
             let mut s = String::new();
             s.push_str(&format!(
@@ -40,7 +49,7 @@ pub fn generate_exact(program: &Program, lang: &Lang) -> String {
             ));
             s.push_str("# Seat pending a native toolchain. Python lowering so exactness still emit+runs.\n");
             s.push_str(&codegen_py::generate(program));
-            s
+            Ok(s)
         }
     }
 }
@@ -48,6 +57,19 @@ pub fn generate_exact(program: &Program, lang: &Lang) -> String {
 pub struct ExecPlan {
     pub compile: Option<(String, Vec<String>)>,
     pub run: (String, Vec<String>),
+    /// If false, this seat is emit+compile verified only (no stdout to
+    /// compare, e.g. a contract with no EVM on the check machine).
+    pub compares_stdout: bool,
+}
+
+impl ExecPlan {
+    fn std(run: (String, Vec<String>)) -> Self {
+        ExecPlan {
+            compile: None,
+            run,
+            compares_stdout: true,
+        }
+    }
 }
 
 pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
@@ -58,10 +80,12 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
         "go" => ExecPlan {
             compile: None,
             run: ("go".into(), vec!["run".into(), path]),
+            compares_stdout: true,
         },
         "js" | "ts" => ExecPlan {
             compile: None,
             run: ("node".into(), vec![path]),
+            compares_stdout: true,
         },
         "c" => ExecPlan {
             compile: Some((
@@ -77,6 +101,7 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
                 ],
             )),
             run: (bin_s, vec![]),
+            compares_stdout: true,
         },
         "cpp" => ExecPlan {
             compile: Some((
@@ -92,6 +117,7 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
                 ],
             )),
             run: (bin_s, vec![]),
+            compares_stdout: true,
         },
         "rs" => {
             let rs = if artifact.extension().and_then(|e| e.to_str()) == Some("rs") {
@@ -110,11 +136,44 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
                     ],
                 )),
                 run: (bin_s, vec![]),
+                compares_stdout: true,
+            }
+        }
+        "rb" => ExecPlan {
+            compile: None,
+            run: ("ruby".into(), vec![path]),
+            compares_stdout: true,
+        },
+        "lua" => ExecPlan {
+            compile: None,
+            run: ("lua5.4".into(), vec![path]),
+            compares_stdout: true,
+        },
+        "sol" => {
+            // A contract has no stdout: solc compiling it IS the verification
+            // (deployable). Excluded from the stdout comparison; the dice
+            // values are cross-checked against the interpreter instead.
+            let out_dir = artifact.with_extension("solc_out");
+            ExecPlan {
+                compile: Some((
+                    "solc".into(),
+                    vec![
+                        "--bin".into(),
+                        "--optimize".into(),
+                        "-o".into(),
+                        out_dir.to_string_lossy().into_owned(),
+                        "--overwrite".into(),
+                        path.clone(),
+                    ],
+                )),
+                run: ("solc".into(), vec!["--ast-compact-json".into(), path]),
+                compares_stdout: false,
             }
         }
         _ => ExecPlan {
             compile: None,
             run: ("python3".into(), vec![path]),
+            compares_stdout: true,
         },
     }
 }

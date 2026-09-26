@@ -24,6 +24,7 @@ pub struct TargetResult {
     pub run_ok: bool,
     pub run_err: Option<String>,
     pub stdout: Option<String>,
+    pub compares_stdout: bool,
 }
 
 #[derive(Debug)]
@@ -135,7 +136,7 @@ fn emit_for(program: &Program, lang: &Lang, out: &Path) -> Result<(), String> {
             ));
         }
     }
-    fs::write(out, emit::generate_exact(program, lang)).map_err(|e| e.to_string())
+    fs::write(out, emit::generate_exact(program, lang)?).map_err(|e| e.to_string())
 }
 
 fn run_target(lang: &Lang, artifact: &Path, timeout: Duration) -> Result<String, String> {
@@ -233,7 +234,12 @@ pub fn check_file_only(
             run_ok: false,
             run_err: None,
             stdout: None,
+            compares_stdout: true,
         };
+        // Seats that don't produce program stdout (e.g. sol: a contract has
+        // no EVM here) are emit+compile verified; their computed values are
+        // cross-checked against the interpreter instead.
+        tr.compares_stdout = emit::exec_plan(lang, &out).compares_stdout;
         match emit_for(&program, lang, &out) {
             Ok(()) => {
                 tr.emit_ok = true;
@@ -273,9 +279,24 @@ pub fn check_file_only(
         return report;
     }
 
-    let gold = report.targets[0].stdout.as_deref().unwrap_or("");
+    let gold = report
+        .targets
+        .iter()
+        .find(|t| t.compares_stdout)
+        .and_then(|t| t.stdout.as_deref())
+        .unwrap_or("");
     let mut diverged: Vec<&str> = Vec::new();
+    let mut compile_only: Vec<&str> = Vec::new();
     for t in &report.targets {
+        if !t.compares_stdout {
+            // Compile-verified seats (e.g. sol: solc proves deployability)
+            // don't produce program stdout; their values are cross-checked
+            // against the interpreter instead.
+            if t.emit_ok && t.run_ok {
+                compile_only.push(t.target);
+            }
+            continue;
+        }
         if t.stdout.as_deref().unwrap_or("") != gold {
             diverged.push(t.target);
         }
@@ -297,7 +318,8 @@ pub fn check_file_only(
     }
 
     let has_ext = program.items.iter().any(|i| matches!(i, Item::Ext(_)));
-    if !has_ext {
+    let has_stdout_seat = report.targets.iter().any(|t| t.compares_stdout);
+    if !has_ext && has_stdout_seat {
         match interp::run(&program) {
             Ok(ref got) if got == gold => {}
             Ok(_) => {
@@ -320,7 +342,15 @@ pub fn check_file_only(
     }
 
     report.exact = true;
-    report.summary = format!("exactness: PASS ({} langs)", n);
+    report.summary = if compile_only.is_empty() {
+        format!("exactness: PASS ({} langs)", n)
+    } else {
+        format!(
+            "exactness: PASS ({} langs; compile-only, no stdout: {})",
+            n,
+            compile_only.join(", ")
+        )
+    };
     report
 }
 

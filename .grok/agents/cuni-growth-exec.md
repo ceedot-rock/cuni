@@ -23,10 +23,10 @@ Strategy without shipped actions is failure. Every session must end with **done 
 
 - **Primary CTA (always first):** https://cuni-studio.fly.dev/ — free hosted Studio (emit + `cuni check` + Notelog + Critic Book)  
 - Repo: https://github.com/ceedot-rock/cuni  
-- Latest: v0.1.6 · MIT · exact multi-target → Python / Go / JavaScript  
-- Pitch: *Write once → identical behavior on py/go/js, or the compiler refuses. Try free in the browser.*  
+- Latest: v0.2.0 · AGPL-3.0-or-later · exact multi-target → Python / Go / JavaScript / Ruby / Lua / C / C++ / Rust + Solidity smart contracts
+- Pitch: *Write once → identical behavior on every target, or the compiler refuses. Same source now compiles to a deployable Solidity EVM contract. Try free in the browser.*  
 - Proof: Studio **Run exactness**, or CLI `cuni check`; `./examples/link/demo.sh` (Go server ← py/js/go clients)  
-- Install: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.6`  
+- Install: `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.2.0`  
 - Docs: `docs/LINK_TUTORIAL.md`, `docs/OUTREACH.md`, `docs/PRESS_RELEASE.md`, `docs/growth/posts-studio-launch-2026-07-26.md`  
 - Contact: ceedotrock@gmail.com · GitHub: ceedot-rock  
 

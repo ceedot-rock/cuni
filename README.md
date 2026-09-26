@@ -20,7 +20,7 @@
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.** Receipts name the program by `source_hash`, not by path.
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.1.10.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts/c/cpp/rs/rb/lua; Solidity compiles to a deployable EVM contract via solc; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.2.0.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -151,7 +151,8 @@ cuni run examples/compute/fib.cuni --lang py
 # exactness gate — 144 languages, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
 # → exactness: PASS (144 langs)   exit 0
-cuni check examples/full.cuni --only py,go,js,c,cpp,rs   # native seats
+cuni check examples/full.cuni --only py,go,js,c,cpp,rs,rb,lua   # native seats
+cuni check examples/casino/provably-fair-dice.cuni --only py,js,ts,c,cpp,sol  # + Solidity contract
 cuni check examples/compute --timeout 180
 cuni ingest impl.py -o impl.cuni                         # reverse, or refuse
 cuni bank paste impl.py --from py --to js                # paste N, get X, prove or refuse
@@ -262,9 +263,9 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.1.10)
+## Status (v0.2.0)
 
-**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust, `--emit-all` language catalog (144), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`.
+**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), `--emit-all` language catalog (144), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
 
 **Not in v0.1 (by design):** tagged unions with payload, streaming `link`, full inference — see SPEC.md §19.
 

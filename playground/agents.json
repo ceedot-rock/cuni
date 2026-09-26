@@ -1,42 +1,40 @@
 {
-  "$schema": "https://agents-txt.com/schema/agents-json/v1.0.json",
-  "version": "1.0",
-  "standard": "https://agents-txt.com",
-  "site": {
-    "name": "CuNi Studio",
-    "url": "https://cuni-studio.fly.dev",
-    "description": "CuNi Protocol: 144 languages, one program, same stdout or refuse. Bank arm: paste N, get X. Studio publishes exact policies into Agent^Rider."
-  },
-  "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
-  "mcp": [
-    {
-      "url": "https://agentrider.fly.dev/api/mcp",
-      "type": "streamable-http",
-      "description": "Agent^Rider MCP (CuNi publishes exact policies into Rider)"
-    }
-  ],
-  "discovery": {
-    "studio": "https://cuni-studio.fly.dev/",
-    "bank": "https://cuni-studio.fly.dev/bank",
-    "bank_api": "https://cuni-studio.fly.dev/api/bank",
-    "github": "https://github.com/ceedot-rock/cuni",
-    "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
-    "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
-    "lab_commerce": "https://www.slidphilabs.com/api/agent",
-    "one_liner": "CuNi Studio \u00b7 exact multi-runtime \u00b7 Lab dual surface: humans https://www.slidphilabs.com/humans \u00b7 agents GET https://www.slidphilabs.com/api/agent \u00b7 map https://www.slidphilabs.com/platform.json",
-    "lab_platform": "https://www.slidphilabs.com/platform.json",
-    "lab_welcome": "https://www.slidphilabs.com/api/welcome",
-    "lab_humans": "https://www.slidphilabs.com/humans",
-    "lab_agents": "https://www.slidphilabs.com/agents",
-    "lab_openapi": "https://www.slidphilabs.com/openapi.yaml",
-    "pass_api": "https://cuni-studio.fly.dev/api/pass",
-    "pass_docs": "https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md",
-    "publish_api": "https://cuni-studio.fly.dev/api/publish"
-  },
-  "platform": {
-    "slogan": "One mission \u00b7 two attack vectors \u00b7 one team",
-    "parent_lab": "https://www.slidphilabs.com",
-    "pub_facing": "https://www.slidphilabs.com/humans",
-    "agentic_minded": "https://www.slidphilabs.com/agents"
+ "$schema": "https://agents-txt.com/schema/agents-json/v1.0.json",
+ "version": "1.0",
+ "standard": "https://agents-txt.com",
+ "site": {
+  "name": "CuNi Studio",
+  "url": "https://cuni-studio.fly.dev",
+  "description": "CuNi Protocol: 144 languages, one program, same stdout or refuse. New in 0.2.0: Solidity seat \u2014 same source compiles to a deployable EVM smart contract. Bank arm: paste N, get X. Studio publishes exact policies into Agent^Rider."
+ },
+ "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
+ "mcp": [
+  {
+   "url": "https://agentrider.fly.dev/api/mcp",
+   "type": "streamable-http",
+   "description": "Agent^Rider MCP (CuNi publishes exact policies into Rider)"
   }
+ ],
+ "discovery": {
+  "studio": "https://cuni-studio.fly.dev/",
+  "bank": "https://cuni-studio.fly.dev/bank",
+  "bank_api": "https://cuni-studio.fly.dev/api/bank",
+  "github": "https://github.com/ceedot-rock/cuni",
+  "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
+  "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
+  "lab_commerce": "https://www.slidphilabs.com/api/agent",
+  "one_liner": "CuNi Studio \u00b7 exact multi-runtime \u00b7 Lab dual surface: humans https://www.slidphilabs.com/humans \u00b7 agents GET https://www.slidphilabs.com/api/agent \u00b7 map https://www.slidphilabs.com/platform.json",
+  "lab_platform": "https://www.slidphilabs.com/platform.json",
+  "lab_welcome": "https://www.slidphilabs.com/api/welcome",
+  "lab_humans": "https://www.slidphilabs.com/humans",
+  "lab_agents": "https://www.slidphilabs.com/agents",
+  "lab_openapi": "https://www.slidphilabs.com/openapi.yaml",
+  "solidity_seat": "cuni --emit-sol <file.cuni> \u2014 same source to solc-verified EVM contract"
+ },
+ "platform": {
+  "slogan": "One mission \u00b7 two attack vectors \u00b7 one team",
+  "parent_lab": "https://www.slidphilabs.com",
+  "pub_facing": "https://www.slidphilabs.com/humans",
+  "agentic_minded": "https://www.slidphilabs.com/agents"
+ }
 }

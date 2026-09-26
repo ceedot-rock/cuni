@@ -1,0 +1,8 @@
+{
+  "path": "examples/casino/provably-fair-dice.cuni",
+  "source_hash": "4627936386e0e69a875bdf473dc912167aa4449001fe8e7e96c55c52dbf6034d",
+  "exact": true,
+  "summary": "exactness: PASS (6 langs; compile-only, no stdout: sol)",
+  "langs": 6,
+  "seats": [{"id":"py","seat":"native","emit":true,"run":true},{"id":"js","seat":"native","emit":true,"run":true},{"id":"ts","seat":"native","emit":true,"run":true},{"id":"c","seat":"native","emit":true,"run":true},{"id":"cpp","seat":"native","emit":true,"run":true},{"id":"sol","seat":"native","emit":true,"run":true}]
+}

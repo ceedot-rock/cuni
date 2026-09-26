@@ -1,14 +1,14 @@
 [package]
 name = "cuni"
-version = "0.1.11"
+version = "0.2.0"
 edition = "2021"
-description = "CuNi (Code:uNiTY) — emit catalog + Bank paste-N-get-X; exactness or refuse"
+description = "CuNi (Code:uNiTY) — one source, exact on every target or refuse; now with Solidity smart-contract seat"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/ceedot-rock/cuni"
 homepage = "https://cuni-studio.fly.dev/"
 documentation = "https://github.com/ceedot-rock/cuni/blob/master/SPEC.md"
 readme = "README.md"
-keywords = ["compiler", "transpiler", "multi-target", "python", "golang", "agentic", "mcp", "agent-rider"]
+keywords = ["compiler", "transpiler", "multi-target", "python", "golang", "agentic", "mcp", "agent-rider", "solidity", "smart-contracts", "blockchain", "evm"]
 categories = ["compilers", "development-tools"]
 
 [lib]

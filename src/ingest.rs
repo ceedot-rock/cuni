@@ -95,6 +95,7 @@ pub fn ingest_file(path: &Path) -> Result<String, String> {
         Some("js") | Some("ts") => ingest_js(&src)?,
         Some("c") | Some("cpp") => ingest_c(&src)?,
         Some("rs") => ingest_rs(&src)?,
+        Some("sol") => ingest_sol(&src)?,
         Some("awk") => ingest_awk(&src)?,
         Some("pl") => ingest_pl(&src)?,
         Some("sh") => ingest_sh(&src)?,
@@ -316,6 +317,7 @@ enum ELang {
     C,
     Rs,
     Py,
+    Sol,
 }
 
 struct XP {
@@ -1841,6 +1843,411 @@ const JS_PRELUDE: &[&str] = &[
     "_cuni_slice",
     "_cuni_div",
 ];
+
+// ---------------------------------------------------------------------------
+// Solidity: the blockchain contract reader
+// ---------------------------------------------------------------------------
+// Reads a .sol contract (the subset the CuNi Solidity writer emits, plus
+// hand-written contracts in the same style) back into CuNi source. Round-trip:
+//   cuni --emit-sol prog.cuni out.sol  ->  cuni ingest out.sol  ->  .cuni
+// that passes the CuNi front-end, or ingestion refuses.
+
+fn ingest_sol(src: &str) -> Result<String, String> {
+    let funcs = extract_funcs(src, "function ")?;
+    let mut out = String::new();
+    let mut run_body = None;
+    for f in &funcs {
+        // Skip internal helpers (e.g. _cuni_itoa) and non-public functions.
+        if f.name.starts_with('_') || f.name.starts_with("_cuni") {
+            continue;
+        }
+        if !f.sig.contains("public") {
+            continue;
+        }
+        if f.name == "run" {
+            run_body = Some(f.body.clone());
+            continue;
+        }
+        match sol_def(f)? {
+            Some(def) => {
+                out.push_str(&def);
+                out.push('\n');
+            }
+            None => {}
+        }
+    }
+    // A contract without run() is just a library of defs; that's fine.
+    if let Some(body) = run_body {
+        for st in sol_block(&body, 0)? {
+            out.push_str(&st);
+            out.push('\n');
+        }
+    }
+    if out.trim().is_empty() {
+        return Err("ingest: refuse Solidity with no public functions".into());
+    }
+    Ok(out)
+}
+
+/// Parse `name(params) public ... returns (type)` into a CuNi def.
+fn sol_def(f: &Func) -> Result<Option<String>, String> {
+    let sig = f.sig.trim();
+    let paren = sig.find('(').ok_or("ingest: bad Solidity sig")?;
+    let name = sig[..paren].trim();
+    if !is_ident(name) {
+        return Ok(None);
+    }
+    let close = find_matching_paren(sig, paren).ok_or("ingest: bad Solidity sig")?;
+    let params_s = &sig[paren + 1..close];
+    let mut params = Vec::new();
+    for p in split_top_delim(params_s, ',') {
+        let p = p.trim();
+        if p.is_empty() {
+            continue;
+        }
+        // `int256 x` or `string memory x`
+        let parts: Vec<&str> = p.split_whitespace().collect();
+        let (ty_s, nm) = match parts.as_slice() {
+            [t, n] => (*t, *n),
+            [t, "memory", n] => (*t, *n),
+            [t, "calldata", n] => (*t, *n),
+            _ => return Err(format!("ingest: refuse Solidity param `{p}`")),
+        };
+        if !is_ident(nm) {
+            return Err(format!("ingest: refuse Solidity param name `{nm}`"));
+        }
+        let ty = sol_type_to_cuni(ty_s)?;
+        params.push(format!("{nm}: {ty}"));
+    }
+    // Return type after `returns`.
+    let ret = if let Some(rpos) = sig.find("returns") {
+        let r = sig[rpos + "returns".len()..].trim();
+        let r = r.strip_prefix('(').and_then(|s| s.strip_suffix(')')).unwrap_or(r);
+        let r = r.trim().replace(" memory", "").replace(" calldata", "");
+        if r.is_empty() || r == "()" {
+            "()".to_string()
+        } else {
+            sol_type_to_cuni(r.trim())?
+        }
+    } else {
+        "()".to_string()
+    };
+    let mut def = format!("def {name}({}) -> {ret}", params.join(", "));
+    // A body that reverts was a fallible (`-> T ?`) CuNi function.
+    if f.body.contains("revert(") {
+        def.push_str(" ?");
+    }
+    def.push_str(" do\n");
+    for st in sol_block(&f.body, 1)? {
+        def.push_str(&st);
+        def.push('\n');
+    }
+    def.push_str("end");
+    Ok(Some(def))
+}
+
+fn sol_type_to_cuni(t: &str) -> Result<String, String> {
+    match t {
+        "int256" | "int" => Ok("int".into()),
+        "string" => Ok("str".into()),
+        "bool" => Ok("bool".into()),
+        _ => Err(format!("ingest: refuse Solidity type `{t}` (outside subset)")),
+    }
+}
+
+fn sol_block(body: &str, indent: usize) -> Result<Vec<String>, String> {
+    let mut lines = Vec::new();
+    for chunk in split_chunks(body)? {
+        lines.extend(sol_stmt(&chunk, indent)?);
+    }
+    Ok(lines)
+}
+
+fn sol_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
+    let pad = "    ".repeat(indent);
+    let t = chunk.trim();
+    if t.is_empty() {
+        return Ok(vec![]);
+    }
+    // Comments and events at function level: skip.
+    if t.starts_with("//") || t.starts_with("/*") || t.starts_with("event ") {
+        return Ok(vec![]);
+    }
+    if t.starts_with("if") && t.contains('{') {
+        let (cond, then_b, else_b) = split_if(t)?;
+        let c = sol_expr_to_cuni(&cond)?;
+        let mut v = vec![format!("{pad}if {c} do")];
+        v.extend(sol_block(&then_b, indent + 1)?);
+        if let Some(e) = else_b {
+            v.push(format!("{pad}els"));
+            v.extend(sol_block(&e, indent + 1)?);
+        }
+        v.push(format!("{pad}end"));
+        return Ok(v);
+    }
+    if t.starts_with("while") && t.contains('{') {
+        let (cond, body, _) = split_if(&t.replacen("while", "if", 1))?;
+        let c = sol_expr_to_cuni(&cond)?;
+        let mut v = vec![format!("{pad}whl {c} do")];
+        v.extend(sol_block(&body, indent + 1)?);
+        v.push(format!("{pad}end"));
+        return Ok(v);
+    }
+    if t.starts_with("for") && t.contains('{') {
+        return sol_for(t, indent);
+    }
+    // emit LogInt(x); -> say(x)
+    for (ev, _) in [("LogInt", "int"), ("LogString", "str"), ("LogBool", "bool")] {
+        let prefix = format!("emit {ev}(");
+        if t.starts_with(&prefix) && t.ends_with(");") {
+            let inner = &t[prefix.len()..t.len() - 2];
+            let e = sol_expr_to_cuni(inner)?;
+            return Ok(vec![format!("{pad}say({e})")]);
+        }
+    }
+    if let Some(rest) = t.strip_prefix("revert(") {
+        let rest = rest.trim().strip_suffix(';').unwrap_or(rest);
+        let rest = rest.strip_suffix(')').unwrap_or(rest);
+        let e = sol_expr_to_cuni(rest.trim())?;
+        return Ok(vec![format!("{pad}fail {e}")]);
+    }
+    if let Some(rest) = t.strip_prefix("return ") {
+        let rest = rest.trim().strip_suffix(';').unwrap_or(rest);
+        if rest.is_empty() {
+            return Ok(vec![format!("{pad}ret")]);
+        }
+        let e = sol_expr_to_cuni(rest)?;
+        return Ok(vec![format!("{pad}ret {e}")]);
+    }
+    if t == "return;" || t == "return" {
+        return Ok(vec![format!("{pad}ret")]);
+    }
+    // Typed declaration: `int256 x = v;`, `string memory x = v;`, `bool x = v;`
+    for ty in ["int256", "string", "bool", "uint256"] {
+        if let Some(rest) = t.strip_prefix(ty) {
+            let rest = rest.trim();
+            let rest = rest.strip_prefix("memory").map(str::trim).unwrap_or(rest);
+            let rest = rest.strip_prefix("calldata").map(str::trim).unwrap_or(rest);
+            if let Some(eq) = rest.find('=') {
+                let nm = rest[..eq].trim();
+                let val = rest[eq + 1..].trim().strip_suffix(';').unwrap_or(rest).trim();
+                if !is_ident(nm) {
+                    return Err(format!("ingest: refuse Solidity binding `{nm}`"));
+                }
+                let ct = sol_type_to_cuni(ty)?;
+                let e = sol_expr_to_cuni(val)?;
+                return Ok(vec![format!("{pad}mut {nm}: {ct} = {e}")]);
+            }
+            return Err(format!("ingest: refuse Solidity decl `{t}`"));
+        }
+    }
+    // Plain assignment or bare call.
+    if let Some((lhs, rhs)) = split_assign(t, ELang::Sol)? {
+        let l = sol_expr_to_cuni(&lhs)?;
+        let r = rhs.trim().strip_suffix(';').unwrap_or(rhs.trim());
+        let r = sol_expr_to_cuni(r)?;
+        return Ok(vec![format!("{pad}{l} = {r}")]);
+    }
+    // Bare call statement: `f(x);`
+    let bare = t.strip_suffix(';').unwrap_or(t);
+    let e = sol_expr_to_cuni(bare)?;
+    Ok(vec![format!("{pad}{e}")])
+}
+
+/// `for (int256 i = a; i < b; i++) { ... }` -> `for i in range(a, b) do ... end`
+fn sol_for(t: &str, indent: usize) -> Result<Vec<String>, String> {
+    let pad = "    ".repeat(indent);
+    let rest = t.strip_prefix("for").ok_or("ingest: bad for")?.trim();
+    let body_at = rest.find('{').ok_or("ingest: bad for")?;
+    let head = rest[..body_at].trim();
+    let head = head
+        .strip_prefix('(')
+        .and_then(|s| s.strip_suffix(')'))
+        .ok_or("ingest: bad for head")?;
+    let parts = split_top_delim(head, ';');
+    if parts.len() != 3 {
+        return Err("ingest: refuse Solidity for (outside subset)".into());
+    }
+    // init: `int256 i = a`
+    let init = parts[0].trim();
+    let eq = init.find('=').ok_or("ingest: bad for init")?;
+    let var = init[..eq].trim().rsplit(' ').next().unwrap_or("").trim();
+    if !is_ident(var) {
+        return Err("ingest: refuse Solidity for var".into());
+    }
+    let start = sol_expr_to_cuni(init[eq + 1..].trim())?;
+    // cond: `i < b`
+    let cond = parts[1].trim();
+    let lt = cond.find('<').ok_or("ingest: refuse non-`<` for cond")?;
+    let end = sol_expr_to_cuni(cond[lt + 1..].trim())?;
+    // incr: `i++` or `i += 1`
+    let incr = parts[2].trim();
+    if incr != format!("{var}++") && incr != format!("{var} += 1") && incr != format!("++{var}") {
+        return Err("ingest: refuse Solidity for incr (outside subset)".into());
+    }
+    let body = rest[body_at..].trim();
+    let body = body
+        .strip_prefix('{')
+        .and_then(|s| s.strip_suffix('}'))
+        .ok_or("ingest: bad for body")?;
+    let body_lines = sol_block(body, indent + 1)?;
+    // `for (i = 0; i < b; i++)` -> `for i in range(b) do`; other starts
+    // become an equivalent while loop.
+    if start.trim() == "0" {
+        let mut v = vec![format!("{pad}for {var} in range({end}) do")];
+        v.extend(sol_block(body, indent + 1)?);
+        v.push(format!("{pad}end"));
+        Ok(v)
+    } else {
+        let mut v = vec![
+            format!("{pad}mut {var}: int = {start}"),
+            format!("{pad}whl {var} < {end} do"),
+        ];
+        v.extend(body_lines);
+        v.push(format!("{pad}    {var} = {var} + 1"));
+        v.push(format!("{pad}end"));
+        Ok(v)
+    }
+}
+
+/// Convert a Solidity expression to CuNi source.
+fn sol_expr_to_cuni(src: &str) -> Result<String, String> {
+    let s = src.trim();
+    // string(abi.encodePacked(...)) -> interpolated string
+    if let Some(inner) = s.strip_prefix("string(").and_then(|r| r.strip_suffix(')')) {
+        let inner = inner.trim();
+        if let Some(packed) = inner
+            .strip_prefix("abi.encodePacked(")
+            .and_then(|r| r.strip_suffix(')'))
+        {
+            return sol_packed_to_interp(packed);
+        }
+    }
+    // _cuni_itoa(x) outside interpolation -> refuse (needs string context)
+    Ok(XP::new(s, ELang::Sol)?.expr()?.to_cuni())
+}
+
+/// `abi.encodePacked("a", _cuni_itoa(x), "b")` -> `"a{x}b"`.
+fn sol_packed_to_interp(packed: &str) -> Result<String, String> {
+    let mut out = String::from('"');
+    for part in split_top_delim(packed, ',') {
+        let p = part.trim();
+        if p.starts_with('"') && p.ends_with('"') && p.len() >= 2 {
+            let inner = &p[1..p.len() - 1];
+            out.push_str(&inner.replace('{', "{{").replace('}', "}}"));
+        } else if let Some(inner) = p
+            .strip_prefix("_cuni_itoa(")
+            .and_then(|r| r.strip_suffix(')'))
+        {
+            let e = sol_expr_to_cuni(inner)?;
+            out.push('{');
+            out.push_str(&e);
+            out.push('}');
+        } else if p.starts_with('(') && p.contains('?') {
+            // (cond ? "a" : "b") bool interpolation -> refuse honestly
+            return Err("ingest: refuse ternary interpolation (outside subset)".into());
+        } else {
+            // A plain string variable interpolates as-is.
+            let e = sol_expr_to_cuni(p)?;
+            out.push('{');
+            out.push_str(&e);
+            out.push('}');
+        }
+    }
+    out.push('"');
+    Ok(out)
+}
+
+/// Index of the `)` matching the `(` at `open`.
+fn find_matching_paren(s: &str, open: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    let mut in_str = false;
+    let mut esc = false;
+    for (i, c) in s.char_indices().skip_while(|(i, _)| *i < open) {
+        if i < open {
+            continue;
+        }
+        if esc {
+            esc = false;
+            continue;
+        }
+        if in_str {
+            if c == '\\' {
+                esc = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => in_str = true,
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Split on a delimiter, ignoring nesting and strings.
+fn split_top_delim(s: &str, delim: char) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut cur = String::new();
+    let mut pdepth = 0i32;
+    let mut bdepth = 0i32;
+    let mut in_str = false;
+    let mut esc = false;
+    for c in s.chars() {
+        if esc {
+            cur.push(c);
+            esc = false;
+            continue;
+        }
+        if in_str {
+            cur.push(c);
+            if c == '\\' {
+                esc = true;
+            } else if c == '"' {
+                in_str = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => {
+                in_str = true;
+                cur.push(c);
+            }
+            '(' => {
+                pdepth += 1;
+                cur.push(c);
+            }
+            ')' => {
+                pdepth -= 1;
+                cur.push(c);
+            }
+            '[' => {
+                bdepth += 1;
+                cur.push(c);
+            }
+            ']' => {
+                bdepth -= 1;
+                cur.push(c);
+            }
+            d if d == delim && pdepth == 0 && bdepth == 0 => {
+                parts.push(cur.trim().to_string());
+                cur = String::new();
+            }
+            _ => cur.push(c),
+        }
+    }
+    parts.push(cur.trim().to_string());
+    parts
+}
 
 fn ingest_js(src: &str) -> Result<String, String> {
     let funcs = extract_funcs(src, "function ")?;
@@ -4407,7 +4814,7 @@ say(is_big(3))
 
         // gold stdout from the py seat
         let pylang = crate::langs::find("py").unwrap();
-        let pyart = crate::emit::generate_exact(&prog, pylang);
+        let pyart = crate::emit::generate_exact(&prog, pylang).expect("py emit");
         let pypath = dir.join("t_gold.py");
         std::fs::write(&pypath, &pyart).unwrap();
         let gold = match run_artifact(pylang, &pypath).expect("gold run") {
@@ -4416,7 +4823,7 @@ say(is_big(3))
         };
 
         // emit target artifact, run it (must run cleanly; stdout is informational)
-        let art = crate::emit::generate_exact(&prog, lang);
+        let art = crate::emit::generate_exact(&prog, lang).expect("target emit");
         let apath = dir.join(lang.out_file());
         std::fs::write(&apath, &art).unwrap();
         match run_artifact(lang, &apath) {
@@ -4475,6 +4882,22 @@ say(is_big(3))
         for l in crate::langs::LANGS {
             roundtrip_one("rt2", l.id, RT2, true);
         }
+    }
+
+    /// Solidity seat: the dice contract emits real solc-compilable Solidity
+    /// and ingests back to CuNi with identical meaning. Requires solc on PATH;
+    /// without it the seat is honestly skipped (NoToolchain).
+    #[test]
+    fn rt_sol_dice() {
+        const DICE: &str = r#"def roll_dice(server_seed: int, client_seed: int, round: int) -> int do
+    mut mixed = (server_seed * 31 + client_seed * 17 + round * 13) % 2147483647
+    mut state = (48271 * mixed) % 2147483647
+    ret (state % 6) + 1
+end
+say(roll_dice(987654321, 123456789, 1))
+say(roll_dice(987654321, 123456789, 2))
+"#;
+        roundtrip_one("sol_dice", "sol", DICE, true);
     }
 
     /// Native ingest for the next tier (awk, perl, sh, sql, wat): hand-written

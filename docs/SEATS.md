@@ -12,6 +12,9 @@ Exactness applies to the whole catalog. A language in `src/langs.rs` is a seat: 
 | c | gcc | tagged `Val` C runtime |
 | cpp | g++ | same lowering, compiled as C++ |
 | rs | rustc | tagged `Val` Rust runtime |
+| rb | ruby | quality Ruby |
+| lua | lua5.4 | quality Lua |
+| sol | solc | Solidity contract writer (compile-verified; events, no stdout) |
 
 `cuni check examples/full.cuni --only py,go,js,c,cpp,rs` is the native gate. It must PASS.
 
@@ -44,6 +47,7 @@ cuni prove file.cuni --against impl.py  # foreign code must match CuNi gold
 | js/ts | `function name(p, …)` with `return`/`if`/`else`, `const`/`let` bindings, `say(e);` inside `function main()`; erased types are recovered from call sites + return expressions (two-pass inference); unrecoverable → refuse |
 | c/cpp | `static Val name(Val p, …)` with `return`, `if`/`else`, `Val x = …`, `cuni_say(…)` inside `int main(void)`; the `cuni_*`/`V_*` helpers map back; erased types recovered by call-site inference; unrecoverable → refuse |
 | rs | `fn name(p: Val, …) -> Val` with `return`, `if`/`else`, `let [mut] x = …`, `cuni_say(…)` inside `fn main()`; `Val::Int/Str`, `v_*` helpers, `.clone()`/`.into()` map back; erased types recovered by call-site inference; unrecoverable → refuse |
+| sol | `function name(p T, …) public [pure] returns (T)` with `return`, `if`/`else`, typed bindings, `emit LogInt/Str/Bool(e)` inside `run()`; int256/uint256/string/bool map; `revert("…")` → fallible `fail`; `_cuni_itoa` helper skipped; float/list/map/opt/`??` refuse |
 | awk | `function name(p, …)` defs + one `BEGIN` main; `print expr` (single arg), bare `x = expr` bindings, `return`, `if`/`else`; types by call-site inference; pattern-action rules, `printf`, arrays refuse |
 | pl | `sub name { my ($p, …) = @_; … }` defs; `my $x = expr` / `$x = expr`, `print EXPR, "\n"` / `say(EXPR)`, `return`, `if`/`else`/`unless`; types by call-site inference; regexes, interpolation, `.` concat, loops refuse |
 | sh | top-level only: `x=value`, `x=$((expr))`, `"$var"` interpolation, `echo`, `if [ … ]; then/elif/else/fi` with `-gt/-lt/-ge/-le/-eq/-ne`/`=`/`!=`; functions, loops, `$( )`, pipes refuse |

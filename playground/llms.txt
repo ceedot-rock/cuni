@@ -1,6 +1,6 @@
 # CuNi (Code:uNiTY)
 
-> CuNi Protocol: 119 languages, one program, same stdout or refuse.
+> CuNi Protocol: 144 languages, one program, same stdout or refuse. New in 0.2.0: Solidity seat — same source compiles to a deployable EVM smart contract (solc).
 
 ## Protocol
 - JSON: https://cuni-studio.fly.dev/.well-known/cuni-protocol.json
@@ -23,7 +23,13 @@
 - CLI: cuni bank paste IN --from py --to js
 - Law: https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md
 - Tag: cuni-bank-0.1.0
-- Not 119 ingest parsers. 119 langs remains cuni check on the deposit.
+- Not 144 ingest parsers. 144 langs remains cuni check on the deposit.
+
+## Smart contracts (new in 0.2.0)
+- Solidity seat: same CuNi source compiles to a human-readable, solc-verified EVM contract. No Python lowering.
+- CLI: cuni --emit-sol examples/casino/provably-fair-dice.cuni
+- Reader: .sol ingests back to CuNi; round-trip verified against the interpreter.
+- Law: exactness or refuse — a contract that cannot be exact does not compile.
 
 
 ## Citizen PASS gate (Agent-Rider)

@@ -14,7 +14,10 @@
     "ts",
     "c",
     "cpp",
-    "rs"
+    "rs",
+    "rb",
+    "lua",
+    "sol"
   ],
   "studio_gate": [
     "py",
@@ -33,7 +36,7 @@
     "kind": "seat",
     "note": "in-process evaluator. cuni check refuses if stdout diverges from catalog gold. Programs with ext skip this seat."
   },
-  "public_install_tag": "v0.1.10",
+  "public_install_tag": "v0.2.0",
   "citizenship": "exactness.passed must be true before Agent-Rider register",
   "laws": {
     "suite-meter": "https://github.com/ceedot-rock/cuni/blob/master/examples/laws/suite-meter.cuni",

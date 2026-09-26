@@ -6,7 +6,10 @@ mod codegen_all;
 mod codegen_c;
 mod codegen_go;
 mod codegen_js;
+mod codegen_lua;
 mod codegen_py;
+mod codegen_rb;
+mod codegen_sol;
 mod codegen_rs;
 mod emit;
 mod ingest;
@@ -306,6 +309,9 @@ fn cmd_run(args: &[String]) -> ExitCode {
 fn cmd_compile(args: &[String]) -> ExitCode {
     let mut path = None;
     let mut emit_py: Option<String> = None;
+    let mut emit_rb: Option<String> = None;
+    let mut emit_lua: Option<String> = None;
+    let mut emit_sol: Option<String> = None;
     let mut emit_go: Option<String> = None;
     let mut emit_js: Option<String> = None;
     let mut emit_all: Option<String> = None;
@@ -325,6 +331,24 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         } else if args[i] == "--emit-py" {
             emit_py = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-py requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-rb" {
+            emit_rb = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-rb requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-lua" {
+            emit_lua = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-lua requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-sol" {
+            emit_sol = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-sol requires an output path");
                 std::process::exit(1);
             }));
             i += 2;
@@ -383,6 +407,61 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         eprintln!("cuni: wrote {}", out_path);
         emitted_any = true;
     }
+    if let Some(out_path) = emit_rb {
+        let rb_source = codegen_rb::generate(&program);
+        if let Err(e) = fs::write(&out_path, rb_source) {
+            eprintln!("cuni: couldn't write {}: {}", out_path, e);
+            return ExitCode::FAILURE;
+        }
+        eprintln!("cuni: wrote {}", out_path);
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_lua {
+        let lua_source = codegen_lua::generate(&program);
+        if let Err(e) = fs::write(&out_path, lua_source) {
+            eprintln!("cuni: couldn't write {}: {}", out_path, e);
+            return ExitCode::FAILURE;
+        }
+        eprintln!("cuni: wrote {}", out_path);
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_sol {
+        // Contract name from the input file stem: provably-fair-dice -> ProvablyFairDice.
+        let stem = std::path::Path::new(&path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("contract");
+        let contract = stem
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|w| !w.is_empty())
+            .map(|w| {
+                let mut c = w.chars();
+                match c.next() {
+                    Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                    None => String::new(),
+                }
+            })
+            .collect::<String>();
+        let contract = if contract.is_empty() {
+            "CuniContract".to_string()
+        } else {
+            contract
+        };
+        match codegen_sol::generate_named(&program, &contract) {
+            Ok(sol_source) => {
+                if let Err(e) = fs::write(&out_path, sol_source) {
+                    eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                    return ExitCode::FAILURE;
+                }
+                eprintln!("cuni: wrote {}", out_path);
+                emitted_any = true;
+            }
+            Err(e) => {
+                eprintln!("cuni: Solidity refused: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
+    }
     if let Some(out_path) = emit_go {
         let go_source = codegen_go::generate(&program);
         if let Err(e) = fs::write(&out_path, go_source) {
@@ -414,7 +493,13 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             return ExitCode::FAILURE;
         }
         for lang in langs::LANGS {
-            let src = emit::generate_exact(&program, lang);
+            let src = match emit::generate_exact(&program, lang) {
+                Ok(s) => s,
+                Err(e) => {
+                    eprintln!("cuni: emit refused for {}: {}", lang.id, e);
+                    return ExitCode::FAILURE;
+                }
+            };
             let path = format!("{}/{}", dir, lang.out_file());
             if let Err(e) = fs::write(&path, src) {
                 eprintln!("cuni: couldn't write {}: {}", path, e);

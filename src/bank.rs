@@ -95,7 +95,13 @@ pub fn cmd_bank(args: &[String]) -> ExitCode {
                     return ExitCode::FAILURE;
                 }
             };
-            let artifact = emit::generate_exact(&program, lang);
+            let artifact = match emit::generate_exact(&program, lang) {
+                Ok(a) => a,
+                Err(e) => {
+                    eprintln!("cuni bank: refuse — {e}");
+                    return ExitCode::FAILURE;
+                }
+            };
             let ext = lang.ext;
             let out_path = output
                 .map(PathBuf::from)
