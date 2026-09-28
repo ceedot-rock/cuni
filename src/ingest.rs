@@ -95,6 +95,8 @@ pub fn ingest_file(path: &Path) -> Result<String, String> {
         Some("js") | Some("ts") => ingest_js(&src)?,
         Some("c") | Some("cpp") => ingest_c(&src)?,
         Some("rs") => ingest_rs(&src)?,
+        Some("rb") => ingest_rb(&src)?,
+        Some("lua") => ingest_lua(&src)?,
         Some("sol") => ingest_sol(&src)?,
         Some("awk") => ingest_awk(&src)?,
         Some("pl") => ingest_pl(&src)?,
@@ -188,7 +190,7 @@ enum Tok {
     Sym(String),
 }
 
-fn tokenize(src: &str, hash_comments: bool) -> Result<Vec<Tok>, String> {
+fn tokenize(src: &str, hash_comments: bool, ruby_interp: bool) -> Result<Vec<Tok>, String> {
     let ch: Vec<char> = src.chars().collect();
     let mut toks = Vec::new();
     let mut i = 0;
@@ -223,6 +225,9 @@ fn tokenize(src: &str, hash_comments: bool) -> Result<Vec<Tok>, String> {
             i += 1;
             let mut s = String::new();
             while i < n && ch[i] != '"' {
+                if ruby_interp && ch[i] == '#' && i + 1 < n && ch[i + 1] == '{' {
+                    return Err("ingest: refuse Ruby `#{}` interpolation (outside subset)".into());
+                }
                 if ch[i] == '\\' && i + 1 < n {
                     match ch[i + 1] {
                         'n' => s.push('\n'),
@@ -292,7 +297,7 @@ fn tokenize(src: &str, hash_comments: bool) -> Result<Vec<Tok>, String> {
         let rest: String = ch[i..std::cmp::min(i + 3, n)].iter().collect();
         let sym = if rest.starts_with("===") || rest.starts_with("!==") {
             &rest[..3]
-        } else if ["==", "!=", "<=", ">=", "&&", "||", ":=", "->", "::"]
+        } else if ["==", "!=", "<=", ">=", "&&", "||", ":=", "->", "::", "~="]
             .iter()
             .any(|p| rest.starts_with(p))
         {
@@ -316,6 +321,8 @@ enum ELang {
     Js,
     C,
     Rs,
+    Rb,
+    Lua,
     Py,
     Sol,
 }
@@ -329,7 +336,7 @@ struct XP {
 impl XP {
     fn new(src: &str, lang: ELang) -> Result<Self, String> {
         Ok(XP {
-            toks: tokenize(src, lang == ELang::Py)?,
+            toks: tokenize(src, lang == ELang::Py, lang == ELang::Rb)?,
             pos: 0,
             lang,
         })
@@ -436,7 +443,7 @@ impl XP {
         loop {
             let op = if self.eat_sym("==") || self.eat_sym("===") {
                 "=="
-            } else if self.eat_sym("!=") || self.eat_sym("!==") {
+            } else if self.eat_sym("!=") || self.eat_sym("!==") || self.eat_sym("~=") {
                 "!="
             } else if self.eat_sym("<=") {
                 "<="
@@ -548,6 +555,10 @@ impl XP {
                     "false" => return Ok(Ix::Bool(false)),
                     "True" if self.lang == ELang::Py => return Ok(Ix::Bool(true)),
                     "False" if self.lang == ELang::Py => return Ok(Ix::Bool(false)),
+                    // Ruby/Lua `nil` is CuNi `none`.
+                    "nil" if self.lang == ELang::Rb || self.lang == ELang::Lua => {
+                        return Ok(Ix::Ident("none".into()))
+                    }
                     _ => {}
                 }
                 // Rust `Val::X` atoms.
@@ -680,6 +691,14 @@ impl XP {
                 _ => Ok(Ix::Call(name.into(), args)),
             },
             ELang::Js => match name {
+                "_cuni_div" => bin2("/"),
+                _ => Ok(Ix::Call(name.into(), args)),
+            },
+            ELang::Rb | ELang::Lua => match name {
+                // Both native backends lower int division through a prelude
+                // helper; map it back to CuNi `/`. Other prelude helpers
+                // (`_cuni_slice`, `_cuni_repr`, …) stay as calls and the
+                // CuNi front-end refuses them — never silently kept.
                 "_cuni_div" => bin2("/"),
                 _ => Ok(Ix::Call(name.into(), args)),
             },
@@ -936,7 +955,7 @@ fn strip_semi(t: &str) -> &str {
 
 /// Split `name = expr` at the top level using the tokenizer (avoids `==`).
 fn split_assign(chunk: &str, lang: ELang) -> Result<Option<(String, String)>, String> {
-    let toks = tokenize(chunk, lang == ELang::Py)?;
+    let toks = tokenize(chunk, lang == ELang::Py, lang == ELang::Rb)?;
     let mut depth = 0i32;
     let mut eq_at = None;
     for (i, t) in toks.iter().enumerate() {
@@ -1922,7 +1941,10 @@ fn sol_def(f: &Func) -> Result<Option<String>, String> {
     // Return type after `returns`.
     let ret = if let Some(rpos) = sig.find("returns") {
         let r = sig[rpos + "returns".len()..].trim();
-        let r = r.strip_prefix('(').and_then(|s| s.strip_suffix(')')).unwrap_or(r);
+        let r = r
+            .strip_prefix('(')
+            .and_then(|s| s.strip_suffix(')'))
+            .unwrap_or(r);
         let r = r.trim().replace(" memory", "").replace(" calldata", "");
         if r.is_empty() || r == "()" {
             "()".to_string()
@@ -1951,7 +1973,9 @@ fn sol_type_to_cuni(t: &str) -> Result<String, String> {
         "int256" | "int" => Ok("int".into()),
         "string" => Ok("str".into()),
         "bool" => Ok("bool".into()),
-        _ => Err(format!("ingest: refuse Solidity type `{t}` (outside subset)")),
+        _ => Err(format!(
+            "ingest: refuse Solidity type `{t}` (outside subset)"
+        )),
     }
 }
 
@@ -2030,7 +2054,11 @@ fn sol_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
             let rest = rest.strip_prefix("calldata").map(str::trim).unwrap_or(rest);
             if let Some(eq) = rest.find('=') {
                 let nm = rest[..eq].trim();
-                let val = rest[eq + 1..].trim().strip_suffix(';').unwrap_or(rest).trim();
+                let val = rest[eq + 1..]
+                    .trim()
+                    .strip_suffix(';')
+                    .unwrap_or(rest)
+                    .trim();
                 if !is_ident(nm) {
                     return Err(format!("ingest: refuse Solidity binding `{nm}`"));
                 }
@@ -3105,6 +3133,578 @@ fn py_if(lines: &[&str], i: usize, ind: usize, rest: &str) -> Result<(Vec<String
             v.extend(else_b);
             ni = ni2;
         }
+    }
+    v.push(format!("{pad}end"));
+    Ok((v, ni))
+}
+
+// ---------------------------------------------------------------------------
+// Ruby and Lua (native `def`/`function` … `end` backends)
+// ---------------------------------------------------------------------------
+// Both backends erase CuNi types, so params/returns are recovered by the
+// shared call-site inference (`infer_untyped`), exactly like the JS seat.
+// Blocks are indent-parsed and `end`-terminated, mirroring the Python
+// ingester's shape. Anything outside the emitted subset refuses.
+//
+// Soundness note on `let` vs `mut`: the backends erase the distinction, and
+// it cannot be recovered exactly (a name bound in two `if` branches is two
+// separate `let`s; a name bound once then reassigned needed `mut`). So the
+// first binding of a name in a scope ingests as `let` and later ones as bare
+// reassignments; `if`/`while` bodies get a fresh scope clone so branch-local
+// bindings can never leak into (or clobber) the outer scope. Code that truly
+// needed `mut` then fails the CuNi front-end with "cannot assign to `x` —
+// it's `let`-bound" — an honest refusal, never a mistranslation.
+
+/// Prelude helpers the Ruby backend always emits; user defs with these names
+/// are the runtime, not user code, and are skipped on ingest.
+const RB_PRELUDE: &[&str] = &[
+    "say",
+    "_cuni_repr",
+    "_cuni_interp_str",
+    "_cuni_float_str",
+    "range",
+    "abs",
+    "min",
+    "max",
+    "_cuni_slice",
+    "_cuni_div",
+];
+
+/// Prelude helpers the Lua backend always emits.
+const LUA_PRELUDE: &[&str] = &[
+    "say",
+    "_cuni_repr",
+    "_cuni_num_str",
+    "_cuni_interp_str",
+    "_cuni_list",
+    "_cuni_map",
+    "range",
+    "abs",
+    "min",
+    "max",
+    "_cuni_slice",
+    "_cuni_div",
+    "_cuni_len",
+    "kwargs",
+];
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EndLang {
+    Rb,
+    Lua,
+}
+
+impl EndLang {
+    fn elang(self) -> ELang {
+        match self {
+            EndLang::Rb => ELang::Rb,
+            EndLang::Lua => ELang::Lua,
+        }
+    }
+    fn seat(self) -> &'static str {
+        match self {
+            EndLang::Rb => "Ruby",
+            EndLang::Lua => "Lua",
+        }
+    }
+    fn prelude(self) -> &'static [&'static str] {
+        match self {
+            EndLang::Rb => RB_PRELUDE,
+            EndLang::Lua => LUA_PRELUDE,
+        }
+    }
+    fn is_comment(self, stripped: &str) -> bool {
+        match self {
+            EndLang::Rb => stripped.starts_with('#'),
+            EndLang::Lua => stripped.starts_with("--"),
+        }
+    }
+    /// The def-keyword rest, or None when this line is not a def.
+    fn def_rest<'a>(self, stripped: &'a str) -> Option<&'a str> {
+        match self {
+            EndLang::Rb => stripped.strip_prefix("def "),
+            EndLang::Lua => stripped
+                .strip_prefix("function ")
+                .or_else(|| stripped.strip_prefix("local function ")),
+        }
+    }
+    /// Binding introducers for the shared type-recovery pass.
+    fn bind_keywords(self) -> &'static [&'static str] {
+        match self {
+            EndLang::Rb => &[],
+            EndLang::Lua => &["local"],
+        }
+    }
+}
+
+/// True when `src` is one of CuNi's Python lowerings (`# CuNi exactness
+/// artifact` header) rather than a native Ruby/Lua artifact, whose own
+/// headers name the Ruby/Lua backend.
+fn is_lowering_artifact(src: &str) -> bool {
+    for line in src.lines() {
+        let t = line.trim();
+        if t.is_empty() {
+            continue;
+        }
+        if !t.starts_with('#') {
+            break;
+        }
+        if t.contains("CuNi exactness artifact") {
+            return true;
+        }
+    }
+    false
+}
+
+/// Strip the common leading indent from a block of lines (blank lines kept).
+fn dedent_block(lines: &[&str]) -> Vec<String> {
+    let min = lines
+        .iter()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| indent_of(l))
+        .min()
+        .unwrap_or(0);
+    lines
+        .iter()
+        .map(|l| {
+            if l.len() >= min {
+                l[min..].to_string()
+            } else {
+                l.to_string()
+            }
+        })
+        .collect()
+}
+
+/// An `end` line, tolerating a trailing `#`/`--` comment.
+fn is_end_line(stripped: &str) -> bool {
+    if stripped == "end" {
+        return true;
+    }
+    if let Some(rest) = stripped.strip_prefix("end") {
+        let r = rest.trim_start();
+        return r.is_empty() || r.starts_with('#') || r.starts_with("--");
+    }
+    false
+}
+
+/// True when `rest` (the text after `def `/`function `) both opens and closes
+/// the def on this one line: a parameter list followed by a body and a
+/// standalone trailing `end`. The Lua prelude uses these (`function abs(n)
+/// return ... end`); the backends never emit them for user code.
+fn is_one_line_def(rest: &str) -> bool {
+    let t = rest.trim_end();
+    let before_end = match t.strip_suffix("end") {
+        Some(b) => b,
+        None => return false,
+    };
+    // `end` must be a standalone word, not part of a longer one.
+    if before_end.ends_with(|c: char| c.is_alphanumeric() || c == '_') {
+        return false;
+    }
+    // There must be a parameter list before the body.
+    before_end.find('(').is_some()
+}
+
+/// Split top-level `def`/`function` items from the remaining top-level lines.
+/// Nested defs refuse: the backends never emit them.
+fn extract_end_funcs(el: EndLang, lines: &[&str]) -> Result<(Vec<Func>, Vec<String>), String> {
+    let kw = match el {
+        EndLang::Rb => "def",
+        EndLang::Lua => "function",
+    };
+    let mut funcs = Vec::new();
+    let mut top = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        let raw = lines[i];
+        let stripped = raw.trim();
+        match el.def_rest(stripped) {
+            Some(rest) => {
+                if indent_of(raw) != 0 {
+                    return Err(format!(
+                        "ingest: refuse {} nested {kw} (outside subset): {stripped}",
+                        el.seat()
+                    ));
+                }
+                // One-line def (`function abs(n) return ... end`): the Lua
+                // prelude uses these. Prelude ones are runtime — skip; a user
+                // one-liner is outside the subset and refuses honestly.
+                if is_one_line_def(rest) {
+                    let name = rest.split('(').next().unwrap_or("").trim().to_string();
+                    if el.prelude().contains(&name.as_str()) {
+                        i += 1;
+                        continue;
+                    }
+                    return Err(format!(
+                        "ingest: refuse {} one-line def `{name}` (outside subset)",
+                        el.seat()
+                    ));
+                }
+                let mut j = i + 1;
+                while j < lines.len() {
+                    if indent_of(lines[j]) == 0 && is_end_line(lines[j].trim()) {
+                        break;
+                    }
+                    j += 1;
+                }
+                if j >= lines.len() {
+                    return Err(format!(
+                        "ingest: {} {kw} without `end`: {stripped}",
+                        el.seat()
+                    ));
+                }
+                let name = rest.split('(').next().unwrap_or("").trim().to_string();
+                if !is_ident(&name) {
+                    return Err(format!("ingest: bad {} {kw} name `{name}`", el.seat()));
+                }
+                funcs.push(Func {
+                    name,
+                    sig: rest.trim().to_string(),
+                    body: lines[i + 1..j].join("\n"),
+                });
+                i = j + 1;
+            }
+            None => {
+                top.push(raw.to_string());
+                i += 1;
+            }
+        }
+    }
+    Ok((funcs, top))
+}
+
+fn ingest_rb(src: &str) -> Result<String, String> {
+    // A Python lowering wearing `.rb` still routes to the lowering path.
+    if is_lowering_artifact(src) {
+        return ingest_lowering(src, "rb");
+    }
+    ingest_end_lang(EndLang::Rb, src)
+}
+
+fn ingest_lua(src: &str) -> Result<String, String> {
+    if is_lowering_artifact(src) {
+        return ingest_lowering(src, "lua");
+    }
+    ingest_end_lang(EndLang::Lua, src)
+}
+
+fn ingest_end_lang(el: EndLang, src: &str) -> Result<String, String> {
+    let seat = el.seat();
+    let lines: Vec<&str> = src.lines().collect();
+    let (funcs, top) = extract_end_funcs(el, &lines)?;
+    // The `main` body: a `def main` / `function main` when present, else the
+    // leftover top-level statements (hand-written scripts).
+    let (main_body, main_is_def): (String, bool) = match funcs.iter().find(|f| f.name == "main") {
+        Some(f) => {
+            for t in &top {
+                let s = t.trim();
+                if s.is_empty() || el.is_comment(s) || s == "main" {
+                    continue;
+                }
+                // The Ruby prelude's one-line class stub is runtime, not code.
+                if el == EndLang::Rb && s.starts_with("class ") {
+                    continue;
+                }
+                return Err(format!(
+                    "ingest: refuse {seat} top-level statement outside main: {s}"
+                ));
+            }
+            (f.body.clone(), true)
+        }
+        None => (top.join("\n"), false),
+    };
+    let (sigs, _untyped) = infer_untyped(
+        &funcs,
+        &main_body,
+        el.elang(),
+        &|n| el.prelude().contains(&n),
+        el.bind_keywords(),
+        true,
+        &|_| false,
+        &|f| sig_param_names(&f.sig, el.elang()),
+        seat,
+    )?;
+    let mut out = String::new();
+    for f in &funcs {
+        if f.name == "main" || el.prelude().contains(&f.name.as_str()) {
+            continue;
+        }
+        let def =
+            end_def(el, f, &sigs).map_err(|e| format!("ingest: {seat} def `{}`: {e}", f.name))?;
+        out.push_str(&def);
+        out.push('\n');
+    }
+    let main_lines: Vec<&str> = main_body.lines().collect();
+    let mut bound = HashSet::new();
+    // A def body is still indented: dedent it to top level first. Leftover
+    // top-level lines already sit at indent 0.
+    let (stmts, ni) = if main_is_def {
+        let dedented = dedent_block(&main_lines);
+        let dd: Vec<&str> = dedented.iter().map(|s| s.as_str()).collect();
+        end_block(el, &dd, 0, 0, &mut bound)?
+    } else {
+        end_block(el, &main_lines, 0, 0, &mut bound)?
+    };
+    if ni < main_lines.len() {
+        return Err(format!(
+            "ingest: refuse {seat} unexpected `{}`",
+            main_lines[ni].trim()
+        ));
+    }
+    for st in stmts {
+        out.push_str(&st);
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+/// Typed def: params and return come from call-site inference.
+fn end_def(el: EndLang, f: &Func, sigs: &HashMap<String, TypedSig>) -> Result<String, String> {
+    let seat = el.seat();
+    let tsig = sigs.get(&f.name).ok_or_else(|| {
+        format!("ingest: refuse {seat} def `{}` — cannot infer signature (types are erased in this backend)", f.name)
+    })?;
+    let params: Vec<String> = tsig
+        .params
+        .iter()
+        .map(|(n, t)| format!("{n}: {}", t.cuni().expect("inferred types are known")))
+        .collect();
+    let ret = tsig.ret.cuni().expect("inferred types are known");
+    let mut bound: HashSet<String> = tsig.params.iter().map(|(n, _)| n.clone()).collect();
+    let lines: Vec<&str> = f.body.lines().collect();
+    let (body, ni) = end_body(el, &lines, 0, 0, &mut bound)?;
+    if ni < lines.len() {
+        return Err(format!("unexpected `{}`", lines[ni].trim()));
+    }
+    if !body
+        .iter()
+        .any(|s| s.trim_start() == "ret" || s.trim_start().starts_with("ret "))
+    {
+        return Err(format!(
+            "ingest: refuse {seat} def `{}` without return (v1 subset)",
+            f.name
+        ));
+    }
+    let mut v = vec![format!("def {}({}) -> {ret} do", f.name, params.join(", "))];
+    v.extend(body);
+    v.push("end".to_string());
+    Ok(v.join("\n"))
+}
+
+/// The child block after a `def`/`if`/`while` header at `parent_ind`.
+fn end_body(
+    el: EndLang,
+    lines: &[&str],
+    i: usize,
+    parent_ind: usize,
+    bound: &mut HashSet<String>,
+) -> Result<(Vec<String>, usize), String> {
+    let mut j = i;
+    while j < lines.len() {
+        let s = lines[j].trim();
+        if s.is_empty() || el.is_comment(s) {
+            j += 1;
+            continue;
+        }
+        break;
+    }
+    if j >= lines.len() {
+        return Ok((vec![], j));
+    }
+    let bi = indent_of(lines[j]);
+    if bi <= parent_ind {
+        return Ok((vec![], j));
+    }
+    end_block(el, lines, j, bi, bound)
+}
+
+/// Parse an `end`-terminated block; every statement sits at exactly `ind`
+/// spaces. `bound` holds the names already bound in this scope: the first
+/// binding of a name emits `let`, later ones emit bare reassignment.
+/// Returns (cuni lines, next line index) — the index points at the closing
+/// `end`/`else` or the first dedented line.
+fn end_block(
+    el: EndLang,
+    lines: &[&str],
+    mut i: usize,
+    ind: usize,
+    bound: &mut HashSet<String>,
+) -> Result<(Vec<String>, usize), String> {
+    let lang = el.elang();
+    let seat = el.seat();
+    let mut out = Vec::new();
+    while i < lines.len() {
+        let raw = lines[i];
+        let stripped = raw.trim();
+        if stripped.is_empty() || el.is_comment(stripped) {
+            i += 1;
+            continue;
+        }
+        if is_end_line(stripped) {
+            if indent_of(raw) > ind {
+                return Err(format!(
+                    "ingest: refuse {seat} dedent `end` (outside subset)"
+                ));
+            }
+            break;
+        }
+        let cur = indent_of(raw);
+        if cur < ind {
+            break;
+        }
+        if cur > ind {
+            return Err(format!("ingest: refuse bad indent in {seat}: {stripped}"));
+        }
+        if stripped == "else" {
+            break;
+        }
+        let pad: String = " ".repeat(ind);
+        // Nested def: the pre-pass extracts top-level defs; anything left is nested.
+        if el.def_rest(stripped).is_some() {
+            return Err(format!("ingest: refuse {seat} nested def (outside subset)"));
+        }
+        if let Some(rest) = stripped.strip_prefix("if ") {
+            let (v, ni) = end_if(el, lines, i, ind, rest, bound)?;
+            out.extend(v);
+            i = ni;
+            continue;
+        }
+        if let Some(rest) = stripped.strip_prefix("while ") {
+            let (v, ni) = end_while(el, lines, i, ind, rest, bound)?;
+            out.extend(v);
+            i = ni;
+            continue;
+        }
+        for bad in [
+            "for", "until", "unless", "case", "elsif", "elseif", "begin", "repeat",
+        ] {
+            if stripped == bad || stripped.starts_with(&format!("{bad} ")) {
+                return Err(format!("ingest: refuse {seat} `{bad}` (outside subset)"));
+            }
+        }
+        if stripped == "do" || stripped.starts_with("do ") {
+            return Err(format!(
+                "ingest: refuse {seat} bare `do` block (outside subset)"
+            ));
+        }
+        if stripped == "raise" || stripped.starts_with("raise ") || stripped.starts_with("raise(") {
+            return Err(format!("ingest: refuse {seat} raise (outside subset)"));
+        }
+        if stripped == "error" || stripped.starts_with("error(") {
+            return Err(format!("ingest: refuse {seat} error() (outside subset)"));
+        }
+        if let Some(rest) = stripped.strip_prefix("return ") {
+            let e = XP::new(rest.trim(), lang)?.expr()?.to_cuni();
+            out.push(format!("{pad}ret {e}"));
+            i += 1;
+            continue;
+        }
+        if stripped == "return" {
+            out.push(format!("{pad}ret"));
+            i += 1;
+            continue;
+        }
+        if stripped == "main" || stripped == "main()" {
+            i += 1; // trailing entry-point call
+            continue;
+        }
+        // `local x = e` (Lua) or `x = e`: first binding in this scope is
+        // `let`, later ones are bare reassignments.
+        let assign_src = match el {
+            EndLang::Rb => stripped,
+            EndLang::Lua => stripped.strip_prefix("local ").unwrap_or(stripped),
+        };
+        if let Some((lhs, rhs)) = split_assign(assign_src, lang)? {
+            if !is_ident(&lhs) {
+                return Err(format!("ingest: refuse {seat} assignment target `{lhs}`"));
+            }
+            let e = XP::new(&rhs, lang)?.expr()?.to_cuni();
+            if bound.contains(&lhs) {
+                out.push(format!("{pad}{lhs} = {e}"));
+            } else {
+                bound.insert(lhs.clone());
+                out.push(format!("{pad}let {lhs} = {e}"));
+            }
+            i += 1;
+            continue;
+        }
+        let e = XP::new(stripped, lang)?.expr()?;
+        out.push(format!("{pad}{}", e.to_cuni()));
+        i += 1;
+    }
+    Ok((out, i))
+}
+
+fn end_if(
+    el: EndLang,
+    lines: &[&str],
+    i: usize,
+    ind: usize,
+    rest: &str,
+    bound: &mut HashSet<String>,
+) -> Result<(Vec<String>, usize), String> {
+    let seat = el.seat();
+    // An optional trailing `then` (hand-written style; the backends omit it).
+    let cond_s = rest.strip_suffix(" then").unwrap_or(rest).trim();
+    if cond_s.is_empty() {
+        return Err(format!("ingest: bad {seat} if"));
+    }
+    let c = XP::new(cond_s, el.elang())?.expr()?.to_cuni();
+    let pad: String = " ".repeat(ind);
+    // Fresh scope per branch: branch-local bindings never leak out.
+    let (then_b, mut ni) = end_body(el, lines, i + 1, ind, &mut bound.clone())?;
+    let mut v = vec![format!("{pad}if {c} do")];
+    v.extend(then_b);
+    if ni < lines.len() {
+        let s = lines[ni].trim();
+        if indent_of(lines[ni]) == ind
+            && (s.starts_with("elsif ")
+                || s.starts_with("elseif ")
+                || s == "elsif"
+                || s == "elseif")
+        {
+            return Err(format!("ingest: refuse {seat} elsif (outside subset)"));
+        }
+    }
+    if ni < lines.len() && indent_of(lines[ni]) == ind && lines[ni].trim() == "else" {
+        let (else_b, ni2) = end_body(el, lines, ni + 1, ind, &mut bound.clone())?;
+        v.push(format!("{pad}els"));
+        v.extend(else_b);
+        ni = ni2;
+    }
+    if ni < lines.len() && indent_of(lines[ni]) == ind && is_end_line(lines[ni].trim()) {
+        ni += 1;
+    } else {
+        return Err(format!("ingest: bad {seat} if — missing `end`"));
+    }
+    v.push(format!("{pad}end"));
+    Ok((v, ni))
+}
+
+fn end_while(
+    el: EndLang,
+    lines: &[&str],
+    i: usize,
+    ind: usize,
+    rest: &str,
+    bound: &mut HashSet<String>,
+) -> Result<(Vec<String>, usize), String> {
+    let seat = el.seat();
+    // Lua writes `while cond do`; Ruby writes `while cond`.
+    let cond_s = rest.strip_suffix(" do").unwrap_or(rest).trim();
+    if cond_s.is_empty() {
+        return Err(format!("ingest: bad {seat} while"));
+    }
+    let c = XP::new(cond_s, el.elang())?.expr()?.to_cuni();
+    let pad: String = " ".repeat(ind);
+    let (body_b, mut ni) = end_body(el, lines, i + 1, ind, &mut bound.clone())?;
+    let mut v = vec![format!("{pad}whl {c} do")];
+    v.extend(body_b);
+    if ni < lines.len() && indent_of(lines[ni]) == ind && is_end_line(lines[ni].trim()) {
+        ni += 1;
+    } else {
+        return Err(format!("ingest: bad {seat} while — missing `end`"));
     }
     v.push(format!("{pad}end"));
     Ok((v, ni))

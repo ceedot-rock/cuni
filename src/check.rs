@@ -92,7 +92,13 @@ pub fn load_program(path: &Path) -> Result<Program, String> {
     let program = modules::resolve_uses(program, path).map_err(|e| {
         if let Some(span) = e.span {
             let (line, col) = line_col(&source, span.start);
-            format!("{}:{}:{}: module error: {}", path.display(), line, col, e.message)
+            format!(
+                "{}:{}:{}: module error: {}",
+                path.display(),
+                line,
+                col,
+                e.message
+            )
         } else {
             format!("{}: module error: {}", path.display(), e.message)
         }

@@ -181,29 +181,20 @@ impl<'a> Checker<'a> {
                 }
                 Item::Iface(i) => {
                     if ifaces.contains_key(&i.name) {
-                        return err_at(
-                            i.name_span,
-                            format!("duplicate iface `{}`", i.name),
-                        );
+                        return err_at(i.name_span, format!("duplicate iface `{}`", i.name));
                     }
                     ifaces.insert(i.name.clone(), i);
                 }
                 Item::Enum(e) => {
                     if enums.contains_key(&e.name) {
-                        return err_at(
-                            e.name_span,
-                            format!("duplicate enum `{}`", e.name),
-                        );
+                        return err_at(e.name_span, format!("duplicate enum `{}`", e.name));
                     }
                     let mut variant_set = HashSet::new();
                     for v in &e.variants {
                         if !variant_set.insert(v.name.clone()) {
                             return err_at(
                                 v.name_span,
-                                format!(
-                                    "duplicate variant `{}` in enum `{}`",
-                                    v.name, e.name
-                                ),
+                                format!("duplicate variant `{}` in enum `{}`", v.name, e.name),
                             );
                         }
                     }

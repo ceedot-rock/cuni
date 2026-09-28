@@ -1,6 +1,6 @@
 [package]
 name = "cuni"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "CuNi (Code:uNiTY) — one source, exact on every target or refuse; now with Solidity smart-contract seat"
 license = "AGPL-3.0-or-later"

@@ -1,0 +1,19 @@
+# Deliberate ext/global collision fixture.
+# The `ext fetch` name collides with the JS global `fetch` — `--emit-js`
+# must YEET it (refuse with a clear, actionable error, see src/checks.rs),
+# not emit self-recursive JS. (`fetch` is not in the Python reserved-globals
+# list, so the py seat is unaffected by this fixture — the JS rule is the one
+# under test here.)
+
+use math
+
+ext fetch(url: str) -> str do
+    py: requests.get(url).text
+    go: httpGet(url)
+    js: await fetch(url).then(r => r.text())
+end
+
+let sum = add(2, 3)
+say(sum)
+let page = fetch("https://example.com")
+say(page)

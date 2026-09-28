@@ -1,11 +1,12 @@
-# Portable import + deliberate ext/global collision demo.
+# Portable import + ext demo (clean working example).
 # `use math` loads examples/math.cuni (see src/modules.rs).
-# The `ext fetch` name collides with the JS global `fetch` — `--emit-js`
-# must refuse (src/checks.rs), not emit self-recursive JS.
+# The `ext geet` name does NOT collide with any target global —
+# every seat emits cleanly. For the deliberate collision case,
+# see examples/ext-collision.cuni (which the compiler yeets).
 
 use math
 
-ext fetch(url: str) -> str do
+ext geet(url: str) -> str do
     py: requests.get(url).text
     go: httpGet(url)
     js: await fetch(url).then(r => r.text())
@@ -13,5 +14,5 @@ end
 
 let sum = add(2, 3)
 say(sum)
-let page = fetch("https://example.com")
+let page = geet("https://example.com")
 say(page)

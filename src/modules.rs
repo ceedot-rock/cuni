@@ -35,7 +35,13 @@ pub fn resolve_uses(program: Program, source_path: &Path) -> Result<Program, Mod
         match item {
             Item::Use(u) => {
                 // Span is root-source-relative — check.rs line_cols against the root file.
-                load_module(&u.name, Some(u.name_span), base_dir, &mut seen, &mut imported)?;
+                load_module(
+                    &u.name,
+                    Some(u.name_span),
+                    base_dir,
+                    &mut seen,
+                    &mut imported,
+                )?;
             }
             other => local.push(other),
         }
@@ -51,7 +57,13 @@ fn path_key(p: &Path) -> String {
         .unwrap_or_else(|_| p.to_string_lossy().into_owned())
 }
 
-fn load_module(name: &str, name_span: Option<crate::ast::Span>, from_dir: &Path, seen: &mut HashSet<String>, out: &mut Vec<Item>) -> Result<(), ModuleError> {
+fn load_module(
+    name: &str,
+    name_span: Option<crate::ast::Span>,
+    from_dir: &Path,
+    seen: &mut HashSet<String>,
+    out: &mut Vec<Item>,
+) -> Result<(), ModuleError> {
     let path = from_dir.join(format!("{}.cuni", name));
     let key = path_key(&path);
     if seen.contains(&key) {
@@ -80,7 +92,12 @@ fn load_module(name: &str, name_span: Option<crate::ast::Span>, from_dir: &Path,
     seen.insert(key);
 
     let source = fs::read_to_string(&path).map_err(|e| ModuleError {
-        message: format!("couldn't read module `{}` ({}): {}", name, path.display(), e),
+        message: format!(
+            "couldn't read module `{}` ({}): {}",
+            name,
+            path.display(),
+            e
+        ),
         span: name_span,
     })?;
     let tokens = Lexer::tokenize(&source).map_err(|e| ModuleError {

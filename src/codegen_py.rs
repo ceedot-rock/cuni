@@ -195,7 +195,13 @@ impl Codegen {
     fn gen_item(&mut self, item: &Item, scope: &mut HashMap<String, VarKind>) {
         match item {
             Item::Use(u) => {
-                self.line(0, &format!("# use {} — portable CuNi module, not resolved by this toy backend", u.name));
+                self.line(
+                    0,
+                    &format!(
+                        "# use {} — portable CuNi module, not resolved by this toy backend",
+                        u.name
+                    ),
+                );
             }
             Item::Ext(ext) => {
                 self.line(

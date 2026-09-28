@@ -69,7 +69,7 @@ use std::collections::HashMap;
 ///   contains `await`, the wrapper function is emitted as `async` (a
 ///   best-effort heuristic, not real analysis) — this mirrors the spec's own
 ///   `ext fetch` example, whose `js:` line uses `await fetch(...)`. That same
-///   example (examples/modules.cuni) originally surfaced a real gap when
+///   example (examples/ext-collision.cuni) originally surfaced a real gap when
 ///   actually run: an `ext` binding named `fetch` whose `js:` body also calls
 ///   the global `fetch` emits `function fetch(url) { return await
 ///   fetch(url)... }`, which recurses into itself instead of the global (a
@@ -337,7 +337,13 @@ impl Codegen {
     fn gen_item(&mut self, item: &Item, scope: &mut HashMap<String, VarKind>) {
         match item {
             Item::Use(u) => {
-                self.line(0, &format!("// use {} — portable CuNi module, not resolved by this toy backend", u.name));
+                self.line(
+                    0,
+                    &format!(
+                        "// use {} — portable CuNi module, not resolved by this toy backend",
+                        u.name
+                    ),
+                );
             }
             Item::Ext(ext) => match ext.targets.iter().find(|(t, _)| t == "js") {
                 Some((_, raw)) => {
@@ -401,8 +407,16 @@ impl Codegen {
                 }
             }
             Item::Enum(e) => {
-                let pairs = e.variants.iter().map(|v| format!("{}: {:?}", v.name, v.name)).collect::<Vec<_>>().join(", ");
-                self.line(0, &format!("const {} = Object.freeze({{{}}});", e.name, pairs));
+                let pairs = e
+                    .variants
+                    .iter()
+                    .map(|v| format!("{}: {:?}", v.name, v.name))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                self.line(
+                    0,
+                    &format!("const {} = Object.freeze({{{}}});", e.name, pairs),
+                );
             }
             Item::Def(f) => {
                 let generics_note = if f.generics.is_empty() {

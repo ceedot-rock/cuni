@@ -151,7 +151,7 @@ end
 
 A program with zero `ext` blocks gets the full portability guarantee. A program with `ext` blocks is exact except for the specific lines marked non-portable.
 
-Note the `ext` binding above is named `fetchPage`, not `fetch` — an `ext` name that matches a target-global identifier its own body calls (e.g. naming this binding `fetch` while its `js:` line also calls the global `fetch`) shadows that global with the emitted top-level function, turning the intended call into silent self-recursion. The compiler refuses to compile such a collision for the affected target rather than emit it (see `src/checks.rs`, OPEN_ITEMS_PROPOSAL.md item 5).
+Note the `ext` binding above is named `fetchPage`, not `fetch` — an `ext` name that matches a target-global identifier its own body calls (e.g. naming this binding `fetch` while its `js:` line also calls the global `fetch`) shadows that global with the emitted top-level function, turning the intended call into silent self-recursion. The compiler yeets such a collision for the affected target — refused and discarded with a clear, actionable error naming the collision, rather than emitted (see `src/checks.rs`, OPEN_ITEMS_PROPOSAL.md item 5; fixture: `examples/ext-collision.cuni`).
 
 ## 10. Structs and Interfaces
 

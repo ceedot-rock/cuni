@@ -9,12 +9,12 @@ mod codegen_js;
 mod codegen_lua;
 mod codegen_py;
 mod codegen_rb;
-mod codegen_sol;
 mod codegen_rs;
+mod codegen_sol;
 mod emit;
 mod ingest;
-mod ir;
 mod interp;
+mod ir;
 mod langs;
 mod lexer;
 mod modules;
@@ -42,7 +42,7 @@ Usage:
   cuni bank paste <file> --from py --to <id> [-o out]
   cuni prove <file.cuni> --against <impl>
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
-               [--emit-all <dir>] [--list-langs]
+               [--emit <seat> <out>] [--emit-all <dir>] [--emit-top50 <dir>] [--list-langs]
   cuni --help
   cuni --version
 
@@ -63,6 +63,9 @@ Commands:
 
 Emit:
   --emit-all DIR writes one artifact per catalog language.
+  --emit SEAT OUT emits one seat; repeat the flag for any subset.
+  --emit-top50 DIR emits the first 50 catalog languages into DIR
+               (top 50 = quality native seats first, LANGS order).
 "
     );
 }
@@ -306,6 +309,33 @@ fn cmd_run(args: &[String]) -> ExitCode {
     }
 }
 
+/// Emit one catalog seat to `out_path`, or refuse with a reason.
+/// Shared by `--emit`, `--emit-top50`, and (via --emit-all's own loop) kept
+/// consistent with the ext-collision rule for py/js (see item 5).
+fn emit_seat_to(
+    program: &ast::Program,
+    lang: &langs::Lang,
+    out_path: &str,
+) -> Result<(), String> {
+    let seat_id = lang.id;
+    if seat_id == "py" || seat_id == "js" {
+        if let Some(name) = checks::find_ext_collision(program, seat_id) {
+            let what = if seat_id == "py" {
+                "Python builtin"
+            } else {
+                "JS global"
+            };
+            return Err(format!(
+                "refusing to compile for {seat_id}: `ext {name}` shadows the {what} `{name}` inside its own {seat_id}: body — rename the CuNi binding (see OPEN_ITEMS_PROPOSAL.md item 5)"
+            ));
+        }
+    }
+    let src = emit::generate_exact(program, lang)
+        .map_err(|e| format!("emit refused for {seat_id}: {e}"))?;
+    fs::write(out_path, src).map_err(|e| format!("couldn't write {out_path}: {e}"))?;
+    Ok(())
+}
+
 fn cmd_compile(args: &[String]) -> ExitCode {
     let mut path = None;
     let mut emit_py: Option<String> = None;
@@ -315,6 +345,8 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     let mut emit_go: Option<String> = None;
     let mut emit_js: Option<String> = None;
     let mut emit_all: Option<String> = None;
+    let mut emit_top50: Option<String> = None;
+    let mut emit_targets: Vec<(String, String)> = Vec::new();
     let mut i = 0;
     while i < args.len() {
         if args[i] == "--list-langs" {
@@ -325,6 +357,12 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         } else if args[i] == "--emit-all" {
             emit_all = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-all requires a directory");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-top50" {
+            emit_top50 = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-top50 requires a directory");
                 std::process::exit(1);
             }));
             i += 2;
@@ -364,6 +402,17 @@ fn cmd_compile(args: &[String]) -> ExitCode {
                 std::process::exit(1);
             }));
             i += 2;
+        } else if args[i] == "--emit" {
+            let seat = args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit requires a seat id and an output path");
+                std::process::exit(1);
+            });
+            let out = args.get(i + 2).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit requires a seat id and an output path");
+                std::process::exit(1);
+            });
+            emit_targets.push((seat, out));
+            i += 3;
         } else if args[i].starts_with('-') {
             eprintln!("cuni: unknown flag `{}` (try --help)", args[i]);
             return ExitCode::FAILURE;
@@ -487,6 +536,42 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         eprintln!("cuni: wrote {}", out_path);
         emitted_any = true;
     }
+    for (seat_id, out_path) in &emit_targets {
+        let lang = match langs::LANGS.iter().find(|l| l.id == seat_id.as_str()) {
+            Some(l) => l,
+            None => {
+                eprintln!("cuni: unknown seat `{}` (try --list-langs)", seat_id);
+                return ExitCode::FAILURE;
+            }
+        };
+        if seat_id == "py" || seat_id == "js" {
+            if let Some(name) = checks::find_ext_collision(&program, seat_id) {
+                let what = if seat_id == "py" {
+                    "Python builtin"
+                } else {
+                    "JS global"
+                };
+                eprintln!(
+                    "cuni: refusing to compile for {}: `ext {}` shadows the {} `{}` inside its own {}: body — rename the CuNi binding (see OPEN_ITEMS_PROPOSAL.md item 5)",
+                    seat_id, name, what, name, seat_id
+                );
+                return ExitCode::FAILURE;
+            }
+        }
+        let src = match emit::generate_exact(&program, lang) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("cuni: emit refused for {}: {}", seat_id, e);
+                return ExitCode::FAILURE;
+            }
+        };
+        if let Err(e) = fs::write(&out_path, src) {
+            eprintln!("cuni: couldn't write {}: {}", out_path, e);
+            return ExitCode::FAILURE;
+        }
+        eprintln!("cuni: wrote {} ({})", out_path, seat_id);
+        emitted_any = true;
+    }
     if let Some(dir) = emit_all {
         if let Err(e) = fs::create_dir_all(&dir) {
             eprintln!("cuni: couldn't create {}: {}", dir, e);
@@ -507,6 +592,22 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             }
         }
         eprintln!("cuni: wrote {} languages to {}", langs::LANGS.len(), dir);
+        emitted_any = true;
+    }
+    if let Some(dir) = emit_top50 {
+        if let Err(e) = fs::create_dir_all(&dir) {
+            eprintln!("cuni: couldn't create {}: {}", dir, e);
+            return ExitCode::FAILURE;
+        }
+        let top: Vec<&langs::Lang> = langs::LANGS.iter().take(50).collect();
+        for lang in &top {
+            let path = format!("{}/{}", dir, lang.out_file());
+            if let Err(e) = emit_seat_to(&program, lang, &path) {
+                eprintln!("cuni: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
+        eprintln!("cuni: wrote top 50 languages to {}", dir);
         emitted_any = true;
     }
     if !emitted_any {

@@ -2,13 +2,13 @@
 //! Not a compressor front-end. Exactness remains `cuni check`.
 
 mod ast;
+mod interp;
 mod ir;
 mod lexer;
 mod oddity;
 mod parser;
 mod token;
 mod typeck;
-mod interp;
 
 pub use interp::run;
 

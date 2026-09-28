@@ -31,7 +31,8 @@ Exit **0** only when every listed program prints **`exactness: PASS (N langs)`**
 | `examples/full.cuni` | yes | flagship exactness |
 | `examples/structs.cuni` | yes | portable |
 | `examples/enums.cuni` | yes | portable |
-| `examples/modules.cuni` | no | intentionally refuses JS (`ext` collision) |
+| `examples/modules.cuni` | no | clean `ext geet` working example |
+| `examples/ext-collision.cuni` | no | deliberately yeeted on JS (`ext` collision) |
 | `examples/link.cuni` | **flagship job** | `examples/link/demo.sh` in Exactness workflow + `cargo test` interop |
 
 ## Composite action (this repo)

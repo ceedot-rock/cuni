@@ -86,11 +86,19 @@ fn sanitize(s: &str) -> String {
 
 #[test]
 fn emit_all_writes_every_catalog_language() {
+    // NOTE: uses the int-only dice example, not full.cuni — full.cuni uses
+    // floats, which the sol seat honestly refuses (Solidity has no float
+    // type; see check_*_sol_honest_refusal). --emit-all is all-or-nothing by
+    // design, so the fixture here must be emittable on every seat.
     let dir = tmp_path("all_langs");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let output = Command::new(cuni_bin())
-        .args(["examples/full.cuni", "--emit-all", dir.to_str().unwrap()])
+        .args([
+            "examples/casino/provably-fair-dice.cuni",
+            "--emit-all",
+            dir.to_str().unwrap(),
+        ])
         .output()
         .expect("failed to invoke cuni --emit-all");
     assert!(
@@ -129,6 +137,38 @@ fn emit_all_writes_every_catalog_language() {
         py_src.contains("print") || py_src.contains("def "),
         "python emit empty?"
     );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn emit_top50_writes_first_fifty_catalog_languages() {
+    // --emit-top50 DIR: one artifact per seat for the first 50 LANGS entries
+    // (quality native seats first), using each Lang's out_file() naming.
+    let dir = tmp_path("top50_langs");
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let output = Command::new(cuni_bin())
+        .args([
+            "examples/casino/provably-fair-dice.cuni",
+            "--emit-top50",
+            dir.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to invoke cuni --emit-top50");
+    assert!(
+        output.status.success(),
+        "emit-top50 failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().is_file())
+        .collect();
+    assert_eq!(files.len(), 50, "emit-top50 wrote {} files, expected 50", files.len());
+    // Spot-check LANGS-order naming: first seat py, fiftieth seat hack.
+    assert!(dir.join("py.py").is_file(), "missing py.py");
+    assert!(dir.join("hack.hack").is_file(), "missing hack.hack");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -178,18 +218,19 @@ fn compute_range_stdlib_is_exact() {
     );
 }
 
-/// `examples/modules.cuni` deliberately names its `ext` binding `fetch` while
-/// its `js:` body also calls the global `fetch` — the compiler must refuse to
-/// compile for JS (src/checks.rs) rather than emit self-recursive JS. This is
-/// the one example that isn't a same-output-everywhere case: Python/Go still
-/// compile (their own gaps — undefined `requests`/`httpGet` — are a separate,
-/// unrelated, already-documented limitation of `ext` bodies assuming
-/// dependencies the toy backends never resolve).
+/// `examples/ext-collision.cuni` deliberately names its `ext` binding `fetch`
+/// while its `js:` body also calls the global `fetch` — the compiler must
+/// YEET it for JS (refuse-and-discard, src/checks.rs) rather than emit
+/// self-recursive JS. This is the one example that isn't a
+/// same-output-everywhere case: Python/Go still compile (their own gaps —
+/// undefined `requests`/`httpGet` — are a separate, unrelated,
+/// already-documented limitation of `ext` bodies assuming dependencies the
+/// toy backends never resolve).
 #[test]
-fn modules_example_refuses_js_due_to_ext_collision() {
-    let js = tmp_path("modules_refusal.js");
-    let err = emit("examples/modules.cuni", "js", &js)
-        .expect_err("expected --emit-js to refuse to compile");
+fn ext_collision_fixture_yeeted_for_js() {
+    let js = tmp_path("ext_collision_yeet.js");
+    let err = emit("examples/ext-collision.cuni", "js", &js)
+        .expect_err("expected --emit-js to yeet the collision");
     assert!(
         err.contains("ext fetch"),
         "unexpected error message: {}",
@@ -198,15 +239,15 @@ fn modules_example_refuses_js_due_to_ext_collision() {
     assert!(err.contains("shadows"), "unexpected error message: {}", err);
     assert!(
         !js.exists(),
-        "refused compilation should not write an output file"
+        "yeeted compilation should not write an output file"
     );
 
     // py/go are unaffected by the collision check (no reserved-name match for
     // either), so they should still emit successfully.
-    let py = tmp_path("modules_ok.py");
-    let go = tmp_path("modules_ok.go");
-    emit("examples/modules.cuni", "py", &py).expect("py emit should still succeed");
-    emit("examples/modules.cuni", "go", &go).expect("go emit should still succeed");
+    let py = tmp_path("ext_collision_ok.py");
+    let go = tmp_path("ext_collision_ok.go");
+    emit("examples/ext-collision.cuni", "py", &py).expect("py emit should still succeed");
+    emit("examples/ext-collision.cuni", "go", &go).expect("go emit should still succeed");
     let _ = std::fs::remove_file(&py);
     let _ = std::fs::remove_file(&go);
 }

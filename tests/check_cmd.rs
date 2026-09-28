@@ -20,33 +20,69 @@ fn check(args: &[&str]) -> (bool, String, String) {
     )
 }
 
+/// `examples/full.cuni` uses floats — Solidity has no float type, so the sol
+/// seat must YEET with a clear reason (not silently emit), while all other
+/// 143 seats emit+run. This pins the documented contract that sol is the one
+/// seat allowed an honest refusal (see `src/emit.rs`).
 #[test]
-fn check_full_example_passes() {
-    let (ok, stdout, stderr) = check(&["examples/full.cuni", "--timeout", "180"]);
+fn check_full_example_sol_honest_refusal() {
+    let (ok, stdout, _) = check(&["examples/full.cuni", "--timeout", "180"]);
+    assert!(!ok, "expected overall FAIL from the sol yeet:\n{}", stdout);
     assert!(
-        ok,
-        "expected PASS\nstdout:\n{}\nstderr:\n{}",
-        stdout, stderr
+        stdout.contains("emit sol") && stdout.contains("REFUSE"),
+        "expected a clean sol refusal line:\n{}",
+        stdout
     );
     assert!(
-        stdout.contains("exactness: PASS (") && stdout.contains("langs)"),
-        "stdout missing PASS line:\n{}",
+        stdout.contains("no float type"),
+        "refusal must name the reason:\n{}",
+        stdout
+    );
+    assert!(
+        stdout.contains("143/144 ok"),
+        "all non-sol seats must still emit+run:\n{}",
         stdout
     );
 }
 
+/// `examples/structs.cuni` declares a custom `typ` — no Solidity mapping, so
+/// sol yeets with a clear reason while the other 143 seats emit+run.
 #[test]
-fn check_structs_passes() {
+fn check_structs_sol_honest_refusal() {
     let (ok, stdout, _) = check(&["examples/structs.cuni", "--timeout", "180"]);
-    assert!(ok, "{}", stdout);
-    assert!(stdout.contains("exactness: PASS (") && stdout.contains("langs)"));
+    assert!(!ok, "expected overall FAIL from the sol yeet:\n{}", stdout);
+    assert!(
+        stdout.contains("emit sol") && stdout.contains("REFUSE"),
+        "expected a clean sol refusal line:\n{}",
+        stdout
+    );
+    assert!(
+        stdout.contains("no Solidity mapping"),
+        "refusal must name the reason:\n{}",
+        stdout
+    );
+    assert!(
+        stdout.contains("143/144 ok"),
+        "all non-sol seats must still emit+run:\n{}",
+        stdout
+    );
 }
 
+/// `examples/named_fields.cuni` — same honest-refusal contract as structs.
 #[test]
-fn check_named_fields_passes() {
+fn check_named_fields_sol_honest_refusal() {
     let (ok, stdout, _) = check(&["examples/named_fields.cuni", "--timeout", "180"]);
-    assert!(ok, "{}", stdout);
-    assert!(stdout.contains("exactness: PASS (") && stdout.contains("langs)"));
+    assert!(!ok, "expected overall FAIL from the sol yeet:\n{}", stdout);
+    assert!(
+        stdout.contains("emit sol") && stdout.contains("REFUSE"),
+        "expected a clean sol refusal line:\n{}",
+        stdout
+    );
+    assert!(
+        stdout.contains("143/144 ok"),
+        "all non-sol seats must still emit+run:\n{}",
+        stdout
+    );
 }
 
 #[test]
@@ -151,10 +187,10 @@ fn ingest_python_subset_roundtrip() {
 }
 
 #[test]
-fn check_modules_fails_js_refuse() {
-    // modules.cuni refuses JS emit — exactness must FAIL (not silent pass)
-    let (ok, stdout, _) = check(&["examples/modules.cuni", "--timeout", "60"]);
-    assert!(!ok, "expected FAIL for modules.cuni, got:\n{}", stdout);
+fn check_ext_collision_fails_js_yeet() {
+    // ext-collision.cuni gets yeeted on JS emit — exactness must FAIL (not silent pass)
+    let (ok, stdout, _) = check(&["examples/ext-collision.cuni", "--timeout", "60"]);
+    assert!(!ok, "expected FAIL for ext-collision.cuni, got:\n{}", stdout);
     assert!(
         stdout.contains("exactness: FAIL") || stdout.contains("REFUSE"),
         "expected refuse/fail messaging:\n{}",

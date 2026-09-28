@@ -19,6 +19,7 @@ Quick index of the runnable examples. All live under [`examples/`](../examples/)
 | `enums.cuni` | Payload-free enums |
 | `named_fields.cuni` | Field access |
 | `modules.cuni` + `math.cuni` | `use` / modules |
+| `ext-collision.cuni` | Deliberate `ext`/global collision (yeeted on JS) |
 | `typeck_valid_iface.cuni` | Interfaces |
 
 ## Agent
