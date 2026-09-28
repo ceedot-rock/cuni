@@ -8,7 +8,7 @@ repository = "https://github.com/ceedot-rock/cuni"
 homepage = "https://cuni-studio.fly.dev/"
 documentation = "https://github.com/ceedot-rock/cuni/blob/master/SPEC.md"
 readme = "README.md"
-keywords = ["compiler", "transpiler", "multi-target", "python", "golang", "agentic", "mcp", "agent-rider", "solidity", "smart-contracts", "blockchain", "evm"]
+keywords = ["compiler", "transpiler", "multi-target", "solidity", "agentic"]
 categories = ["compilers", "development-tools"]
 
 [lib]
