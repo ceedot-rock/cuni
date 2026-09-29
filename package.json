@@ -1,6 +1,6 @@
 {
   "name": "cuni",
-  "version": "0.1.10",
+  "version": "0.3.0",
   "private": true,
   "description": "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript",
   "homepage": "https://cuni-studio.fly.dev/",

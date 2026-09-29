@@ -3,7 +3,6 @@
 
 mod ast;
 mod interp;
-mod ir;
 mod lexer;
 mod oddity;
 mod parser;

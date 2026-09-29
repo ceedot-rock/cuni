@@ -1,6 +1,7 @@
 //! Catalog of coding languages. Exactness emit+runs every id in LANGS.
-//! py/go/js/ts use quality backends; every other id is a Python lowering
-//! executed by python3 so stdout can actually be compared.
+//! py/go/js/ts/c/cpp/rs/rb/lua/sol use real toolchains (native seats);
+//! every other id is a Python lowering executed by python3
+//! so stdout can actually be compared.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Lang {

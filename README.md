@@ -1,6 +1,6 @@
 # CuNi (Code:uNiTY)
 
-<p align="center"><img src="https://raw.githubusercontent.com/ceedot-rock/splabs-brand/main/assets/brand/logos/logo-cuni.jpg" alt="product logo" width="280"/></p>
+<p align="center"><img src="brand/logo-cuni.jpg" alt="product logo" width="280"/></p>
 
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
@@ -14,13 +14,13 @@
   <a href="https://cuni-studio.fly.dev/"><img src="https://img.shields.io/badge/playground-live-3dd68c.svg" alt="Playground live" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/exactness.yml/badge.svg" alt="Exactness" /></a>
   <a href="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml"><img src="https://github.com/ceedot-rock/cuni/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.1.10"><img src="https://img.shields.io/badge/version-0.1.10-cyan.svg" alt="v0.1.10" /></a>
+  <a href="https://github.com/ceedot-rock/cuni/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/version-0.3.0-cyan.svg" alt="v0.3.0" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--or--Commercial-blue.svg" alt="AGPL-3.0-or-later OR Commercial" /></a>
 </p>
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.** Receipts name the program by `source_hash`, not by path.
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts/c/cpp/rs/rb/lua; Solidity compiles to a deployable EVM contract via solc; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.2.0.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. **`cuni check` emit+runs every catalog language** (native py/go/js/ts/c/cpp/rs/rb/lua/sol; Solidity compiles to a deployable EVM contract via solc; other ids are a Python lowering). Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.3.0.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -263,7 +263,7 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.2.0)
+## Status (v0.3.0)
 
 **Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), `--emit-all` language catalog (144), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
 

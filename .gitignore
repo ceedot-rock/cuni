@@ -35,3 +35,4 @@ __pycache__/
 **/*buyback*
 **/*sell-all*
 dist/
+c-driver/build/
