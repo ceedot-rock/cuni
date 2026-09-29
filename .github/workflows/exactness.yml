@@ -57,7 +57,10 @@ jobs:
           # Only programs that must be exact across all three v1 targets.
           # modules.cuni intentionally refuses JS (ext collision); link needs a
           # wired server — covered by cargo test, not this gate.
+          # v1 gate: identical stdout on py/go/js. The 144-seat catalog,
+          # including the honest Solidity refusal, is cargo test on CI.
           "$BIN" check \
+            --only py,go,js \
             --timeout "${CUNI_CHECK_TIMEOUT}" \
             examples/full.cuni \
             examples/structs.cuni \
@@ -69,7 +72,7 @@ jobs:
           set -euo pipefail
           BIN=./target/release/cuni
           # All agent skill entrypoints must be exact citizens
-          "$BIN" check --timeout "${CUNI_CHECK_TIMEOUT}" \
+          "$BIN" check --only py,go,js --timeout "${CUNI_CHECK_TIMEOUT}" \
             examples/agent/mind.cuni \
             examples/agent/entry_budget.cuni \
             examples/agent/entry_text.cuni \

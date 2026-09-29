@@ -79,7 +79,11 @@ def run(cmd: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
 
 
 def exactness_gate(cuni: Path, entry: Path) -> str:
-    r = run([str(cuni), "check", str(entry), "--timeout", str(TIMEOUT)])
+    # Agent laws are the py/go/js gate (see mind.cuni). Full-catalog
+    # check, including an honest Solidity refusal, is `cuni check` with no --only.
+    r = run(
+        [str(cuni), "check", str(entry), "--timeout", str(TIMEOUT), "--only", "py,go,js"]
+    )
     out = (r.stdout or "") + (r.stderr or "")
     if r.returncode != 0 or "exactness: PASS" not in out:
         raise SystemExit(
