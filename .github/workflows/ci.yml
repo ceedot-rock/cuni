@@ -43,6 +43,9 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install Lua 5.4 (native lua seat runs as lua5.4)
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+
       - name: Build
         run: cargo build --verbose
 
