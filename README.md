@@ -1,5 +1,17 @@
 # CuNi (Code:uNiTY)
 
+## What CuNi is
+
+CuNi is a programming language with one hard rule: write your code once, and it either behaves *exactly* the same in every language it builds for — or it refuses to build at all.
+
+Here is why that matters. A program written in Python and the "same" program rewritten in JavaScript are never quite the same program. Tiny differences creep in: how numbers round, how text is handled, what happens at the edges. Most of the time nobody notices. Then money or data is on the line, and a rounding difference becomes a real loss.
+
+CuNi eliminates that whole class of problem. You write one source file. CuNi can turn it into 144 targets — Python, JavaScript, Rust, C, Go, even Solidity smart contracts that run on Ethereum. Before it hands you any of them, it proves they all produce identical output. If one target would behave even slightly differently, you don't get a subtly broken program. You get a refusal — and you fix the source.
+
+The refusal is the product. Other tools try to paper over differences. CuNi treats a difference as a failed build.
+
+This is why Agent Rider runs on CuNi. In a world where AI agents write and execute code across systems, "close enough" is how things break. Rider requires CuNi's exactness proof before an agent's policy is allowed to run: same behavior everywhere, or it doesn't run.
+
 <p align="center"><img src="https://raw.githubusercontent.com/ceedot-rock/splabs-brand/main/assets/brand/logos/logo-cuni.jpg" alt="product logo" width="280"/></p>
 
 <p align="center">
