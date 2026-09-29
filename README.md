@@ -249,7 +249,7 @@ src/
   lexer.rs parser.rs token.rs ast.rs   # frontend
   typeck.rs checks.rs modules.rs       # refuse logic + use resolution
   codegen_{py,go,js}.rs                # exactness backends
-  langs.rs / codegen_all.rs            # emit catalog (every coding language)
+  langs.rs / emit.rs                   # emit catalog (every coding language)
   main.rs                              # CLI
 examples/                              # runnable .cuni samples
 examples/link/demo.sh                  # flagship Go server ← py/js/go clients
