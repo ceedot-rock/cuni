@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] — 2026-09-29
+### Added
+- Solidity smart-contract seat: CuNi compiles to deployable EVM contracts
+  via solc under the same exactness law.
+- 144 language seats (up from 119): 25 new catalog seats, all verified
+  emit+run exactness PASS.
+- Dual license: AGPL-3.0-or-later OR Slid Phi Labs Commercial License.
+
 ## [Unreleased] — 119 → 144 language seats
 
 ### Added
