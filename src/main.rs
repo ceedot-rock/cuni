@@ -46,7 +46,7 @@ Usage:
 
 Commands:
   check   Exactness gate: emit+run every catalog language (or --only).
-          Native seats today: py, go, js, ts, c, cpp, rs.
+          Native seats today: py, go, js, ts, c, cpp, rs, rb, lua, sol.
           Other ids: Python lowering so the 144-language gate still runs.
           Prints:  exactness: PASS (N langs)
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
