@@ -11,6 +11,7 @@ mod codegen_py;
 mod codegen_rb;
 mod codegen_rs;
 mod codegen_sol;
+mod codegen_solana;
 mod codegen_sql;
 mod emit;
 mod ingest;
@@ -354,6 +355,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     let mut emit_rb: Option<String> = None;
     let mut emit_lua: Option<String> = None;
     let mut emit_sol: Option<String> = None;
+    let mut emit_solana: Option<String> = None;
     let mut emit_go: Option<String> = None;
     let mut emit_js: Option<String> = None;
     let mut emit_all: Option<String> = None;
@@ -399,6 +401,12 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         } else if args[i] == "--emit-sol" {
             emit_sol = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-sol requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-solana" {
+            emit_solana = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-solana requires an output path");
                 std::process::exit(1);
             }));
             i += 2;
@@ -526,6 +534,37 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             }
             Err(e) => {
                 eprintln!("cuni: Solidity refused: {}", e);
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    if let Some(out_path) = emit_solana {
+        // Program module from the input file stem: escrow -> cuni_escrow.
+        let stem = std::path::Path::new(&path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("program");
+        let snake: String = stem
+            .chars()
+            .map(|c| if c.is_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+            .collect();
+        let snake = snake.trim_matches('_').to_string();
+        let prog_mod = if snake.is_empty() {
+            "cuni_program".to_string()
+        } else {
+            format!("cuni_{}", snake)
+        };
+        match codegen_solana::generate_program(&program, &prog_mod) {
+            Ok(program_source) => {
+                if let Err(e) = fs::write(&out_path, program_source) {
+                    eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                    return ExitCode::FAILURE;
+                }
+                eprintln!("cuni: wrote {}", out_path);
+                emitted_any = true;
+            }
+            Err(e) => {
+                eprintln!("cuni: Solana refused: {}", e);
                 return ExitCode::FAILURE;
             }
         }

@@ -24,6 +24,7 @@ Everywhere the industry *trusts* two implementations match, CuNi *proves* it —
 - **ML inference parity** — the same scoring kernel bit-identical across Python, Rust, and C runtimes, so silent numeric drift gets caught before serving. Integer arithmetic throughout, because cross-language float exactness can't be guaranteed — and CuNi refuses rather than fakes. See `examples/proof-mlparity/`.
 - **Firmware you can ship** — control logic proven identical on C and Rust targets, with a refuse-to-promote gate: fail the proof, nothing ships. See `examples/proof-firmware/`.
 - **SQL dialect portability** — one query logic, SQLite/PostgreSQL/MySQL dialects, proven against real `sqlite3`. The new SQL seat.
+- **Solana programs** — one transfer-validation law compiled to an Anchor-shaped Solana program: the logic core gate-proven byte-identical, the program shell honestly delimited (not compiled here — no Solana toolchain on the check machine). See `examples/proof-solana/` and `docs/SOLANA.md`.
 
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />

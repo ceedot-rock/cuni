@@ -11,6 +11,19 @@ example with a runnable gate — not a slide.
 | `examples/proof-mlparity/` | One scoring kernel (int 4x4 matmul + argmax) bit-identical on every runtime, catching silent numeric drift before serving | py, rs, c | `cargo test --test proof_mlparity` |
 | `examples/proof-firmware/` | One thermostat control law identical on both targets; fail the proof and nothing ships | c, rs (+ `promote.sh` refuse-to-promote) | `cargo test --test proof_firmware` |
 
+## Solana program profile (new — under "Trust Provable, in all things")
+
+The Code Division's Solana emitter, post-0.4.0. `cuni --emit-solana` compiles
+one `.cuni` transfer-validation law into an Anchor-shaped Solana program: a
+pure logic core (the part CuNi proves) plus the program shell (entrypoint,
+accounts struct, program id), in two clearly delimited regions.
+
+| Profile | What it proves | Seats gated | Run it |
+|---|---|---|---|
+| `examples/proof-solana/` | One escrow transfer-validation law as a Solana program: logic core byte-identical on rs/go/py seats AND on the logic module extracted from the emitted program (compiled standalone with `rustc`) | rs, go, py (stdout) + extracted logic core (`rustc` compile+run) | `cargo test --test proof_solana` |
+
+Full story and the honest boundaries in `docs/SOLANA.md`.
+
 Two more 0.4.0 pieces make the framing real:
 
 - **Java seat** (`--emit-java`, `javac`-compiled): the audit-finance story — the bank's
@@ -31,6 +44,12 @@ Two more 0.4.0 pieces make the framing real:
   the SQLite dialect is gate-verified (stated in the artifact header).
 - `proof-firmware` proves behavioral agreement on a fixed trace, not machine-code
   formal verification.
+- The Solana profile proves the **logic core** (byte-identical stdout on
+  rs/go/py seats and on the extracted module compiled standalone with
+  `rustc`). The Anchor program shell is NOT compiled here — no Solana
+  toolchain on the check machine, no `anchor-lang` vendored — and nothing
+  has executed on-chain. `docs/SOLANA.md` carries the full verification
+  recipe for a tooled machine.
 
 ## Catalog honesty
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased] — "Trust Provable, in all things"
+### Added
+- Solana program emitter (`cuni --emit-solana <out.rs>`, `src/codegen_solana.rs`): one `.cuni` source becomes an Anchor-shaped Solana program — a pure logic core (the part CuNi proves) plus the program shell (entrypoint, accounts struct, program id) in two clearly delimited regions. Mirrors the Solidity backend's posture: genuine artifact, real-toolchain verification where possible, honest refusal everywhere else (`float`/`list`/`map`/`opt`/`??`/structs/enums refuse).
+- `examples/proof-solana/` + `cargo test --test proof_solana`: the transfer-validation law gate-proven byte-identical on rs/go/py seats AND on the logic module extracted from the emitted program (compiled standalone with plain `rustc`, no dependencies).
+- `docs/SOLANA.md`: honest boundaries (logic gate-proven; shell NOT compiled here — no Solana toolchain on the check machine; nothing executed on-chain) and the full verification recipe (Solana CLI + Anchor) for a tooled machine.
+- Catalog unchanged: 144 ids, 12 native seats. The Solana work is a proof profile, not a new seat.
+
 ## [0.4.0] — 2026-10-01 — "Replace trust with proof"
 ### Added
 - Java real-toolchain seat (`--emit-java`): `javac`-compiled, `long`/`double`/`String`/`boolean`, collections, structs as nested classes. The audit-finance story: the bank's Java and the auditor's Python gate-proven to agree.
