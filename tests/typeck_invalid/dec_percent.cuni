@@ -1,0 +1,2 @@
+# Deliberately broken: `%` is not defined on `dec` (docs/DECIMAL.md §3).
+say(1.0dec % 2.0dec)

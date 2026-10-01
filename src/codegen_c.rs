@@ -278,6 +278,16 @@ impl Gen {
     fn expr(&self, e: &Expr) -> String {
         match &e.kind {
             ExprKind::Int(n) => format!("V_int({n}LL)"),
+            ExprKind::Dec(s) => {
+                // Small scaled values fit a C constant; huge ones (up to
+                // i128) go through the decimal-string parser — a 39-digit C
+                // integer constant is not reliably accepted.
+                if *s <= i64::MAX as i128 && *s >= i64::MIN as i128 {
+                    format!("V_dec({s}LL)")
+                } else {
+                    format!("V_dec(cuni_dec_parse(\"{s}\"))")
+                }
+            }
             ExprKind::Float(f) => format!("V_float({f:?})"),
             ExprKind::Bool(true) => "V_bool(1)".into(),
             ExprKind::Bool(false) => "V_bool(0)".into(),
@@ -330,6 +340,8 @@ impl Gen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
+                        "dec_of_int" => "cuni_dec_of_int",
+                        "int_of_dec" => "cuni_int_of_dec",
                         _ => "",
                     };
                     if !mapped.is_empty() {
@@ -428,11 +440,12 @@ const CUNI_RT: &str = r#"
 #include <string.h>
 
 
-typedef enum { K_INT, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM } K;
+typedef enum { K_INT, K_DEC, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM } K;
 typedef struct Val Val;
 struct Val {
     K k;
     long long i;
+    __int128 d;
     double f;
     char *s;
     int b;
@@ -448,6 +461,101 @@ static Val cuni_err;
 
 static Val V_none(void) { Val v; memset(&v, 0, sizeof v); v.k = K_NONE; return v; }
 static Val V_int(long long x) { Val v = V_none(); v.k = K_INT; v.i = x; return v; }
+/* CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md). */
+#define CUNI_DEC_SCALE 10000
+static const unsigned __int128 CUNI_U128_MAX = (unsigned __int128)-1;
+#define CUNI_I128_MAX ((__int128)(CUNI_U128_MAX >> 1))
+#define CUNI_I128_MIN (-CUNI_I128_MAX - 1)
+static Val V_dec(__int128 x) { Val v = V_none(); v.k = K_DEC; v.d = x; return v; }
+static void cuni_dec_refuse(const char *msg) {
+    fprintf(stderr, "cuni: %s — refused\n", msg);
+    exit(1);
+}
+static unsigned __int128 cuni_uabs128(__int128 x) {
+    return x < 0 ? (unsigned __int128)(-(x + 1)) + 1 : (unsigned __int128)x;
+}
+/* A dec literal too large for a C constant is emitted via this parser
+   (the CuNi parser already proved it fits i128). */
+static __int128 cuni_dec_parse(const char *s) {
+    __int128 v = 0;
+    int neg = 0;
+    if (*s == '-') { neg = 1; s++; }
+    while (*s) { v = v * 10 + (*s - '0'); s++; }
+    return neg ? -v : v;
+}
+static Val cuni_dec_add(Val a, Val b) {
+    __int128 x = a.d, y = b.d;
+    if ((y > 0 && x > CUNI_I128_MAX - y) || (y < 0 && x < CUNI_I128_MIN - y))
+        cuni_dec_refuse("dec addition overflow");
+    return V_dec(x + y);
+}
+static Val cuni_dec_sub(Val a, Val b) {
+    __int128 x = a.d, y = b.d;
+    if ((y < 0 && x > CUNI_I128_MAX + y) || (y > 0 && x < CUNI_I128_MIN + y))
+        cuni_dec_refuse("dec subtraction overflow");
+    return V_dec(x - y);
+}
+static Val cuni_dec_mul(Val a, Val b) {
+    /* trunc(x*y/10000) toward zero */
+    unsigned __int128 ux = cuni_uabs128(a.d), uy = cuni_uabs128(b.d);
+    if (ux != 0 && uy != 0 && ux > CUNI_U128_MAX / uy)
+        cuni_dec_refuse("dec multiplication overflow");
+    unsigned __int128 q = (ux * uy) / CUNI_DEC_SCALE;
+    if (q > (unsigned __int128)CUNI_I128_MAX)
+        cuni_dec_refuse("dec multiplication overflow");
+    int neg = (a.d < 0) != (b.d < 0);
+    return V_dec(neg ? -(__int128)q : (__int128)q);
+}
+static Val cuni_dec_div(Val a, Val b) {
+    /* trunc(x*10000/y) toward zero */
+    if (b.d == 0) cuni_dec_refuse("dec division by zero");
+    unsigned __int128 ux = cuni_uabs128(a.d), uy = cuni_uabs128(b.d);
+    if (ux > CUNI_U128_MAX / CUNI_DEC_SCALE)
+        cuni_dec_refuse("dec division intermediate overflow");
+    unsigned __int128 q = (ux * CUNI_DEC_SCALE) / uy;
+    int neg = (a.d < 0) != (b.d < 0);
+    if (q > (unsigned __int128)CUNI_I128_MAX + (unsigned __int128)(neg ? 1 : 0))
+        cuni_dec_refuse("dec division overflow");
+    if (neg)
+        return V_dec(q == (unsigned __int128)CUNI_I128_MAX + 1 ? CUNI_I128_MIN : -(__int128)q);
+    return V_dec((__int128)q);
+}
+static Val cuni_dec_neg(Val a) {
+    if (a.d == CUNI_I128_MIN) cuni_dec_refuse("dec negation overflow");
+    return V_dec(-a.d);
+}
+/* Canonical dec rendering (docs/DECIMAL.md §6) into `out` (>= 64 bytes). */
+static void cuni_dec_str_buf(__int128 v, char *out) {
+    int neg = v < 0;
+    unsigned __int128 mag = cuni_uabs128(v);
+    unsigned __int128 ip = mag / CUNI_DEC_SCALE;
+    unsigned __int128 fp = mag % CUNI_DEC_SCALE;
+    char tmp[64]; int n = 0;
+    if (ip == 0) tmp[n++] = '0';
+    else while (ip > 0) { tmp[n++] = '0' + (int)(ip % 10); ip /= 10; }
+    char *p = out;
+    if (neg) *p++ = '-';
+    for (int i = n - 1; i >= 0; i--) *p++ = tmp[i];
+    *p++ = '.';
+    char fbuf[5];
+    for (int i = 3; i >= 0; i--) { fbuf[i] = '0' + (int)(fp % 10); fp /= 10; }
+    int flen = 4;
+    while (flen > 1 && fbuf[flen - 1] == '0') flen--;
+    memcpy(p, fbuf, flen); p += flen;
+    *p = 0;
+}
+static Val cuni_dec_of_int(Val n) {
+    if (n.k != K_INT) cuni_dec_refuse("dec_of_int needs an int");
+    return V_dec((__int128)n.i * CUNI_DEC_SCALE);
+}
+static Val cuni_int_of_dec(Val d) {
+    /* truncates toward zero (docs/DECIMAL.md §5) */
+    if (d.k != K_DEC) cuni_dec_refuse("int_of_dec needs a dec");
+    __int128 q = d.d / CUNI_DEC_SCALE;
+    if (q > (__int128)9223372036854775807LL || q < (__int128)(-9223372036854775807LL - 1))
+        cuni_dec_refuse("int_of_dec out of int range");
+    return V_int((long long)q);
+}
 static Val V_float(double x) { Val v = V_none(); v.k = K_FLOAT; v.f = x; return v; }
 static Val V_bool(int x) { Val v = V_none(); v.k = K_BOOL; v.b = x ? 1 : 0; return v; }
 static Val V_str(const char *s) {
@@ -549,6 +657,7 @@ static int cuni_eq(Val a, Val b) {
     if (a.k != b.k) return 0;
     switch (a.k) {
         case K_INT: return a.i == b.i;
+        case K_DEC: return a.d == b.d;
         case K_FLOAT: return a.f == b.f;
         case K_BOOL: return a.b == b.b;
         case K_STR: return a.s && b.s && strcmp(a.s, b.s) == 0;
@@ -562,12 +671,21 @@ static int cuni_truthy(Val a) {
         case K_NONE: return 0;
         case K_BOOL: return a.b;
         case K_INT: return a.i != 0;
+        case K_DEC: return a.d != 0;
         case K_FLOAT: return a.f != 0;
         case K_STR: return a.s && a.s[0];
         default: return 1;
     }
 }
 static int cuni_cmp(Val a, Val b) {
+    /* `dec` compares scaled integers directly — never via double. */
+    if (a.k == K_DEC && b.k == K_DEC) {
+        if (a.d < b.d) return -1;
+        if (a.d > b.d) return 1;
+        return 0;
+    }
+    if (a.k == K_DEC || b.k == K_DEC)
+        cuni_dec_refuse("cannot mix dec and non-dec — convert explicitly");
     double x = (a.k == K_FLOAT) ? a.f : (double)a.i;
     double y = (b.k == K_FLOAT) ? b.f : (double)b.i;
     if (x < y) return -1;
@@ -575,7 +693,14 @@ static int cuni_cmp(Val a, Val b) {
     return 0;
 }
 static double as_f(Val a) { return a.k == K_FLOAT ? a.f : (double)a.i; }
+/* `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec, or a
+   loud refusal. The typeck already rejected mixes; this is defense in depth. */
+static void cuni_dec_check_pair(Val a, Val b) {
+    if (a.k != K_DEC || b.k != K_DEC)
+        cuni_dec_refuse("cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)");
+}
 static Val cuni_add(Val a, Val b) {
+    if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_add(a, b); }
     if (a.k == K_STR || b.k == K_STR) {
         /* handled by concat path for strings of numbers too */
     }
@@ -583,19 +708,26 @@ static Val cuni_add(Val a, Val b) {
     return V_int(a.i + b.i);
 }
 static Val cuni_sub(Val a, Val b) {
+    if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_sub(a, b); }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) - as_f(b));
     return V_int(a.i - b.i);
 }
 static Val cuni_mul(Val a, Val b) {
+    if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_mul(a, b); }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) * as_f(b));
     return V_int(a.i * b.i);
 }
 static Val cuni_div(Val a, Val b) {
+    if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_div(a, b); }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) / as_f(b));
     return V_int(b.i == 0 ? 0 : a.i / b.i);
 }
-static Val cuni_mod(Val a, Val b) { return V_int(b.i == 0 ? 0 : a.i % b.i); }
+static Val cuni_mod(Val a, Val b) {
+    if (a.k == K_DEC || b.k == K_DEC) cuni_dec_refuse("`%` is not defined on `dec`");
+    return V_int(b.i == 0 ? 0 : a.i % b.i);
+}
 static Val cuni_neg(Val a) {
+    if (a.k == K_DEC) return cuni_dec_neg(a);
     if (a.k == K_FLOAT) return V_float(-a.f);
     return V_int(-a.i);
 }
@@ -603,6 +735,7 @@ static Val cuni_to_str(Val a) {
     char buf[128];
     switch (a.k) {
         case K_INT: snprintf(buf, sizeof buf, "%lld", a.i); return V_str(buf);
+        case K_DEC: cuni_dec_str_buf(a.d, buf); return V_str(buf);
         case K_FLOAT: snprintf(buf, sizeof buf, "%.15g", a.f); return V_str(buf);
         case K_STR: return a;
         case K_BOOL: return V_str(a.b ? "true" : "false");
@@ -620,6 +753,7 @@ static Val cuni_concat(Val a, Val b) {
 static void cuni_say(Val v) {
     switch (v.k) {
         case K_INT: printf("%lld\n", v.i); break;
+        case K_DEC: { char buf[128]; cuni_dec_str_buf(v.d, buf); printf("%s\n", buf); break; }
         case K_FLOAT: printf("%.15g\n", v.f); break;
         case K_STR: printf("%s\n", v.s ? v.s : ""); break;
         case K_BOOL: printf("%s\n", v.b ? "True" : "False"); break;

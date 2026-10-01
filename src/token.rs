@@ -4,6 +4,11 @@ pub enum Token {
     Ident(String),
     Int(i64),
     Float(f64),
+    /// A `dec` literal's raw decimal text, e.g. `19.99dec` -> `Dec("19.99")`.
+    /// The `dec` suffix is consumed by the lexer; scaling/validation happens
+    /// once in the parser (`ast::parse_dec_scaled`), so every seat and the
+    /// interpreter share one literal semantics (docs/DECIMAL.md §2).
+    Dec(String),
     Str(String),
     InterpStr(Vec<StrPart>),
     True,

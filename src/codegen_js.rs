@@ -109,6 +109,8 @@ pub fn generate(program: &Program) -> String {
 enum VarKind {
     List,
     Map,
+    /// A `dec` value (BigInt, scaled 10⁴) — see docs/DECIMAL.md.
+    Dec,
     Other,
 }
 
@@ -129,6 +131,8 @@ struct Codegen {
     typ_names: std::collections::HashSet<String>,
     /// Field order per typ — for named-arg constructor reordering.
     typ_fields: HashMap<String, Vec<String>>,
+    /// `def`s declared `-> dec`: calls to them are dec expressions.
+    fn_dec_rets: std::collections::HashSet<String>,
     out: String,
     unwrap_counter: usize,
 }
@@ -138,9 +142,13 @@ impl Codegen {
         let mut fn_info = HashMap::new();
         let mut typ_names = std::collections::HashSet::new();
         let mut typ_fields = HashMap::new();
+        let mut fn_dec_rets = std::collections::HashSet::new();
         for item in &program.items {
             match item {
                 Item::Def(f) => {
+                    if matches!(&f.ret_type, Type::Named(n) if n == "dec") {
+                        fn_dec_rets.insert(f.name.clone());
+                    }
                     fn_info.insert(
                         f.name.clone(),
                         FnInfo {
@@ -175,6 +183,7 @@ impl Codegen {
             fn_info,
             typ_names,
             typ_fields,
+            fn_dec_rets,
             out: String::new(),
             unwrap_counter: 0,
         }
@@ -246,10 +255,13 @@ impl Codegen {
         // shape this backend emits — except booleans: CuNi's canonical bool
         // spelling is Python's `True`/`False` (py/c/rs backends and the
         // interp all print that), so booleans are normalized here instead
-        // of JS's native `true`/`false`.
+        // of JS's native `true`/`false` — and except BigInts: a `dec` is a
+        // scaled BigInt (docs/DECIMAL.md), so it renders via `_cuni_dec_str`
+        // instead of `String(x)`, which would print the raw scaled integer.
+        // No other CuNi value is a BigInt, so this changes nothing else.
         self.line(
             1,
-            "console.log(typeof x === \"boolean\" ? (x ? \"True\" : \"False\") : String(x));",
+            "console.log(typeof x === \"boolean\" ? (x ? \"True\" : \"False\") : typeof x === \"bigint\" ? _cuni_dec_str(x) : String(x));",
         );
         self.line(0, "}");
         self.out.push('\n');
@@ -289,6 +301,30 @@ impl Codegen {
             "if (Number.isInteger(a) && Number.isInteger(b) && b !== 0) return Math.trunc(a / b);",
         );
         self.line(1, "return a / b;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "// CuNi `dec`: fixed-point decimal, scale 10^4, as BigInt (docs/DECIMAL.md).");
+        self.line(0, "// A plain JS number is NOT exact (f64) — dec never touches Number.");
+        self.line(0, "function _cuni_dec_str(v) {");
+        self.line(1, "const neg = v < 0n;");
+        self.line(1, "const mag = neg ? -v : v;");
+        self.line(1, "const ip = mag / 10000n;");
+        self.line(1, "let fp = (mag % 10000n).toString().padStart(4, \"0\").replace(/0+$/, \"\");");
+        self.line(1, "if (fp === \"\") fp = \"0\";");
+        self.line(1, "return (neg ? \"-\" : \"\") + ip.toString() + \".\" + fp;");
+        self.line(0, "}");
+        self.line(0, "function _cuni_dec_mul(a, b) {");
+        self.line(1, "return (a * b) / 10000n;  // BigInt / truncates toward zero, exact");
+        self.line(0, "}");
+        self.line(0, "function _cuni_dec_div(a, b) {");
+        self.line(1, "if (b === 0n) throw new Error(\"cuni: dec division by zero\");");
+        self.line(1, "return (a * 10000n) / b;  // BigInt / truncates toward zero, exact");
+        self.line(0, "}");
+        self.line(0, "function _cuni_dec_of_int(n) {");
+        self.line(1, "return BigInt(n) * 10000n;");
+        self.line(0, "}");
+        self.line(0, "function _cuni_int_of_dec(d) {");
+        self.line(1, "return Number(d / 10000n);  // truncates toward zero, like every seat");
         self.line(0, "}");
         self.out.push('\n');
         self.line(
@@ -550,20 +586,26 @@ impl Codegen {
     fn gen_stmt(&mut self, indent: usize, stmt: &Stmt, scope: &mut HashMap<String, VarKind>) {
         match &stmt.kind {
             StmtKind::Let { name, ty, value } => {
-                let kind = ty
+                let mut kind = ty
                     .as_ref()
                     .map(kind_of_type)
                     .or_else(|| kind_of_literal(value))
                     .unwrap_or(VarKind::Other);
+                if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
+                    kind = VarKind::Dec;
+                }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "const", name, value, scope);
             }
             StmtKind::Mut { name, ty, value } => {
-                let kind = ty
+                let mut kind = ty
                     .as_ref()
                     .map(kind_of_type)
                     .or_else(|| kind_of_literal(value))
                     .unwrap_or(VarKind::Other);
+                if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
+                    kind = VarKind::Dec;
+                }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "let", name, value, scope);
             }
@@ -716,6 +758,9 @@ impl Codegen {
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
         match &expr.kind {
             ExprKind::Int(n) => n.to_string(),
+            // Scaled BigInt literal — the `n` suffix IS the dec tag, so no
+            // f64 `Number` ever touches a dec (docs/DECIMAL.md §7).
+            ExprKind::Dec(s) => format!("{s}n"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => b.to_string(),
             ExprKind::Str(s) => format!("{:?}", s),
@@ -726,7 +771,14 @@ impl Codegen {
                         StrPartExpr::Text(t) => s.push_str(&escape_template_text(t)),
                         StrPartExpr::Expr(e) => {
                             s.push_str("${");
-                            s.push_str(&self.gen_expr(e, scope));
+                            let inner = self.gen_expr(e, scope);
+                            // A dec BigInt must render canonically, not as
+                            // its raw scaled integer (docs/DECIMAL.md §6).
+                            if is_dec_expr(e, scope, &self.fn_dec_rets) {
+                                s.push_str(&format!("_cuni_dec_str({inner})"));
+                            } else {
+                                s.push_str(&inner);
+                            }
                             s.push('}');
                         }
                     }
@@ -757,6 +809,19 @@ impl Codegen {
                     .join(", ")
             ),
             ExprKind::Call { callee, args } => {
+                // `dec` explicit conversions (docs/DECIMAL.md §5).
+                if let ExprKind::Ident(n) = &callee.kind {
+                    let one = || {
+                        args.first()
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .unwrap_or_else(|| "null".to_string())
+                    };
+                    match n.as_str() {
+                        "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
+                        "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        _ => {}
+                    }
+                }
                 // `.len()` is a method call in CuNi but a property in JS
                 // (`.length`, no parens) — needs its own rewrite, unlike
                 // `.push`, which already matches JS's own method shape.
@@ -830,6 +895,16 @@ impl Codegen {
             ExprKind::Binary { op, lhs, rhs } => {
                 let l = self.gen_expr(lhs, scope);
                 let r = self.gen_expr(rhs, scope);
+                // `dec` mul/div rescale (docs/DECIMAL.md §3); add/sub and all
+                // comparisons are natively exact on BigInt. The typeck proved
+                // both operands dec, so checking one side suffices.
+                if is_dec_expr(lhs, scope, &self.fn_dec_rets) {
+                    match op {
+                        BinOp::Mul => return format!("_cuni_dec_mul({l}, {r})"),
+                        BinOp::Div => return format!("_cuni_dec_div({l}, {r})"),
+                        _ => {}
+                    }
+                }
                 if matches!(op, BinOp::Div) {
                     format!("_cuni_div({}, {})", l, r)
                 } else {
@@ -858,6 +933,7 @@ fn params_sig(params: &[Param]) -> String {
 
 fn kind_of_type(ty: &Type) -> VarKind {
     match ty {
+        Type::Named(n) if n == "dec" => VarKind::Dec,
         Type::Generic(name, _) if name == "list" => VarKind::List,
         Type::Generic(name, _) if name == "map" => VarKind::Map,
         _ => VarKind::Other,
@@ -868,7 +944,38 @@ fn kind_of_literal(e: &Expr) -> Option<VarKind> {
     match &e.kind {
         ExprKind::List(_) => Some(VarKind::List),
         ExprKind::Map(_) => Some(VarKind::Map),
+        ExprKind::Dec(_) => Some(VarKind::Dec),
         _ => None,
+    }
+}
+
+/// Best-effort `dec` tracking for the JS backend: BigInt dec values need
+/// `_cuni_dec_mul`/`_cuni_dec_div` (plain `*`/`/` would compute the wrong
+/// scale), so the codegen must know which expressions are dec. The typeck
+/// already proved dec-ness; this just re-derives it from literals,
+/// annotations, `dec_of_int`, `-> dec` returns, and dec binops.
+fn is_dec_expr(
+    expr: &Expr,
+    scope: &HashMap<String, VarKind>,
+    fn_dec_rets: &std::collections::HashSet<String>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::Dec(_) => true,
+        ExprKind::Ident(n) => scope.get(n) == Some(&VarKind::Dec),
+        ExprKind::Call { callee, .. } => match &callee.kind {
+            ExprKind::Ident(n) => n == "dec_of_int" || fn_dec_rets.contains(n),
+            _ => false,
+        },
+        ExprKind::Binary { op, lhs, .. } => {
+            matches!(
+                op,
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div
+            ) && is_dec_expr(lhs, scope, fn_dec_rets)
+        }
+        ExprKind::Unary { op, expr } => {
+            matches!(op, UnOp::Neg) && is_dec_expr(expr, scope, fn_dec_rets)
+        }
+        _ => false,
     }
 }
 

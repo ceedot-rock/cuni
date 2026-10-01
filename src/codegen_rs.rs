@@ -260,6 +260,7 @@ impl Gen {
     fn expr(&self, e: &Expr) -> String {
         match &e.kind {
             ExprKind::Int(n) => format!("Val::Int({n})"),
+            ExprKind::Dec(s) => format!("Val::Dec({s})"),
             ExprKind::Float(f) => format!("Val::Float({f:?})"),
             ExprKind::Bool(b) => format!("Val::Bool({b})"),
             ExprKind::Str(s) => format!("Val::Str({:?}.into())", s),
@@ -309,6 +310,8 @@ impl Gen {
                         "abs" => "v_abs",
                         "min" => "v_min",
                         "max" => "v_max",
+                        "dec_of_int" => "v_dec_of_int",
+                        "int_of_dec" => "v_int_of_dec",
                         _ => n.as_str(),
                     };
                     return format!("{mapped}({a})");
@@ -362,12 +365,16 @@ impl Gen {
 }
 
 const RT: &str = r#"
+use std::convert::TryFrom;
 use std::sync::atomic::{AtomicBool, Ordering::Relaxed};
 static FAILING: AtomicBool = AtomicBool::new(false);
 
 #[derive(Clone)]
 enum Val {
     Int(i64),
+    /// CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md).
+    /// Wide seat: i128; checked ops panic (loud refusal) on true overflow.
+    Dec(i128),
     Float(f64),
     Str(String),
     Bool(bool),
@@ -436,6 +443,7 @@ fn list_iter(s: Val) -> Vec<Val> { match s { Val::List(xs) => xs, _ => vec![] } 
 fn fail_with(e: Val) -> Val { FAILING.store(true, Relaxed); let _ = e; Val::None }
 fn v_eq(a: Val, b: Val) -> bool {
     match (&a,&b) {
+        (Val::Dec(x), Val::Dec(y)) => x==y,
         (Val::Int(x), Val::Int(y)) => x==y,
         (Val::Float(x), Val::Float(y)) => x==y,
         (Val::Bool(x), Val::Bool(y)) => x==y,
@@ -450,6 +458,7 @@ fn truthy(a: Val) -> bool {
         Val::None => false,
         Val::Bool(b) => b,
         Val::Int(i) => i != 0,
+        Val::Dec(d) => d != 0,
         Val::Float(f) => f != 0.0,
         Val::Str(s) => !s.is_empty(),
         _ => true,
@@ -457,10 +466,27 @@ fn truthy(a: Val) -> bool {
 }
 fn as_f(a: &Val) -> f64 { match a { Val::Float(f) => *f, Val::Int(i) => *i as f64, _ => 0.0 } }
 fn v_cmp(a: Val, b: Val) -> i32 {
+    // `dec` compares scaled integers directly — never via f64.
+    if let (Val::Dec(x), Val::Dec(y)) = (&a, &b) {
+        return if x < y { -1 } else if x > y { 1 } else { 0 };
+    }
     let x = as_f(&a); let y = as_f(&b);
     if x < y { -1 } else if x > y { 1 } else { 0 }
 }
+/// `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec, or a
+/// loud refusal. The typeck already rejected mixes; this is defense in depth.
+fn cuni_dec_pair(a: &Val, b: &Val) -> (i128, i128) {
+    match (a, b) {
+        (Val::Dec(x), Val::Dec(y)) => (*x, *y),
+        _ => panic!("cuni: cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)"),
+    }
+}
+const DEC_SCALE: i128 = 10_000;
 fn v_add(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
+        let (x, y) = cuni_dec_pair(&a, &b);
+        return Val::Dec(x.checked_add(y).expect("cuni: dec addition overflow — refused"));
+    }
     match (&a,&b) {
         (Val::Float(_), _) | (_, Val::Float(_)) => Val::Float(as_f(&a)+as_f(&b)),
         (Val::Int(x), Val::Int(y)) => Val::Int(x+y),
@@ -468,6 +494,10 @@ fn v_add(a: Val, b: Val) -> Val {
     }
 }
 fn v_sub(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
+        let (x, y) = cuni_dec_pair(&a, &b);
+        return Val::Dec(x.checked_sub(y).expect("cuni: dec subtraction overflow — refused"));
+    }
     match (&a,&b) {
         (Val::Float(_), _) | (_, Val::Float(_)) => Val::Float(as_f(&a)-as_f(&b)),
         (Val::Int(x), Val::Int(y)) => Val::Int(x-y),
@@ -475,6 +505,12 @@ fn v_sub(a: Val, b: Val) -> Val {
     }
 }
 fn v_mul(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
+        // trunc(x*y/10000) toward zero; i128 `/` truncates natively.
+        let (x, y) = cuni_dec_pair(&a, &b);
+        let p = x.checked_mul(y).expect("cuni: dec multiplication overflow — refused");
+        return Val::Dec(p / DEC_SCALE);
+    }
     match (&a,&b) {
         (Val::Float(_), _) | (_, Val::Float(_)) => Val::Float(as_f(&a)*as_f(&b)),
         (Val::Int(x), Val::Int(y)) => Val::Int(x*y),
@@ -482,17 +518,39 @@ fn v_mul(a: Val, b: Val) -> Val {
     }
 }
 fn v_div(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
+        // trunc(x*10000/y) toward zero; division by zero panics loudly.
+        let (x, y) = cuni_dec_pair(&a, &b);
+        if y == 0 {
+            panic!("cuni: dec division by zero");
+        }
+        let p = x.checked_mul(DEC_SCALE).expect("cuni: dec division intermediate overflow — refused");
+        return Val::Dec(p / y);
+    }
     match (&a,&b) {
         (Val::Float(_), _) | (_, Val::Float(_)) => Val::Float(as_f(&a)/as_f(&b)),
         (Val::Int(x), Val::Int(y)) if *y != 0 => Val::Int(x/y),
         _ => Val::Int(0),
     }
 }
-fn v_mod(a: Val, b: Val) -> Val { match (a,b) { (Val::Int(x), Val::Int(y)) if y != 0 => Val::Int(x%y), _ => Val::Int(0) } }
-fn v_neg(a: Val) -> Val { match a { Val::Float(f) => Val::Float(-f), Val::Int(i) => Val::Int(-i), x => x } }
+fn v_mod(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
+        panic!("cuni: `%` is not defined on `dec` — refusing");
+    }
+    match (a,b) { (Val::Int(x), Val::Int(y)) if y != 0 => Val::Int(x%y), _ => Val::Int(0) }
+}
+fn v_neg(a: Val) -> Val {
+    match a {
+        Val::Dec(d) => Val::Dec(d.checked_neg().expect("cuni: dec negation overflow — refused")),
+        Val::Float(f) => Val::Float(-f),
+        Val::Int(i) => Val::Int(-i),
+        x => x,
+    }
+}
 fn v_to_str(a: Val) -> Val {
     Val::Str(match a {
         Val::Int(i) => i.to_string(),
+        Val::Dec(d) => cuni_dec_str(d),
         Val::Float(f) => format!("{:.15}", f).trim_end_matches('0').trim_end_matches('.').to_string(),
         Val::Str(s) => s,
         Val::Bool(b) => b.to_string(),
@@ -505,9 +563,39 @@ fn v_concat(a: Val, b: Val) -> Val {
     let Val::Str(y) = v_to_str(b) else { return Val::Str(x) };
     Val::Str(x + &y)
 }
+/// Canonical `dec` rendering of a scaled i128 (docs/DECIMAL.md §6).
+fn cuni_dec_str(v: i128) -> String {
+    let neg = v < 0;
+    let mag = v.unsigned_abs();
+    let ip = mag / (DEC_SCALE as u128);
+    let mut fp = format!("{:04}", mag % (DEC_SCALE as u128));
+    while fp.ends_with('0') {
+        fp.pop();
+    }
+    if fp.is_empty() {
+        fp.push('0');
+    }
+    format!("{}{}.{}", if neg { "-" } else { "" }, ip, fp)
+}
+fn v_dec_of_int(n: Val) -> Val {
+    match n {
+        Val::Int(i) => Val::Dec(i as i128 * DEC_SCALE),
+        _ => panic!("cuni: dec_of_int needs an int"),
+    }
+}
+fn v_int_of_dec(d: Val) -> Val {
+    match d {
+        // Truncation toward zero (docs/DECIMAL.md §5).
+        Val::Dec(v) => Val::Int(
+            i64::try_from(v / DEC_SCALE).expect("cuni: int_of_dec out of int range — refused"),
+        ),
+        _ => panic!("cuni: int_of_dec needs a dec"),
+    }
+}
 fn cuni_say(v: Val) {
     match v {
         Val::Int(i) => println!("{i}"),
+        Val::Dec(d) => println!("{}", cuni_dec_str(d)),
         Val::Float(f) => {
             let s = format!("{:.15}", f);
             let s = s.trim_end_matches('0').trim_end_matches('.');

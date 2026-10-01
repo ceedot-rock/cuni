@@ -112,6 +112,7 @@ Result: agents can be implemented in the language that is most convenient, while
 |-------|-----|----------------|
 | **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → every catalog language → **same stdout** |
 | **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
+| **Decimal (`dec`)** | `cuni check examples/proof-decimal/money.cuni` | Exact fixed-point money math (scale 10⁴, truncation toward zero) → **same stdout** on all 12 native seats + solc-compiled Solidity |
 
 ### Flagship: one `link`, three languages
 

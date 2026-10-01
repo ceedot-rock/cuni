@@ -9,10 +9,13 @@
 use crate::ast::*;
 use std::collections::{HashMap, HashSet};
 
-pub fn generate(program: &Program) -> String {
+pub fn generate(program: &Program) -> Result<String, String> {
+    // int64 seat: refuse dec literals whose scaled value doesn't fit
+    // (docs/DECIMAL.md §7) — before emitting anything.
+    check_dec_literals_in_range(program, i64::MAX as i128, "lua")?;
     let mut cg = Codegen::new(program);
     cg.gen_program(program);
-    cg.out
+    Ok(cg.out)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -104,6 +107,8 @@ impl Codegen {
         self.line(3, "local parts = {}");
         self.line(3, "for k, v in pairs(x._cuni_map) do parts[#parts+1] = _cuni_repr(k) .. \": \" .. _cuni_repr(v) end");
         self.line(3, "return \"{\" .. table.concat(parts, \", \") .. \"}\"");
+        self.line(2, "elseif x._cuni_kind == \"dec\" then");
+        self.line(3, "return _cuni_dec_str(x.v)");
         self.line(2, "elseif x._cuni_kind == \"typ\" then");
         self.line(3, "return x._cuni_repr_s");
         self.line(2, "end");
@@ -190,6 +195,98 @@ impl Codegen {
         self.line(1, "end");
         self.line(1, "return a / b");
         self.line(0, "end");
+        self.out.push('\n');
+        // ---- CuNi `dec`: fixed-point decimal, scale 10^4, exact ----
+        // int64 seat (docs/DECIMAL.md §7): dec values are boxed tables so
+        // `say`/comparisons stay exact and a dec can never silently mix with
+        // a plain integer. Every op that would overflow int64 raises instead
+        // of wrapping (narrow-seat envelope); literals out of range are
+        // refused at emit (see generate()).
+        self.line(0, "local CuniDec = {}");
+        self.line(0, "CuniDec.__index = CuniDec");
+        self.line(0, "CuniDec.SCALE = 10000");
+        self.line(0, "local DEC_MAXI = math.maxinteger");
+        self.line(0, "local DEC_MINI = math.mininteger");
+        self.line(0, "local function _cuni_dec_refuse(msg) error(\"cuni: \" .. msg .. \" — refused\", 0) end");
+        self.line(0, "local function _cuni_dec_tdiv(a, b)");
+        self.line(1, "-- Truncation toward zero (docs/DECIMAL.md §3); Lua's // floors. b ~= 0.");
+        self.line(1, "if b == -1 and a == DEC_MINI then _cuni_dec_refuse(\"dec division overflow\") end");
+        self.line(1, "local q = a // b");
+        self.line(1, "local r = a - q * b");
+        self.line(1, "if r ~= 0 and ((a < 0) ~= (b < 0)) then q = q + 1 end");
+        self.line(1, "return q");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_abs_over(lim, a)");
+        self.line(1, "-- true iff |a| > lim, without overflowing on MININT");
+        self.line(1, "if a == DEC_MINI then return true end");
+        self.line(1, "local aa = a < 0 and -a or a");
+        self.line(1, "return aa > lim");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_add(a, b)");
+        self.line(1, "if (b > 0 and a > DEC_MAXI - b) or (b < 0 and a < DEC_MINI - b) then");
+        self.line(2, "_cuni_dec_refuse(\"dec addition overflow\")");
+        self.line(1, "end");
+        self.line(1, "return a + b");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_sub(a, b)");
+        self.line(1, "if (b < 0 and a > DEC_MAXI + b) or (b > 0 and a < DEC_MINI + b) then");
+        self.line(2, "_cuni_dec_refuse(\"dec subtraction overflow\")");
+        self.line(1, "end");
+        self.line(1, "return a - b");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_mul(a, b)");
+        self.line(1, "if a == 0 or b == 0 then return 0 end");
+        self.line(1, "if a == DEC_MINI then");
+        self.line(2, "if b ~= 1 then _cuni_dec_refuse(\"dec multiplication overflow\") end");
+        self.line(1, "elseif b == DEC_MINI then");
+        self.line(2, "if a ~= 1 then _cuni_dec_refuse(\"dec multiplication overflow\") end");
+        self.line(1, "else");
+        self.line(2, "local aa = a < 0 and -a or a");
+        self.line(2, "local bb = b < 0 and -b or b");
+        self.line(2, "if aa > DEC_MAXI // bb then _cuni_dec_refuse(\"dec multiplication overflow\") end");
+        self.line(1, "end");
+        self.line(1, "return _cuni_dec_tdiv(a * b, CuniDec.SCALE)");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_div(a, b)");
+        self.line(1, "if b == 0 then _cuni_dec_refuse(\"dec division by zero\") end");
+        self.line(1, "if _cuni_dec_abs_over(DEC_MAXI // CuniDec.SCALE, a) then");
+        self.line(2, "_cuni_dec_refuse(\"dec division intermediate overflow\")");
+        self.line(1, "end");
+        self.line(1, "return _cuni_dec_tdiv(a * CuniDec.SCALE, b)");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_dec_neg(a)");
+        self.line(1, "if a == DEC_MINI then _cuni_dec_refuse(\"dec negation overflow\") end");
+        self.line(1, "return -a");
+        self.line(0, "end");
+        self.line(0, "function _cuni_dec_str(v)");
+        self.line(1, "-- Canonical dec rendering of a scaled integer (docs/DECIMAL.md §6).");
+        self.line(1, "local neg = v < 0");
+        self.line(1, "local mag = neg and -v or v");
+        self.line(1, "local ip = mag // CuniDec.SCALE");
+        self.line(1, "local fp = string.format(\"%04d\", mag % CuniDec.SCALE):gsub(\"0+$\", \"\")");
+        self.line(1, "if fp == \"\" then fp = \"0\" end");
+        self.line(1, "return (neg and \"-\" or \"\") .. tostring(ip) .. \".\" .. fp");
+        self.line(0, "end");
+        self.line(0, "function CuniDec.new(v)");
+        self.line(1, "return setmetatable({_cuni_kind = \"dec\", v = v}, CuniDec)");
+        self.line(0, "end");
+        self.line(0, "function _cuni_dec_of_int(n)");
+        self.line(1, "if _cuni_dec_abs_over(DEC_MAXI // CuniDec.SCALE, n) then");
+        self.line(2, "_cuni_dec_refuse(\"dec_of_int overflow\")");
+        self.line(1, "end");
+        self.line(1, "return CuniDec.new(n * CuniDec.SCALE)");
+        self.line(0, "end");
+        self.line(0, "function _cuni_int_of_dec(d) return _cuni_dec_tdiv(d.v, CuniDec.SCALE) end");
+        self.line(0, "CuniDec.__add = function(a, b) return CuniDec.new(_cuni_dec_add(a.v, b.v)) end");
+        self.line(0, "CuniDec.__sub = function(a, b) return CuniDec.new(_cuni_dec_sub(a.v, b.v)) end");
+        self.line(0, "CuniDec.__mul = function(a, b) return CuniDec.new(_cuni_dec_mul(a.v, b.v)) end");
+        self.line(0, "CuniDec.__div = function(a, b) return CuniDec.new(_cuni_dec_div(a.v, b.v)) end");
+        self.line(0, "CuniDec.__unm = function(a) return CuniDec.new(_cuni_dec_neg(a.v)) end");
+        self.line(0, "CuniDec.__eq = function(a, b) return a.v == b.v end");
+        self.line(0, "CuniDec.__lt = function(a, b) return a.v < b.v end");
+        self.line(0, "CuniDec.__le = function(a, b) return a.v <= b.v end");
+        self.line(0, "CuniDec.__concat = function(a, b) return tostring(a) .. tostring(b) end");
+        self.line(0, "CuniDec.__tostring = function(a) return _cuni_dec_str(a.v) end");
         self.out.push('\n');
         self.line(0, "function _cuni_len(x)");
         self.line(1, "if type(x) == \"string\" then return #x end");
@@ -486,6 +583,9 @@ impl Codegen {
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
         match &expr.kind {
             ExprKind::Int(n) => n.to_string(),
+            // Scaled integer, boxed: emit-time range refusal happened in
+            // generate(), so this always fits int64 (docs/DECIMAL.md §7).
+            ExprKind::Dec(s) => format!("CuniDec.new({s})"),
             ExprKind::Float(f) => {
                 let s = f.to_string();
                 if s.contains('.') || s.contains('e') {
@@ -541,6 +641,19 @@ impl Codegen {
                     .join(", ")
             ),
             ExprKind::Call { callee, args } => {
+                // `dec` explicit conversions (docs/DECIMAL.md §5).
+                if let ExprKind::Ident(n) = &callee.kind {
+                    let one = || {
+                        args.first()
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .unwrap_or_else(|| "nil".to_string())
+                    };
+                    match n.as_str() {
+                        "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
+                        "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        _ => {}
+                    }
+                }
                 if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "push" {
                         let b = self.gen_expr(base, scope);

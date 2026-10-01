@@ -149,16 +149,21 @@ use std::collections::HashMap;
 ///   is documented in the spec as an explicit escape hatch to target-native
 ///   code; wiring up that code's own dependencies is the CuNi author's
 ///   problem, not this toy backend's.
-pub fn generate(program: &Program) -> String {
+pub fn generate(program: &Program) -> Result<String, String> {
+    // int64 seat: refuse dec literals whose scaled value doesn't fit
+    // (docs/DECIMAL.md §7) — before emitting anything.
+    check_dec_literals_in_range(program, i64::MAX as i128, "go")?;
     let mut cg = Codegen::new(program);
     cg.gen_program(program);
-    cg.out
+    Ok(cg.out)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum VarKind {
     List,
     Map,
+    /// A `dec` value (`cuniDec`) — see docs/DECIMAL.md.
+    Dec,
     Other,
 }
 
@@ -186,6 +191,8 @@ struct Codegen {
     /// composite literals `T{f0: a0, f1: a1}` for positional constructors
     /// written as `T(a0, a1)` in CuNi.
     typ_fields: HashMap<String, Vec<String>>,
+    /// `def`s declared `-> dec`: calls to them are dec expressions.
+    fn_dec_rets: std::collections::HashSet<String>,
     cur_fn: Option<CurFn>,
     tmp_counter: usize,
     has_link: bool,
@@ -198,11 +205,15 @@ impl Codegen {
         let mut fn_info = HashMap::new();
         let mut enum_names = std::collections::HashSet::new();
         let mut typ_fields = HashMap::new();
+        let mut fn_dec_rets = std::collections::HashSet::new();
         let mut has_link = false;
         let mut has_link_int_param = false;
         for item in &program.items {
             match item {
                 Item::Def(f) => {
+                    if matches!(&f.ret_type, Type::Named(n) if n == "dec") {
+                        fn_dec_rets.insert(f.name.clone());
+                    }
                     fn_info.insert(
                         f.name.clone(),
                         FnInfo {
@@ -242,6 +253,7 @@ impl Codegen {
             fn_info,
             enum_names,
             typ_fields,
+            fn_dec_rets,
             cur_fn: None,
             tmp_counter: 0,
             has_link,
@@ -293,8 +305,112 @@ impl Codegen {
         );
         self.line(2, "return");
         self.line(1, "}");
+        // A `dec` is a scaled int64 (docs/DECIMAL.md) — it must render
+        // canonically, not as its raw scaled integer. No other CuNi value
+        // has the cuniDec type, so this changes nothing else.
+        self.line(1, "if d, ok := x.(cuniDec); ok {");
+        self.line(2, "fmt.Println(cuniDecStr(d))");
+        self.line(2, "return");
+        self.line(1, "}");
         self.line(1, "fmt.Println(x)");
         self.line(0, "}");
+        self.out.push('\n');
+        // ---- CuNi `dec`: fixed-point decimal, scale 10^4, exact ----
+        // int64 seat (docs/DECIMAL.md §7): the distinct cuniDec type keeps
+        // dec/int separate at compile time (a dec/int mix won't compile);
+        // every op that would overflow int64 panics — a loud refusal, never
+        // a wrap. Literals out of range are refused at emit (see generate()).
+        self.line(0, "type cuniDec int64");
+        self.out.push('\n');
+        self.line(0, "const cuniDecScale = cuniDec(10000)");
+        self.line(0, "const cuniMaxInt64 = int64(1<<63 - 1)");
+        self.line(0, "const cuniMinInt64 = int64(-1 << 63)");
+        self.out.push('\n');
+        self.line(0, "func cuniDecRefuse(msg string) { panic(\"cuni: \" + msg + \" \\u2014 refused\") }");
+        self.out.push('\n');
+        self.line(0, "func cuniTdiv64(a, b int64) int64 {");
+        self.line(1, "// Truncation toward zero (docs/DECIMAL.md §3); b != 0. Go's / already truncates.");
+        self.line(1, "if b == -1 && a == cuniMinInt64 { cuniDecRefuse(\"dec division overflow\") }");
+        self.line(1, "return a / b");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecAdd(a, b cuniDec) cuniDec {");
+        self.line(1, "if (b > 0 && a > cuniDec(cuniMaxInt64-int64(b))) || (b < 0 && a < cuniDec(cuniMinInt64-int64(b))) {");
+        self.line(2, "cuniDecRefuse(\"dec addition overflow\")");
+        self.line(1, "}");
+        self.line(1, "return a + b");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecSub(a, b cuniDec) cuniDec {");
+        self.line(1, "if (b < 0 && a > cuniDec(cuniMaxInt64+int64(b))) || (b > 0 && a < cuniDec(cuniMinInt64+int64(b))) {");
+        self.line(2, "cuniDecRefuse(\"dec subtraction overflow\")");
+        self.line(1, "}");
+        self.line(1, "return a - b");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecNeg(a cuniDec) cuniDec {");
+        self.line(1, "if a == cuniDec(cuniMinInt64) { cuniDecRefuse(\"dec negation overflow\") }");
+        self.line(1, "return -a");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecMul(a, b cuniDec) cuniDec {");
+        self.line(1, "// trunc(a*b/10000) toward zero");
+        self.line(1, "if a == 0 || b == 0 { return 0 }");
+        self.line(1, "if a == cuniDec(cuniMinInt64) {");
+        self.line(2, "if b != 1 { cuniDecRefuse(\"dec multiplication overflow\") }");
+        self.line(1, "} else if b == cuniDec(cuniMinInt64) {");
+        self.line(2, "if a != 1 { cuniDecRefuse(\"dec multiplication overflow\") }");
+        self.line(1, "} else {");
+        self.line(2, "aa := a; if aa < 0 { aa = -aa }");
+        self.line(2, "bb := b; if bb < 0 { bb = -bb }");
+        self.line(2, "if aa > cuniDec(cuniMaxInt64)/bb { cuniDecRefuse(\"dec multiplication overflow\") }");
+        self.line(1, "}");
+        self.line(1, "return cuniDec(cuniTdiv64(int64(a)*int64(b), 10000))");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecDiv(a, b cuniDec) cuniDec {");
+        self.line(1, "// trunc(a*10000/b) toward zero");
+        self.line(1, "if b == 0 { cuniDecRefuse(\"dec division by zero\") }");
+        self.line(1, "aa := int64(a)");
+        self.line(1, "if aa == cuniMinInt64 || aa > cuniMaxInt64/10000 || aa < cuniMinInt64/10000 {");
+        self.line(2, "cuniDecRefuse(\"dec division intermediate overflow\")");
+        self.line(1, "}");
+        self.line(1, "return cuniDec(cuniTdiv64(aa*10000, int64(b)))");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecOfInt(n int) cuniDec {");
+        self.line(1, "nn := int64(n)");
+        self.line(1, "if nn == cuniMinInt64 || nn > cuniMaxInt64/10000 || nn < cuniMinInt64/10000 {");
+        self.line(2, "cuniDecRefuse(\"dec_of_int overflow\")");
+        self.line(1, "}");
+        self.line(1, "return cuniDec(nn * 10000)");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniIntOfDec(d cuniDec) int {");
+        self.line(1, "return int(int64(d) / 10000)  // truncates toward zero");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDecStr(v cuniDec) string {");
+        self.line(1, "// Canonical dec rendering (docs/DECIMAL.md §6).");
+        self.line(1, "neg := v < 0");
+        self.line(1, "var mag uint64");
+        self.line(1, "if neg {");
+        self.line(2, "mag = uint64(-(int64(v) + 1)) + 1");
+        self.line(1, "} else {");
+        self.line(2, "mag = uint64(int64(v))");
+        self.line(1, "}");
+        self.line(1, "ip := mag / 10000");
+        self.line(1, "fp := mag % 10000");
+        self.line(1, "fs := fmt.Sprintf(\"%04d\", fp)");
+        self.line(1, "for len(fs) > 1 && fs[len(fs)-1] == '0' { fs = fs[:len(fs)-1] }");
+        self.line(1, "s := \"\"");
+        self.line(1, "if neg { s = \"-\" }");
+        self.line(1, "return s + fmt.Sprintf(\"%d\", ip) + \".\" + fs");
+        self.line(0, "}");
+        self.out.push('\n');
+        // fmt's %v/%s route through String(): interpolated decs render
+        // canonically too, not as raw scaled integers.
+        self.line(0, "func (v cuniDec) String() string { return cuniDecStr(v) }");
         self.out.push('\n');
         self.line(0, "func cuni_as_int(x any) int {");
         self.line(1, "switch v := x.(type) {");
@@ -558,11 +674,14 @@ impl Codegen {
     fn gen_stmt(&mut self, indent: usize, stmt: &Stmt, scope: &mut HashMap<String, VarKind>) {
         match &stmt.kind {
             StmtKind::Let { name, ty, value } | StmtKind::Mut { name, ty, value } => {
-                let kind = ty
+                let mut kind = ty
                     .as_ref()
                     .map(kind_of_type)
                     .or_else(|| kind_of_literal(value))
                     .unwrap_or(VarKind::Other);
+                if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
+                    kind = VarKind::Dec;
+                }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, name, ty, value, scope);
             }
@@ -1080,6 +1199,9 @@ impl Codegen {
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
         match &expr.kind {
             ExprKind::Int(n) => n.to_string(),
+            // Scaled int64 constant; emit-time range refusal happened in
+            // generate(), so this always fits (docs/DECIMAL.md §7).
+            ExprKind::Dec(s) => format!("cuniDec({s})"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => {
                 if *b {
@@ -1118,6 +1240,8 @@ impl Codegen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
+                        "dec_of_int" => "cuniDecOfInt",
+                        "int_of_dec" => "cuniIntOfDec",
                         _ => "",
                     };
                     if !mapped.is_empty() {
@@ -1208,15 +1332,39 @@ impl Codegen {
                 }
                 format!("{}.{}", self.gen_expr(base, scope), name)
             }
-            ExprKind::Binary { op, lhs, rhs } => format!(
-                "({} {} {})",
-                self.gen_expr(lhs, scope),
-                go_binop(*op),
-                self.gen_expr(rhs, scope)
-            ),
+            ExprKind::Binary { op, lhs, rhs } => {
+                // `dec` arithmetic goes through the checked helpers
+                // (docs/DECIMAL.md §7); comparisons are natively exact on
+                // cuniDec. The typeck proved both operands dec, so checking
+                // one side suffices.
+                if is_dec_expr(lhs, scope, &self.fn_dec_rets) {
+                    let l = self.gen_expr(lhs, scope);
+                    let r = self.gen_expr(rhs, scope);
+                    match op {
+                        BinOp::Add => return format!("cuniDecAdd({l}, {r})"),
+                        BinOp::Sub => return format!("cuniDecSub({l}, {r})"),
+                        BinOp::Mul => return format!("cuniDecMul({l}, {r})"),
+                        BinOp::Div => return format!("cuniDecDiv({l}, {r})"),
+                        _ => {}
+                    }
+                }
+                format!(
+                    "({} {} {})",
+                    self.gen_expr(lhs, scope),
+                    go_binop(*op),
+                    self.gen_expr(rhs, scope)
+                )
+            }
             ExprKind::Unary { op, expr } => match op {
                 UnOp::Not => format!("(!{})", self.gen_expr(expr, scope)),
-                UnOp::Neg => format!("(-{})", self.gen_expr(expr, scope)),
+                UnOp::Neg => {
+                    let inner = self.gen_expr(expr, scope);
+                    if is_dec_expr(expr, scope, &self.fn_dec_rets) {
+                        format!("cuniDecNeg({inner})")
+                    } else {
+                        format!("(-{inner})")
+                    }
+                }
             },
             ExprKind::Unwrap { .. } => {
                 "nil /* UNSUPPORTED: ?? outside a let/mut binding, see codegen_go.rs docs */"
@@ -1238,6 +1386,7 @@ fn go_type(ty: &Type) -> String {
     match ty {
         Type::Named(name) => match name.as_str() {
             "int" => "int".to_string(),
+            "dec" => "cuniDec".to_string(),
             "float" => "float64".to_string(),
             "str" => "string".to_string(),
             "bool" => "bool".to_string(),
@@ -1263,6 +1412,7 @@ fn zero_value(ty: &Type) -> String {
     match ty {
         Type::Named(name) => match name.as_str() {
             "int" => "0".to_string(),
+            "dec" => "cuniDec(0)".to_string(),
             "float" => "0.0".to_string(),
             "str" => "\"\"".to_string(),
             "bool" => "false".to_string(),
@@ -1279,6 +1429,7 @@ fn zero_value(ty: &Type) -> String {
 
 fn kind_of_type(ty: &Type) -> VarKind {
     match ty {
+        Type::Named(n) if n == "dec" => VarKind::Dec,
         Type::Generic(name, _) if name == "list" => VarKind::List,
         Type::Generic(name, _) if name == "map" => VarKind::Map,
         _ => VarKind::Other,
@@ -1289,7 +1440,39 @@ fn kind_of_literal(e: &Expr) -> Option<VarKind> {
     match &e.kind {
         ExprKind::List(_) => Some(VarKind::List),
         ExprKind::Map(_) => Some(VarKind::Map),
+        ExprKind::Dec(_) => Some(VarKind::Dec),
         _ => None,
+    }
+}
+
+/// Best-effort `dec` tracking: `cuniDec` arithmetic must go through the
+/// checked helpers (`cuniDecAdd`/...), so the codegen must know which
+/// expressions are dec. The typeck already proved dec-ness; this just
+/// re-derives it from literals, annotations, `dec_of_int`, `-> dec`
+/// returns, and dec binops. Comparisons need no routing (Go's `<`/`==`
+/// are exact on cuniDec).
+fn is_dec_expr(
+    expr: &Expr,
+    scope: &HashMap<String, VarKind>,
+    fn_dec_rets: &std::collections::HashSet<String>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::Dec(_) => true,
+        ExprKind::Ident(n) => scope.get(n) == Some(&VarKind::Dec),
+        ExprKind::Call { callee, .. } => match &callee.kind {
+            ExprKind::Ident(n) => n == "dec_of_int" || fn_dec_rets.contains(n),
+            _ => false,
+        },
+        ExprKind::Binary { op, lhs, .. } => {
+            matches!(
+                op,
+                BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div
+            ) && is_dec_expr(lhs, scope, fn_dec_rets)
+        }
+        ExprKind::Unary { op, expr } => {
+            matches!(op, UnOp::Neg) && is_dec_expr(expr, scope, fn_dec_rets)
+        }
+        _ => false,
     }
 }
 
@@ -1301,6 +1484,7 @@ fn infer_list_elem_type(items: &[Expr]) -> Option<String> {
     let first = items.first()?;
     Some(match &first.kind {
         ExprKind::Int(_) => "int".to_string(),
+        ExprKind::Dec(_) => "cuniDec".to_string(),
         ExprKind::Float(_) => "float64".to_string(),
         ExprKind::Bool(_) => "bool".to_string(),
         ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),

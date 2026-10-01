@@ -1035,6 +1035,19 @@ const GO_PRELUDE: &[&str] = &[
     "cuni_max",
     "cuni_len",
     "cuni_slice",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code. (The `(v cuniDec) String()` method extracts with an empty name
+    // and is harmlessly ignored downstream.)
+    "cuniDecRefuse",
+    "cuniTdiv64",
+    "cuniDecAdd",
+    "cuniDecSub",
+    "cuniDecNeg",
+    "cuniDecMul",
+    "cuniDecDiv",
+    "cuniDecOfInt",
+    "cuniIntOfDec",
+    "cuniDecStr",
 ];
 
 fn go_type_to_cuni(t: &str) -> Result<String, String> {
@@ -1208,6 +1221,9 @@ fn go_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
 const JAVA_PRELUDE: &[&str] = &[
     "say", "cuni_str", "cuni_range", "cuni_abs", "cuni_min", "cuni_max", "cuni_mod", "cuni_div",
     "cuni_slice",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code — BigInteger params are outside the ingest subset.
+    "cuni_dec_str", "cuni_dec_div",
 ];
 
 fn ingest_java(src: &str) -> Result<String, String> {
@@ -2084,6 +2100,13 @@ const JS_PRELUDE: &[&str] = &[
     "max",
     "_cuni_slice",
     "_cuni_div",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code — and uninferrable (BigInt params), so they must be skipped.
+    "_cuni_dec_str",
+    "_cuni_dec_mul",
+    "_cuni_dec_div",
+    "_cuni_dec_of_int",
+    "_cuni_int_of_dec",
 ];
 
 // ---------------------------------------------------------------------------
@@ -3099,6 +3122,12 @@ const PY_PRELUDE_SKIP: &[&str] = &[
     "_cuni_divmod",
     "_cuni_len",
     "_cuni_iter",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code — the class body is skipped by the `class` arm above.
+    "_cuni_tdiv",
+    "_cuni_dec_str",
+    "_cuni_dec_of_int",
+    "_cuni_int_of_dec",
 ];
 
 fn py_type_to_cuni(t: &str) -> Option<String> {
@@ -3391,6 +3420,11 @@ const RB_PRELUDE: &[&str] = &[
     "max",
     "_cuni_slice",
     "_cuni_div",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code — and uninferrable, so they must be skipped.
+    "_cuni_tdiv",
+    "_cuni_dec_of_int",
+    "_cuni_int_of_dec",
 ];
 
 /// Prelude helpers the Lua backend always emits.
@@ -3409,6 +3443,19 @@ const LUA_PRELUDE: &[&str] = &[
     "_cuni_div",
     "_cuni_len",
     "kwargs",
+    // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
+    // code — and uninferrable, so they must be skipped.
+    "_cuni_dec_refuse",
+    "_cuni_dec_tdiv",
+    "_cuni_dec_abs_over",
+    "_cuni_dec_add",
+    "_cuni_dec_sub",
+    "_cuni_dec_mul",
+    "_cuni_dec_div",
+    "_cuni_dec_neg",
+    "_cuni_dec_str",
+    "_cuni_dec_of_int",
+    "_cuni_int_of_dec",
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -3542,6 +3589,55 @@ fn extract_end_funcs(el: EndLang, lines: &[&str]) -> Result<(Vec<Func>, Vec<Stri
     while i < lines.len() {
         let raw = lines[i];
         let stripped = raw.trim();
+        // The Lua backend's `CuniDec` dec-metatable constructor
+        // (`function CuniDec.new(v) ... end`) is runtime, not user code
+        // (docs/DECIMAL.md): skip the whole def.
+        if el == EndLang::Lua && indent_of(raw) == 0 && stripped.starts_with("function CuniDec.") {
+            i += 1;
+            while i < lines.len() {
+                let r2 = lines[i];
+                if indent_of(r2) == 0 && is_end_line(r2.trim()) {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
+        // The rest of the Lua `CuniDec` metatable prelude (`local CuniDec
+        // = {}`, `CuniDec.__index = ...`, `CuniDec.__add = function...`)
+        // is runtime too: skip those top-level lines. Same for the
+        // `local DEC_MAXI/MINI` int64-envelope constants.
+        if el == EndLang::Lua
+            && indent_of(raw) == 0
+            && (stripped.starts_with("CuniDec")
+                || stripped.starts_with("local CuniDec")
+                || stripped.starts_with("local DEC_"))
+        {
+            i += 1;
+            continue;
+        }
+        // A multi-line `class ... end` block is runtime, not user code (the
+        // Ruby backend's `CuniDec` class): skip the whole block so the
+        // nested defs inside never reach the nested-def refusal. One-line
+        // stubs (`class CuNiError < StandardError; end`) fall through to
+        // `top`, where the existing `class ` skip handles them.
+        if el == EndLang::Rb
+            && stripped.starts_with("class ")
+            && indent_of(raw) == 0
+            && !stripped.ends_with("end")
+        {
+            i += 1;
+            while i < lines.len() {
+                let r2 = lines[i];
+                if indent_of(r2) == 0 && is_end_line(r2.trim()) {
+                    i += 1;
+                    break;
+                }
+                i += 1;
+            }
+            continue;
+        }
         match el.def_rest(stripped) {
             Some(rest) => {
                 if indent_of(raw) != 0 {
@@ -3627,6 +3723,11 @@ fn ingest_end_lang(el: EndLang, src: &str) -> Result<String, String> {
                 }
                 // The Ruby prelude's one-line class stub is runtime, not code.
                 if el == EndLang::Rb && s.starts_with("class ") {
+                    continue;
+                }
+                // `require` lines are prelude imports (the dec backend's
+                // `require "delegate"`), like Python's skipped imports.
+                if el == EndLang::Rb && s.starts_with("require ") {
                     continue;
                 }
                 return Err(format!(

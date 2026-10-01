@@ -341,6 +341,18 @@ impl<'a> Lexer<'a> {
             }
         }
         let text = std::str::from_utf8(&self.src[start..self.pos]).unwrap();
+        // A trailing `dec` (not followed by an identifier char) makes this a
+        // `dec` literal: `19.99dec`, `100dec`. The raw decimal text is kept;
+        // the parser scales/validates it once (docs/DECIMAL.md §2).
+        if self.src[self.pos..].starts_with(b"dec")
+            && !self
+                .src
+                .get(self.pos + 3)
+                .map_or(false, |c| c.is_ascii_alphanumeric() || *c == b'_')
+        {
+            self.pos += 3;
+            return Ok(Token::Dec(text.to_string()));
+        }
         if is_float {
             text.parse::<f64>()
                 .map(Token::Float)

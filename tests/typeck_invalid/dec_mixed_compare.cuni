@@ -1,0 +1,3 @@
+# Deliberately broken: mixed dec/int comparison is a type error too —
+# comparisons don't get an implicit conversion either (docs/DECIMAL.md §5).
+say(1.5dec < 2)

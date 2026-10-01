@@ -171,3 +171,42 @@ fn named_args_on_function_are_rejected() {
 fn valid_iface_conformance_is_accepted() {
     assert_eq!(compile_error("examples/typeck_valid_iface.cuni"), None);
 }
+
+/// `dec` interop (docs/DECIMAL.md §5): no implicit dec/int conversion.
+/// Mixed arithmetic is a type error with a fix-it naming the explicit
+/// conversions.
+#[test]
+fn dec_mixed_add_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/dec_mixed_add.cuni",
+        "cannot mix `dec` and `int`",
+    );
+    assert_rejected("tests/typeck_invalid/dec_mixed_add.cuni", "dec_of_int");
+    assert_rejected("tests/typeck_invalid/dec_mixed_add.cuni", "fix-it:");
+}
+
+/// Mixed dec/int *comparison* is refused too — comparisons don't get an
+/// implicit conversion either.
+#[test]
+fn dec_mixed_compare_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/dec_mixed_compare.cuni",
+        "cannot mix `dec` and `int`",
+    );
+}
+
+/// `%` is not defined on `dec` (docs/DECIMAL.md §3).
+#[test]
+fn dec_percent_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/dec_percent.cuni",
+        "`%` is not defined on `dec`",
+    );
+}
+
+/// Positive control: the decimal proof fixture is well-typed — the checker
+/// isn't just rejecting every dec program.
+#[test]
+fn valid_dec_program_is_accepted() {
+    assert_eq!(compile_error("examples/proof-decimal/money.cuni"), None);
+}

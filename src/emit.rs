@@ -34,11 +34,11 @@ pub fn seat_kind(lang: &Lang) -> SeatKind {
 
 pub fn generate_exact(program: &Program, lang: &Lang) -> Result<String, String> {
     match lang.id {
-        "go" => Ok(codegen_go::generate(program)),
+        "go" => codegen_go::generate(program).map_err(|e| format!("Go refused: {e}")),
         "js" | "ts" => Ok(codegen_js::generate(program)),
         "py" => Ok(codegen_py::generate(program)),
         "rb" => Ok(codegen_rb::generate(program)),
-        "lua" => Ok(codegen_lua::generate(program)),
+        "lua" => codegen_lua::generate(program).map_err(|e| format!("Lua refused: {e}")),
         "c" | "cpp" => Ok(codegen_c::generate(program)),
         "rs" => Ok(codegen_rs::generate(program)),
         // Solidity is the only seat that can honestly refuse: an unsupported

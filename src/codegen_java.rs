@@ -68,6 +68,10 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Debug)]
 enum JTy {
     Long,
+    /// CuNi `dec`: fixed-point decimal, scale 10⁴, exact (docs/DECIMAL.md).
+    /// `java.math.BigInteger` — arbitrary precision, divide() truncates
+    /// toward zero natively. Wide seat: no range refusal.
+    Dec,
     Double,
     Bool,
     Str,
@@ -85,6 +89,7 @@ impl JTy {
     fn decl(&self) -> String {
         match self {
             JTy::Long => "long".into(),
+            JTy::Dec => "java.math.BigInteger".into(),
             JTy::Double => "double".into(),
             JTy::Bool => "boolean".into(),
             JTy::Str => "String".into(),
@@ -108,6 +113,7 @@ impl JTy {
     fn zero(&self) -> String {
         match self {
             JTy::Long => "0L".into(),
+            JTy::Dec => "java.math.BigInteger.ZERO".into(),
             JTy::Double => "0.0".into(),
             JTy::Bool => "false".into(),
             _ => "null".into(),
@@ -124,6 +130,7 @@ fn jty(ty: &Type) -> Result<JTy, String> {
     match ty {
         Type::Named(n) => match n.as_str() {
             "int" => Ok(JTy::Long),
+            "dec" => Ok(JTy::Dec),
             "float" => Ok(JTy::Double),
             "str" => Ok(JTy::Str),
             "bool" => Ok(JTy::Bool),
@@ -283,6 +290,11 @@ impl Codegen {
         self.line(3, "System.out.println(\"None\");");
         self.line(2, "} else if (x instanceof Boolean) {");
         self.line(3, "System.out.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
+        // A `dec` is a scaled BigInteger (docs/DECIMAL.md) — it must render
+        // canonically, not as its raw scaled integer. No other CuNi value
+        // is a BigInteger, so this changes nothing else.
+        self.line(2, "} else if (x instanceof java.math.BigInteger) {");
+        self.line(3, "System.out.println(cuni_dec_str((java.math.BigInteger) x));");
         self.line(2, "} else {");
         self.line(3, "System.out.println(x);");
         self.line(2, "}");
@@ -294,7 +306,28 @@ impl Codegen {
         self.line(2, "if (x instanceof Boolean) {");
         self.line(3, "return ((Boolean) x).booleanValue() ? \"True\" : \"False\";");
         self.line(2, "}");
+        self.line(2, "if (x instanceof java.math.BigInteger) {");
+        self.line(3, "return cuni_dec_str((java.math.BigInteger) x);");
+        self.line(2, "}");
         self.line(2, "return String.valueOf(x);");
+        self.line(1, "}");
+        // ---- CuNi `dec` (docs/DECIMAL.md): BigInteger, scale 10^4 ----
+        self.line(1, "static final java.math.BigInteger CUNI_DEC_SCALE = new java.math.BigInteger(\"10000\");");
+        self.line(1, "static String cuni_dec_str(java.math.BigInteger v) {");
+        self.line(2, "// Canonical dec rendering (docs/DECIMAL.md §6).");
+        self.line(2, "boolean neg = v.signum() < 0;");
+        self.line(2, "java.math.BigInteger mag = neg ? v.negate() : v;");
+        self.line(2, "java.math.BigInteger[] dr = mag.divideAndRemainder(CUNI_DEC_SCALE);");
+        self.line(2, "String fs = String.format(\"%04d\", dr[1].intValue());");
+        self.line(2, "int end = fs.length();");
+        self.line(2, "while (end > 1 && fs.charAt(end - 1) == '0') end--;");
+        self.line(2, "fs = fs.substring(0, end);");
+        self.line(2, "return (neg ? \"-\" : \"\") + dr[0].toString() + \".\" + fs;");
+        self.line(1, "}");
+        self.line(1, "static java.math.BigInteger cuni_dec_div(java.math.BigInteger a, java.math.BigInteger b) {");
+        self.line(2, "// trunc(a*10000/b) toward zero (docs/DECIMAL.md §3); BigInteger.divide truncates natively.");
+        self.line(2, "if (b.signum() == 0) throw new ArithmeticException(\"cuni: dec division by zero\");");
+        self.line(2, "return a.multiply(CUNI_DEC_SCALE).divide(b);");
         self.line(1, "}");
         self.line(1, "static java.util.List<Long> cuni_range(long n) {");
         self.line(2, "java.util.List<Long> out = new java.util.ArrayList<>();");
@@ -985,6 +1018,11 @@ impl Codegen {
                 code: format!("{}L", n),
                 ty: JTy::Long,
             }),
+            // Scaled BigInteger literal (docs/DECIMAL.md §2).
+            ExprKind::Dec(s) => Ok(JExpr {
+                code: format!("new java.math.BigInteger(\"{s}\")"),
+                ty: JTy::Dec,
+            }),
             ExprKind::Float(f) => Ok(JExpr {
                 // Same decimal text the py seat emits (`f.to_string()`), so
                 // both parse to the identical IEEE double.
@@ -1162,10 +1200,19 @@ impl Codegen {
                         code: format!("(!{})", v.code),
                         ty: JTy::Bool,
                     }),
-                    UnOp::Neg => Ok(JExpr {
-                        code: format!("(-{})", v.code),
-                        ty: v.ty,
-                    }),
+                    UnOp::Neg => {
+                        if matches!(v.ty, JTy::Dec) {
+                            Ok(JExpr {
+                                code: format!("({}.negate())", v.code),
+                                ty: JTy::Dec,
+                            })
+                        } else {
+                            Ok(JExpr {
+                                code: format!("(-{})", v.code),
+                                ty: v.ty,
+                            })
+                        }
+                    }
                 }
             }
             ExprKind::Unwrap { .. } => Err(
@@ -1178,6 +1225,32 @@ impl Codegen {
     fn gen_call(&mut self, callee: &Expr, args: &[CallArg]) -> Result<JExpr, String> {
         // Builtin free functions first.
         if let ExprKind::Ident(fname) = &callee.kind {
+            // `dec` explicit conversions (docs/DECIMAL.md §5).
+            if fname == "dec_of_int" {
+                let a = args
+                    .first()
+                    .ok_or("dec_of_int needs one argument; refusing")?;
+                let v = self.gen_expr(a.expr())?;
+                return Ok(JExpr {
+                    code: format!(
+                        "(java.math.BigInteger.valueOf({}).multiply(CUNI_DEC_SCALE))",
+                        v.code
+                    ),
+                    ty: JTy::Dec,
+                });
+            }
+            if fname == "int_of_dec" {
+                let a = args
+                    .first()
+                    .ok_or("int_of_dec needs one argument; refusing")?;
+                let v = self.gen_expr(a.expr())?;
+                return Ok(JExpr {
+                    // Truncates toward zero; longValueExact throws loudly on
+                    // overflow instead of silently wrapping.
+                    code: format!("(({}.divide(CUNI_DEC_SCALE)).longValueExact())", v.code),
+                    ty: JTy::Long,
+                });
+            }
             let mapped = match fname.as_str() {
                 "range" => Some("cuni_range"),
                 "abs" => Some("cuni_abs"),
@@ -1340,6 +1413,44 @@ impl Codegen {
     fn gen_binary(&mut self, op: BinOp, lhs: &Expr, rhs: &Expr) -> Result<JExpr, String> {
         let l = self.gen_expr(lhs)?;
         let r = self.gen_expr(rhs)?;
+        // `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec,
+        // or a loud refusal. The typeck already rejected mixes; this is
+        // defense in depth. BigInteger ops are exact; divide() truncates
+        // toward zero natively.
+        if matches!(l.ty, JTy::Dec) || matches!(r.ty, JTy::Dec) {
+            if !matches!(l.ty, JTy::Dec) || !matches!(r.ty, JTy::Dec) {
+                return Err(
+                    "cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)"
+                        .into(),
+                );
+            }
+            let (code, ty) = match op {
+                BinOp::Add => (format!("({}.add({}))", l.code, r.code), JTy::Dec),
+                BinOp::Sub => (format!("({}.subtract({}))", l.code, r.code), JTy::Dec),
+                BinOp::Mul => (
+                    format!("({}.multiply({}).divide(CUNI_DEC_SCALE))", l.code, r.code),
+                    JTy::Dec,
+                ),
+                BinOp::Div => (format!("cuni_dec_div({}, {})", l.code, r.code), JTy::Dec),
+                BinOp::Mod => return Err("`%` is not defined on `dec`; refusing".into()),
+                BinOp::Eq => (
+                    format!("java.util.Objects.equals({}, {})", l.code, r.code),
+                    JTy::Bool,
+                ),
+                BinOp::Ne => (
+                    format!("(!java.util.Objects.equals({}, {}))", l.code, r.code),
+                    JTy::Bool,
+                ),
+                BinOp::Lt => (format!("({}.compareTo({}) < 0)", l.code, r.code), JTy::Bool),
+                BinOp::Gt => (format!("({}.compareTo({}) > 0)", l.code, r.code), JTy::Bool),
+                BinOp::Le => (format!("({}.compareTo({}) <= 0)", l.code, r.code), JTy::Bool),
+                BinOp::Ge => (format!("({}.compareTo({}) >= 0)", l.code, r.code), JTy::Bool),
+                BinOp::And | BinOp::Or => {
+                    return Err("`and`/`or` need booleans; refusing".into())
+                }
+            };
+            return Ok(JExpr { code, ty });
+        }
         let is_double = matches!(l.ty, JTy::Double) || matches!(r.ty, JTy::Double);
         let is_str = matches!(l.ty, JTy::Str) || matches!(r.ty, JTy::Str);
         match op {

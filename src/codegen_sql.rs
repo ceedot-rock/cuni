@@ -92,6 +92,9 @@ pub fn generate_dialect(program: &Program, dialect: Dialect) -> Result<String, S
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum VKind {
     Int,
+    /// CuNi `dec`: scaled INTEGER, scale 10⁴ (docs/DECIMAL.md). Narrow
+    /// seat: |scaled| ≤ i64::MAX; literals are range-checked at emit.
+    Dec,
     Float,
     Str,
     Bool,
@@ -367,6 +370,140 @@ impl<'a> Codegen<'a> {
 
     fn is_null_sql(s: &str) -> bool {
         s.trim() == "NULL"
+    }
+
+    /// The SQL seat is a narrow (int64) seat (docs/DECIMAL.md §7): a dec
+    /// literal whose scaled value falls outside |v| ≤ i64::MAX is refused
+    /// at emit, never silently wrapped. `v` is the parser-validated
+    /// scaled i128.
+    fn check_dec_literal(v: i128) -> Result<(), String> {
+        if v > i64::MAX as i128 || v < i64::MIN as i128 {
+            return Err(format!(
+                "dec literal `{v}` (scaled) is outside the SQL seat's int64 envelope; refusing"
+            ));
+        }
+        Ok(())
+    }
+
+    /// Canonical dec rendering as a SQL text expression (docs/DECIMAL.md
+    /// §6), via pure string ops — exact for every int64, no REAL division.
+    /// `vsql` is a SQL expression evaluating to the scaled INTEGER.
+    fn dec_to_text_sql(vsql: &str) -> String {
+        // digits = magnitude's decimal digits (no sign, no leading zeros —
+        // CAST(int AS TEXT) never emits them).
+        let digits = format!(
+            "(CASE WHEN ({v}) < 0 THEN substr(CAST(({v}) AS TEXT), 2) ELSE CAST(({v}) AS TEXT) END)",
+            v = vsql
+        );
+        // Last four digits, left-padded to 4: the fractional part.
+        let frac4 = format!(
+            "(substr('0000' || {d}, length('0000' || {d}) - 3, 4))",
+            d = digits
+        );
+        // Trailing zeros stripped (at least one digit kept).
+        let frac = format!(
+            "(CASE WHEN rtrim({f}, '0') = '' THEN '0' ELSE rtrim({f}, '0') END)",
+            f = frac4
+        );
+        let intpart = format!(
+            "(CASE WHEN length({d}) > 4 THEN substr({d}, 1, length({d}) - 4) ELSE '0' END)",
+            d = digits
+        );
+        format!(
+            "((CASE WHEN ({v}) < 0 THEN '-' ELSE '' END) || {i} || '.' || {f})",
+            v = vsql,
+            i = intpart,
+            f = frac
+        )
+    }
+
+    /// `dec` binary ops: a closed world (docs/DECIMAL.md §3–5). Literal
+    /// operands are folded in Rust with checked arithmetic — exact, and a
+    /// loud refusal on overflow or division by zero. Dynamic operands use
+    /// the CAST(x/y AS INTEGER) truncation trick, provably exact inside
+    /// the documented 2^53 domain (same posture as integer `/` above);
+    /// values outside it are caught by the cross-seat gate.
+    fn eval_dec_binary(&mut self, op: BinOp, l: Val, r: Val) -> Result<Val, String> {
+        // The typeck proved both sides dec; this is defense in depth.
+        if l.kind != VKind::Dec || r.kind != VKind::Dec {
+            return Err(
+                "cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)".into(),
+            );
+        }
+        // Literal fast path: exact Rust arithmetic, loud refusal.
+        if let (Ok(a), Ok(b)) = (l.sql.trim().parse::<i128>(), r.sql.trim().parse::<i128>()) {
+            let v: Option<i128> = match op {
+                BinOp::Add => a.checked_add(b),
+                BinOp::Sub => a.checked_sub(b),
+                // trunc(a*b/10000) toward zero.
+                BinOp::Mul => a.checked_mul(b).map(|p| p / 10_000),
+                // trunc(a*10000/b) toward zero; b == 0 refuses.
+                BinOp::Div => {
+                    if b == 0 {
+                        return Err("dec division by zero; refusing".into());
+                    }
+                    a.checked_mul(10_000).map(|p| p / b)
+                }
+                BinOp::Eq => return Ok(Val::scalar(if a == b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Ne => return Ok(Val::scalar(if a != b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Lt => return Ok(Val::scalar(if a < b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Gt => return Ok(Val::scalar(if a > b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Le => return Ok(Val::scalar(if a <= b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Ge => return Ok(Val::scalar(if a >= b { "1" } else { "0" }.into(), VKind::Bool)),
+                _ => None,
+            };
+            match v {
+                Some(x) => {
+                    if x > i64::MAX as i128 || x < i64::MIN as i128 {
+                        return Err("dec arithmetic overflowed the SQL seat's int64 envelope; refusing".into());
+                    }
+                    return Ok(Val::scalar(x.to_string(), VKind::Dec));
+                }
+                None => {
+                    // checked_* returned None (overflow) on a non-comparison
+                    // op, or an unsupported op: refuse loudly.
+                    return Err(match op {
+                        BinOp::Mod => "`%` is not defined on `dec`; refusing".into(),
+                        BinOp::And | BinOp::Or => "`and`/`or` need booleans; refusing".into(),
+                        _ => "dec arithmetic overflowed the SQL seat's int64 envelope; refusing".into(),
+                    });
+                }
+            }
+        }
+        match op {
+            BinOp::Add => Ok(Val::scalar(format!("(({}) + ({}))", l.sql, r.sql), VKind::Dec)),
+            BinOp::Sub => Ok(Val::scalar(format!("(({}) - ({}))", l.sql, r.sql), VKind::Dec)),
+            // trunc(a*b/10000). Documented 2^53 domain (see above).
+            BinOp::Mul => Ok(Val::scalar(
+                format!("CAST((({}) * ({})) / 10000 AS INTEGER)", l.sql, r.sql),
+                VKind::Dec,
+            )),
+            BinOp::Div => {
+                if Self::is_zero_literal(&r.sql) {
+                    return Err("dec division by zero; refusing".into());
+                }
+                // trunc(a*10000/b). Documented 2^53 domain (see above).
+                Ok(Val::scalar(
+                    format!("CAST((({}) * 10000) / ({}) AS INTEGER)", l.sql, r.sql),
+                    VKind::Dec,
+                ))
+            }
+            BinOp::Mod => Err("`%` is not defined on `dec`; refusing".into()),
+            BinOp::Eq | BinOp::Ne => {
+                let o = if matches!(op, BinOp::Eq) { "=" } else { "<>" };
+                Ok(Val::scalar(format!("(({}) {o} ({}))", l.sql, r.sql), VKind::Bool))
+            }
+            BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
+                let o = match op {
+                    BinOp::Lt => "<",
+                    BinOp::Gt => ">",
+                    BinOp::Le => "<=",
+                    _ => ">=",
+                };
+                Ok(Val::scalar(format!("(({}) {o} ({}))", l.sql, r.sql), VKind::Bool))
+            }
+            BinOp::And | BinOp::Or => Err("`and`/`or` need booleans; refusing".into()),
+        }
     }
 
     // ------------------------------------------------------------------
@@ -874,6 +1011,13 @@ impl<'a> Codegen<'a> {
     fn emit_say(&mut self, v: &Val) -> Result<(), String> {
         let valsql = match &v.kind {
             VKind::Int | VKind::Float | VKind::Str | VKind::Any => v.sql.clone(),
+            // A dec renders canonically (docs/DECIMAL.md §6). A static
+            // literal folds to its exact spelling at emit; a dynamic value
+            // uses pure-SQL string ops (exact for every int64).
+            VKind::Dec => match v.sql.trim().parse::<i64>() {
+                Ok(n) => format!("'{}'", crate::ast::fmt_dec_scaled(n as i128)),
+                Err(_) => Self::dec_to_text_sql(&v.sql),
+            },
             // Peephole: a statically-known bool prints its spelling
             // directly — no CASE.
             VKind::Bool if v.sql.trim() == "1" => "'True'".into(),
@@ -934,6 +1078,9 @@ fn merge_kind(a: &VKind, b: &VKind) -> VKind {
 fn kind_of_type(ty: &Type) -> Result<VKind, String> {    match ty {
         Type::Named(n) => match n.as_str() {
             "int" => Ok(VKind::Int),
+            // The SQL seat stores dec as a scaled INTEGER (docs/DECIMAL.md
+            // §7) — a narrow (int64) seat.
+            "dec" => Ok(VKind::Dec),
             "float" => Ok(VKind::Float),
             "str" => Ok(VKind::Str),
             "bool" => Ok(VKind::Bool),
@@ -956,6 +1103,13 @@ impl<'a> Codegen<'a> {
     fn eval(&mut self, expr: &Expr) -> Result<Val, String> {
         match &expr.kind {
             ExprKind::Int(n) => Ok(Val::scalar(n.to_string(), VKind::Int)),
+            // Scaled dec literal (docs/DECIMAL.md §2). The SQL seat is a
+            // narrow (int64) seat: an out-of-range literal is refused at
+            // emit, never silently wrapped.
+            ExprKind::Dec(s) => {
+                Self::check_dec_literal(*s)?;
+                Ok(Val::scalar(s.to_string(), VKind::Dec))
+            }
             ExprKind::Float(f) => Ok(Val::scalar(format!("{f}"), VKind::Float)),
             ExprKind::Bool(b) => Ok(Val::scalar(
                 if *b { "1".into() } else { "0".into() },
@@ -1075,6 +1229,10 @@ impl<'a> Codegen<'a> {
     fn cast_to_text(&self, v: &Val) -> Result<String, String> {
         match &v.kind {
             VKind::Int | VKind::Float => Ok(format!("CAST(({}) AS TEXT)", v.sql)),
+            VKind::Dec => match v.sql.trim().parse::<i64>() {
+                Ok(n) => Ok(format!("'{}'", crate::ast::fmt_dec_scaled(n as i128))),
+                Err(_) => Ok(Self::dec_to_text_sql(&v.sql)),
+            },
             VKind::Str => Ok(v.sql.clone()),
             VKind::Bool => Ok(format!("CASE WHEN ({}) THEN 'True' ELSE 'False' END", v.sql)),
             VKind::Null => Ok("'None'".into()),
@@ -1085,6 +1243,11 @@ impl<'a> Codegen<'a> {
     fn eval_binary(&mut self, op: BinOp, lhs: &Expr, rhs: &Expr) -> Result<Val, String> {
         let l = self.eval(lhs)?;
         let r = self.eval(rhs)?;
+        // `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec,
+        // or a loud refusal. Routed before the int/float/str logic below.
+        if matches!(l.kind, VKind::Dec) || matches!(r.kind, VKind::Dec) {
+            return self.eval_dec_binary(op, l, r);
+        }
         let is_num = |k: &VKind| matches!(k, VKind::Int | VKind::Float | VKind::Any);
         let is_str = |k: &VKind| matches!(k, VKind::Str);
         match op {
@@ -1276,6 +1439,43 @@ impl<'a> Codegen<'a> {
                     return Ok(Val::scalar(
                         format!("CASE WHEN (({}) {o} ({})) THEN ({}) ELSE ({}) END", a.sql, b.sql, a.sql, b.sql),
                         kind,
+                    ));
+                }
+                // `dec` explicit conversions (docs/DECIMAL.md §5).
+                "dec_of_int" => {
+                    if args.len() != 1 {
+                        return Err("`dec_of_int` takes exactly one argument; refusing".into());
+                    }
+                    let v = self.eval(args[0].expr())?;
+                    // Literal: exact checked math, loud on overflow.
+                    if let Ok(n) = v.sql.trim().parse::<i128>() {
+                        let s = n.checked_mul(10_000).ok_or_else(|| {
+                            "dec_of_int overflowed the SQL seat's int64 envelope; refusing".to_string()
+                        })?;
+                        Self::check_dec_literal(s)?;
+                        return Ok(Val::scalar(s.to_string(), VKind::Dec));
+                    }
+                    return Ok(Val::scalar(format!("(({}) * 10000)", v.sql), VKind::Dec));
+                }
+                "int_of_dec" => {
+                    if args.len() != 1 {
+                        return Err("`int_of_dec` takes exactly one argument; refusing".into());
+                    }
+                    let v = self.eval(args[0].expr())?;
+                    // Literal: exact (truncates toward zero), loud on overflow.
+                    if let Ok(n) = v.sql.trim().parse::<i128>() {
+                        let t = n / 10_000;
+                        if t > i64::MAX as i128 || t < i64::MIN as i128 {
+                            return Err("int_of_dec overflowed the SQL seat's int64 envelope; refusing".into());
+                        }
+                        return Ok(Val::scalar(t.to_string(), VKind::Int));
+                    }
+                    // Dynamic: trunc(d/10000) via the CAST trick — exact
+                    // inside the documented 2^53 domain (same posture as
+                    // integer `/`).
+                    return Ok(Val::scalar(
+                        format!("CAST(({}) / 10000 AS INTEGER)", v.sql),
+                        VKind::Int,
                     ));
                 }
                 _ => {}

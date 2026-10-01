@@ -8,6 +8,9 @@ use std::collections::HashMap;
 enum Val {
     Int(i64),
     Float(f64),
+    /// `dec`: scaled integer, scale 10⁴ (docs/DECIMAL.md). i128 — the
+    /// interpreter is a wide seat; checked ops refuse on true overflow.
+    Dec(i128),
     Bool(bool),
     Str(String),
     None,
@@ -236,6 +239,7 @@ impl<'a> Vm<'a> {
         let v = match &e.kind {
             ExprKind::Int(n) => Val::Int(*n),
             ExprKind::Float(f) => Val::Float(*f),
+            ExprKind::Dec(s) => Val::Dec(*s),
             ExprKind::Bool(b) => Val::Bool(*b),
             ExprKind::Str(s) => Val::Str(s.clone()),
             ExprKind::NoneLit => Val::None,
@@ -277,6 +281,10 @@ impl<'a> Vm<'a> {
                     UnOp::Neg => match v {
                         Val::Int(n) => Val::Int(-n),
                         Val::Float(f) => Val::Float(-f),
+                        Val::Dec(d) => Val::Dec(
+                            d.checked_neg()
+                                .ok_or("cuni: dec negation overflow — refused")?,
+                        ),
                         _ => return Err("negation needs a number".into()),
                     },
                 }
@@ -379,6 +387,22 @@ impl<'a> Vm<'a> {
                     let b = av.get(1).ok_or("max")?.as_int()?;
                     return Ok(Ok(Val::Int(a.max(b))));
                 }
+                "dec_of_int" => {
+                    let n = av.first().ok_or("dec_of_int needs n")?.as_int()?;
+                    return Ok(Ok(Val::Dec(n as i128 * crate::ast::DEC_SCALE)));
+                }
+                "int_of_dec" => {
+                    let d = match av.first().ok_or("int_of_dec needs d")? {
+                        Val::Dec(d) => *d,
+                        _ => return Err("int_of_dec needs a dec".into()),
+                    };
+                    // Truncation toward zero (docs/DECIMAL.md §5).
+                    let q = d / crate::ast::DEC_SCALE;
+                    let n: i64 = q.try_into().map_err(|_| {
+                        "cuni: int_of_dec result out of int range — refused".to_string()
+                    })?;
+                    return Ok(Ok(Val::Int(n)));
+                }
                 _ => {}
             }
             if let Some(t) = self.typs.get(fname).copied() {
@@ -434,6 +458,7 @@ impl<'a> Vm<'a> {
     fn fmt(&self, v: &Val) -> String {
         match v {
             Val::Int(n) => n.to_string(),
+            Val::Dec(d) => crate::ast::fmt_dec_scaled(*d),
             Val::Float(f) => {
                 let s = format!("{f}");
                 if s.contains('.') || s.contains('e') || s.contains('E') {
@@ -475,6 +500,7 @@ impl Val {
             Val::None => false,
             Val::Bool(b) => *b,
             Val::Int(0) => false,
+            Val::Dec(d) if *d == 0 => false,
             Val::Float(f) if *f == 0.0 => false,
             Val::Str(s) if s.is_empty() => false,
             Val::List(xs) if xs.is_empty() => false,
@@ -582,6 +608,11 @@ fn method(name: &str, b: Val, args: &[Val]) -> Result<Val, String> {
 }
 
 fn bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
+    // `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec, or
+    // neither. The typeck already refused mixes; this is defense in depth.
+    if matches!(l, Val::Dec(_)) || matches!(r, Val::Dec(_)) {
+        return dec_bin(op, l, r);
+    }
     match op {
         BinOp::Eq => Ok(Val::Bool(eq(&l, &r))),
         BinOp::Ne => Ok(Val::Bool(!eq(&l, &r))),
@@ -610,6 +641,52 @@ fn bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
             (Val::Int(a), Val::Int(b)) if b != 0 => Ok(Val::Int(a % b)),
             _ => Err("% needs ints".into()),
         },
+        BinOp::And | BinOp::Or => unreachable!(),
+    }
+}
+
+/// Exact `dec` arithmetic on scaled i128 values (docs/DECIMAL.md §3).
+/// Division truncates toward zero (i128 `/` already does); every true
+/// overflow is a loud refusal, never a wrap.
+fn dec_bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
+    let (Val::Dec(a), Val::Dec(b)) = (l, r) else {
+        return Err(
+            "cannot mix `dec` with a non-dec value — convert explicitly: `dec_of_int(n)` / `int_of_dec(d)`"
+                .into(),
+        );
+    };
+    const S: i128 = crate::ast::DEC_SCALE;
+    match op {
+        BinOp::Add => Ok(Val::Dec(
+            a.checked_add(b)
+                .ok_or("cuni: dec addition overflow — refused")?,
+        )),
+        BinOp::Sub => Ok(Val::Dec(
+            a.checked_sub(b)
+                .ok_or("cuni: dec subtraction overflow — refused")?,
+        )),
+        BinOp::Mul => {
+            let p = a
+                .checked_mul(b)
+                .ok_or("cuni: dec multiplication overflow — refused")?;
+            Ok(Val::Dec(p / S))
+        }
+        BinOp::Div => {
+            if b == 0 {
+                return Err("cuni: dec division by zero".into());
+            }
+            let p = a
+                .checked_mul(S)
+                .ok_or("cuni: dec division intermediate overflow — refused")?;
+            Ok(Val::Dec(p / b))
+        }
+        BinOp::Mod => Err("`%` is not defined on `dec` — refusing".into()),
+        BinOp::Eq => Ok(Val::Bool(a == b)),
+        BinOp::Ne => Ok(Val::Bool(a != b)),
+        BinOp::Lt => Ok(Val::Bool(a < b)),
+        BinOp::Gt => Ok(Val::Bool(a > b)),
+        BinOp::Le => Ok(Val::Bool(a <= b)),
+        BinOp::Ge => Ok(Val::Bool(a >= b)),
         BinOp::And | BinOp::Or => unreachable!(),
     }
 }

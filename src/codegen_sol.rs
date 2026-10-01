@@ -23,6 +23,8 @@ use std::collections::{HashMap, HashSet};
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SolKind {
     Int,
+    /// CuNi `dec`: scaled int256 (docs/DECIMAL.md).
+    Dec,
     Str,
     Bool,
     Other,
@@ -37,6 +39,8 @@ pub struct Codegen {
     uses_emit: bool,
     /// Is `_cuni_itoa` needed (int interpolation)?
     needs_itoa: bool,
+    /// Is `_cuni_dec_str` needed (dec say / interpolation)?
+    needs_dec_str: bool,
     out: String,
 }
 
@@ -68,6 +72,7 @@ impl Codegen {
             enum_names,
             uses_emit: false,
             needs_itoa: false,
+            needs_dec_str: false,
             out: String::new(),
         }
     }
@@ -98,6 +103,8 @@ fn sol_type(ty: &Type) -> Result<String, String> {
     match ty {
         Type::Named(n) => match n.as_str() {
             "int" => Ok("int256".into()),
+            // `dec` is a scaled int256 — the natural fit (docs/DECIMAL.md §7).
+            "dec" => Ok("int256".into()),
             "str" => Ok("string".into()),
             "bool" => Ok("bool".into()),
             "float" => Err("Solidity has no float type; refusing float".into()),
@@ -117,6 +124,7 @@ fn kind_of_type(ty: &Type) -> SolKind {
     match ty {
         Type::Named(n) => match n.as_str() {
             "int" => SolKind::Int,
+            "dec" => SolKind::Dec,
             "str" => SolKind::Str,
             "bool" => SolKind::Bool,
             _ => SolKind::Other,
@@ -128,6 +136,7 @@ fn kind_of_type(ty: &Type) -> SolKind {
 fn kind_of_literal(e: &Expr) -> Option<SolKind> {
     match &e.kind {
         ExprKind::Int(_) => Some(SolKind::Int),
+        ExprKind::Dec(_) => Some(SolKind::Dec),
         ExprKind::Str(_) | ExprKind::InterpStr(_) => Some(SolKind::Str),
         ExprKind::Bool(_) => Some(SolKind::Bool),
         _ => None,
@@ -172,6 +181,7 @@ impl Codegen {
         }
         self.line(0, &format!("contract {} {{", contract));
         self.line(1, "event LogInt(int256 value);");
+        self.line(1, "event LogDec(string value);");
         self.line(1, "event LogString(string value);");
         self.line(1, "event LogBool(bool value);");
         self.out.push('\n');
@@ -181,35 +191,6 @@ impl Codegen {
                 self.gen_def(f)?;
                 self.out.push('\n');
             }
-        }
-        // _cuni_itoa helper if any interpolation needs it.
-        if self.needs_itoa {
-            self.line(
-                1,
-                "/// @notice int256 -> decimal string (for interpolated output).",
-            );
-            self.line(
-                1,
-                "function _cuni_itoa(int256 v) internal pure returns (string memory) {",
-            );
-            self.line(2, "if (v == 0) return \"0\";");
-            self.line(2, "bool neg = v < 0;");
-            self.line(2, "uint256 u = neg ? uint256(-v) : uint256(v);");
-            self.line(2, "bytes memory b = new bytes(78);");
-            self.line(2, "uint256 i = 78;");
-            self.line(
-                2,
-                "while (u > 0) { i--; b[i] = bytes1(uint8(48 + u % 10)); u /= 10; }",
-            );
-            self.line(2, "bytes memory s = new bytes(78 - i + (neg ? 1 : 0));");
-            self.line(2, "if (neg) s[0] = \"-\";");
-            self.line(
-                2,
-                "for (uint256 j = 0; j < 78 - i; j++) s[j + (neg ? 1 : 0)] = b[i + j];",
-            );
-            self.line(2, "return string(s);");
-            self.line(1, "}");
-            self.out.push('\n');
         }
         // Top-level statements -> run().
         let top: Vec<&Stmt> = program
@@ -232,8 +213,84 @@ impl Codegen {
             }
             self.line(1, "}");
         }
+        // String helpers, emitted last so top-level `say` can set the
+        // flags in time (docs/DECIMAL.md §6).
+        self.emit_helpers();
         self.line(0, "}");
         Ok(())
+    }
+
+    /// Emit `_cuni_itoa` / `_cuni_dec_str` when interpolation or `say`
+    /// needed them. Called after all statements are generated.
+    fn emit_helpers(&mut self) {
+            // _cuni_itoa helper if any interpolation needs it.
+            if self.needs_dec_str {
+                // _cuni_dec_str reuses _cuni_itoa for the integer part.
+                self.needs_itoa = true;
+            }
+            if self.needs_itoa {
+                self.line(
+                    1,
+                    "/// @notice int256 -> decimal string (for interpolated output).",
+                );
+                self.line(
+                    1,
+                    "function _cuni_itoa(int256 v) internal pure returns (string memory) {",
+                );
+                self.line(2, "if (v == 0) return \"0\";");
+                self.line(2, "bool neg = v < 0;");
+                self.line(2, "uint256 u = neg ? uint256(-v) : uint256(v);");
+                self.line(2, "bytes memory b = new bytes(78);");
+                self.line(2, "uint256 i = 78;");
+                self.line(
+                    2,
+                    "while (u > 0) { i--; b[i] = bytes1(uint8(48 + u % 10)); u /= 10; }",
+                );
+                self.line(2, "bytes memory s = new bytes(78 - i + (neg ? 1 : 0));");
+                self.line(2, "if (neg) s[0] = \"-\";");
+                self.line(
+                    2,
+                    "for (uint256 j = 0; j < 78 - i; j++) s[j + (neg ? 1 : 0)] = b[i + j];",
+                );
+                self.line(2, "return string(s);");
+                self.line(1, "}");
+                self.out.push('\n');
+            }
+            // _cuni_dec_str helper if any dec say / interpolation needs it.
+            // Canonical dec rendering (docs/DECIMAL.md §6); reuses _cuni_itoa
+            // for the integer part (emitted above when needs_itoa).
+            if self.needs_dec_str {
+                self.line(
+                    1,
+                    "/// @notice scaled int256 -> canonical decimal string (docs/DECIMAL.md §6).",
+                );
+                self.line(
+                    1,
+                    "function _cuni_dec_str(int256 v) internal pure returns (string memory) {",
+                );
+                self.line(2, "bool neg = v < 0;");
+                self.line(2, "uint256 mag = neg ? uint256(-(v + 1)) + 1 : uint256(v);");
+                self.line(2, "uint256 ip = mag / 10000;");
+                self.line(2, "uint256 fp = mag % 10000;");
+                self.line(2, "bytes memory fb = new bytes(4);");
+                self.line(2, "for (uint256 i = 0; i < 4; i++) {");
+                self.line(3, "fb[3 - i] = bytes1(uint8(48 + (fp % 10)));");
+                self.line(3, "fp /= 10;");
+                self.line(2, "}");
+                self.line(2, "uint256 flen = 4;");
+                self.line(2, "while (flen > 1 && fb[flen - 1] == bytes1(uint8(48))) {");
+                self.line(3, "unchecked { flen--; }");
+                self.line(2, "}");
+                self.line(2, "bytes memory frac = new bytes(flen);");
+                self.line(2, "for (uint256 i = 0; i < flen; i++) { frac[i] = fb[i]; }");
+                self.line(2, "string memory istr = _cuni_itoa(int256(ip));");
+                self.line(2, "if (neg) {");
+                self.line(3, "return string(abi.encodePacked(\"-\", istr, \".\", frac));");
+                self.line(2, "}");
+                self.line(2, "return string(abi.encodePacked(istr, \".\", frac));");
+                self.line(1, "}");
+                self.out.push('\n');
+            }
     }
 
     fn gen_struct(&mut self, t: &TypDecl) -> Result<(), String> {
@@ -318,7 +375,7 @@ impl Codegen {
                 let decl_ty = match ty {
                     Some(t) => sol_type(t)?,
                     None => match kind {
-                        SolKind::Int => "int256".into(),
+                        SolKind::Int | SolKind::Dec => "int256".into(),
                         SolKind::Str => "string".into(),
                         SolKind::Bool => "bool".into(),
                         SolKind::Other => {
@@ -466,6 +523,13 @@ impl Codegen {
                 self.uses_emit = true;
                 match kind {
                     SolKind::Int => self.line(indent, &format!("emit LogInt({});", text)),
+                    SolKind::Dec => {
+                        self.needs_dec_str = true;
+                        self.line(
+                            indent,
+                            &format!("emit LogDec(_cuni_dec_str({}));", text),
+                        )
+                    }
                     SolKind::Str => self.line(indent, &format!("emit LogString({});", text)),
                     SolKind::Bool => self.line(indent, &format!("emit LogBool({});", text)),
                     SolKind::Other => {
@@ -484,6 +548,9 @@ impl Codegen {
     fn gen_expr(&mut self, e: &Expr, scope: &HashMap<String, SolKind>) -> Result<String, String> {
         match &e.kind {
             ExprKind::Int(n) => Ok(n.to_string()),
+            // Scaled int256 literal (docs/DECIMAL.md §2); the parser
+            // validated i128 range, so int256 holds it exactly.
+            ExprKind::Dec(s) => Ok(format!("int256({})", s)),
             ExprKind::Float(_) => Err("float literals have no Solidity form; refusing".into()),
             ExprKind::Bool(b) => Ok(b.to_string()),
             ExprKind::Str(s) => Ok(format!("\"{}\"", Self::esc(s))),
@@ -499,6 +566,10 @@ impl Codegen {
                                 SolKind::Int => {
                                     self.needs_itoa = true;
                                     format!("_cuni_itoa({})", t)
+                                }
+                                SolKind::Dec => {
+                                    self.needs_dec_str = true;
+                                    format!("_cuni_dec_str({})", t)
                                 }
                                 SolKind::Bool => {
                                     format!("({} ? \"true\" : \"false\")", t)
@@ -535,6 +606,32 @@ impl Codegen {
                 // String + is concatenation.
                 if matches!(*op, BinOp::Add) && lk == SolKind::Str {
                     return Ok(format!("string(abi.encodePacked({}, {}))", l, r));
+                }
+                // `dec` is a closed world (docs/DECIMAL.md §3–5): both
+                // operands dec, or a loud refusal. The typeck already
+                // rejected mixes; this is defense in depth. Solidity 0.8
+                // checked arithmetic REVERTS on overflow, and `/` truncates
+                // toward zero natively — both are the honest refusals.
+                if lk == SolKind::Dec {
+                    let code = match op {
+                        BinOp::Add => format!("({l} + {r})"),
+                        BinOp::Sub => format!("({l} - {r})"),
+                        BinOp::Mul => format!("(({l}) * ({r}) / 10000)"),
+                        BinOp::Div => format!("(({l}) * 10000 / ({r}))"),
+                        BinOp::Mod => {
+                            return Err("`%` is not defined on `dec`; refusing".into())
+                        }
+                        BinOp::Eq => format!("({l} == {r})"),
+                        BinOp::Ne => format!("({l} != {r})"),
+                        BinOp::Lt => format!("({l} < {r})"),
+                        BinOp::Gt => format!("({l} > {r})"),
+                        BinOp::Le => format!("({l} <= {r})"),
+                        BinOp::Ge => format!("({l} >= {r})"),
+                        BinOp::And | BinOp::Or => {
+                            return Err("`and`/`or` need booleans; refusing".into())
+                        }
+                    };
+                    return Ok(code);
                 }
                 let o = match op {
                     BinOp::Add => "+",
@@ -583,6 +680,29 @@ impl Codegen {
         match name.as_str() {
             "say" => return Err("say is a statement, not an expression; refusing".into()),
             "range" => return Err("range() outside for has no Solidity form; refusing".into()),
+            // `dec` explicit conversions (docs/DECIMAL.md §5). Solidity 0.8
+            // checked arithmetic reverts on overflow — the loud refusal.
+            "dec_of_int" => {
+                let vals: Vec<String> = args
+                    .iter()
+                    .map(|a| self.gen_expr(a.expr(), scope))
+                    .collect::<Result<_, _>>()?;
+                if vals.len() != 1 {
+                    return Err("dec_of_int takes one argument".into());
+                }
+                return Ok(format!("(({} * 10000))", vals[0]));
+            }
+            "int_of_dec" => {
+                let vals: Vec<String> = args
+                    .iter()
+                    .map(|a| self.gen_expr(a.expr(), scope))
+                    .collect::<Result<_, _>>()?;
+                if vals.len() != 1 {
+                    return Err("int_of_dec takes one argument".into());
+                }
+                // `/` truncates toward zero natively.
+                return Ok(format!("(({} / 10000))", vals[0]));
+            }
             "len" => {
                 let vals: Vec<String> = args
                     .iter()
@@ -627,11 +747,14 @@ impl Codegen {
     fn expr_kind(&self, e: &Expr, scope: &HashMap<String, SolKind>) -> SolKind {
         match &e.kind {
             ExprKind::Int(_) => SolKind::Int,
+            ExprKind::Dec(_) => SolKind::Dec,
             ExprKind::Str(_) | ExprKind::InterpStr(_) => SolKind::Str,
             ExprKind::Bool(_) => SolKind::Bool,
             ExprKind::Ident(n) => scope.get(n).copied().unwrap_or(SolKind::Other),
             ExprKind::Call { callee, .. } => match &callee.kind {
                 ExprKind::Ident(n) if n == "len" => SolKind::Int,
+                ExprKind::Ident(n) if n == "dec_of_int" => SolKind::Dec,
+                ExprKind::Ident(n) if n == "int_of_dec" => SolKind::Int,
                 ExprKind::Ident(n) => self.fn_ret.get(n).copied().unwrap_or(SolKind::Other),
                 _ => SolKind::Other,
             },
@@ -645,11 +768,15 @@ impl Codegen {
                 | BinOp::And
                 | BinOp::Or => SolKind::Bool,
                 BinOp::Add if self.expr_kind(lhs, scope) == SolKind::Str => SolKind::Str,
-                _ => SolKind::Int,
+                _ => match self.expr_kind(lhs, scope) {
+                    SolKind::Dec => SolKind::Dec,
+                    _ => SolKind::Int,
+                },
             },
-            ExprKind::Unary { op, .. } => match op {
+            ExprKind::Unary { op, expr } => match op {
                 UnOp::Not => SolKind::Bool,
-                UnOp::Neg => SolKind::Int,
+                // Neg keeps the operand's kind (int stays int, dec stays dec).
+                UnOp::Neg => self.expr_kind(expr, scope),
             },
             _ => SolKind::Other,
         }

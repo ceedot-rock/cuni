@@ -148,9 +148,64 @@ impl Codegen {
         self.line(1, "return xs[a:b]");
         self.out.push('\n');
         self.line(0, "def _cuni_div(a, b):");
+        self.line(1, "if type(a) is CuniDec and type(b) is CuniDec:");
+        self.line(2, "return a / b  # CuniDec.__truediv__: trunc(a*10000/b) toward zero, exact");
         self.line(1, "if type(a) is int and type(b) is int and b != 0:");
         self.line(2, "return int(a / b) if a * b < 0 else a // b");
         self.line(1, "return a / b");
+        self.out.push('\n');
+        self.line(0, "def _cuni_tdiv(a, b):");
+        self.line(1, "# Truncation toward zero (docs/DECIMAL.md §3) — Python's // floors.");
+        self.line(1, "q = abs(a) // abs(b)");
+        self.line(1, "return -q if (a < 0) != (b < 0) else q");
+        self.out.push('\n');
+        self.line(0, "def _cuni_dec_str(v):");
+        self.line(1, "# Canonical dec rendering of a scaled int (docs/DECIMAL.md §6).");
+        self.line(1, "neg = v < 0");
+        self.line(1, "mag = -v if neg else v");
+        self.line(1, "i, f = divmod(mag, 10000)");
+        self.line(1, "fs = (\"%04d\" % f).rstrip(\"0\") or \"0\"");
+        self.line(1, "return (\"-\" if neg else \"\") + str(i) + \".\" + fs");
+        self.out.push('\n');
+        self.line(0, "def _cuni_dec_of_int(n):");
+        self.line(1, "return CuniDec(int(n) * 10000)");
+        self.out.push('\n');
+        self.line(0, "def _cuni_int_of_dec(d):");
+        self.line(1, "return _cuni_tdiv(int(d), 10000)");
+        self.out.push('\n');
+        self.line(0, "class CuniDec(int):");
+        self.line(1, "# CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md).");
+        self.line(1, "# Stored as a scaled int; every operator keeps the tag and the scale,");
+        self.line(1, "# so plain `+ - * /` in emitted code stay exact with no codegen");
+        self.line(1, "# type inference. Mixing with plain int is refused (TypeError) — the");
+        self.line(1, "# typeck already rejected it; this is defense in depth.");
+        self.line(1, "__slots__ = ()");
+        self.line(1, "def __str__(self):");
+        self.line(2, "return _cuni_dec_str(int(self))");
+        self.line(1, "def __repr__(self):");
+        self.line(2, "return _cuni_dec_str(int(self))");
+        self.line(1, "def __format__(self, spec):");
+        self.line(2, "return _cuni_dec_str(int(self)) if not spec else format(_cuni_dec_str(int(self)), spec)");
+        self.line(1, "def __add__(self, o):");
+        self.line(2, "if not isinstance(o, CuniDec):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix dec and non-dec — convert explicitly\")");
+        self.line(2, "return CuniDec(int(self) + int(o))");
+        self.line(1, "def __sub__(self, o):");
+        self.line(2, "if not isinstance(o, CuniDec):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix dec and non-dec — convert explicitly\")");
+        self.line(2, "return CuniDec(int(self) - int(o))");
+        self.line(1, "def __mul__(self, o):");
+        self.line(2, "if not isinstance(o, CuniDec):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix dec and non-dec — convert explicitly\")");
+        self.line(2, "return CuniDec(_cuni_tdiv(int(self) * int(o), 10000))");
+        self.line(1, "def __truediv__(self, o):");
+        self.line(2, "if not isinstance(o, CuniDec):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix dec and non-dec — convert explicitly\")");
+        self.line(2, "if int(o) == 0:");
+        self.line(3, "raise ZeroDivisionError(\"cuni: dec division by zero\")");
+        self.line(2, "return CuniDec(_cuni_tdiv(int(self) * 10000, int(o)))");
+        self.line(1, "def __neg__(self):");
+        self.line(2, "return CuniDec(-int(self))");
         self.out.push('\n');
         self.line(0, "class CuNiError(Exception):");
         self.line(
@@ -538,6 +593,7 @@ impl Codegen {
     fn gen_expr(&self, expr: &Expr, scope: &HashMap<String, VarKind>) -> String {
         match &expr.kind {
             ExprKind::Int(n) => n.to_string(),
+            ExprKind::Dec(s) => format!("CuniDec({s})"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => {
                 if *b {
@@ -592,6 +648,19 @@ impl Codegen {
                     .join(", ")
             ),
             ExprKind::Call { callee, args } => {
+                // `dec` explicit conversions (docs/DECIMAL.md §5).
+                if let ExprKind::Ident(n) = &callee.kind {
+                    let one = || {
+                        args.first()
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .unwrap_or_else(|| "None".to_string())
+                    };
+                    match n.as_str() {
+                        "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
+                        "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        _ => {}
+                    }
+                }
                 if let ExprKind::Field { base, name } = &callee.kind {
                     if name == "push" {
                         return format!(
@@ -686,6 +755,7 @@ fn py_type(ty: &Type) -> String {
     match ty {
         Type::Named(name) => match name.as_str() {
             "int" => "int".to_string(),
+            "dec" => "CuniDec".to_string(),
             "float" => "float".to_string(),
             "str" => "str".to_string(),
             "bool" => "bool".to_string(),

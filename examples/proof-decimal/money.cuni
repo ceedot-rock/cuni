@@ -1,0 +1,48 @@
+# money.cuni — the decimal exactness proof fixture.
+#
+# One money law, written once in CuNi, provable identical on every native
+# seat. `dec` is exact fixed-point decimal, scale 10^4 (docs/DECIMAL.md):
+# four decimal places, truncation toward zero, no silent rounding, no
+# implicit dec/int mixing. Every seat below prints byte-identical stdout
+# or CuNi refuses to emit it.
+
+def fee(amount: dec, rate: dec) -> dec do
+    ret amount * rate
+end
+
+def split(amount: dec, parts: dec) -> dec do
+    ret amount / parts
+end
+
+# Fees: 5000.00 x 0.0050 = 25.00
+say(fee(5000.00dec, 0.0050dec))
+# Splits: 100.00 / 3 = 33.3333 (truncated toward zero, never rounded)
+say(split(100.00dec, 3.0dec))
+# Negative division truncates toward zero, like CuNi int division
+say(-7.50dec / 2.0dec)
+say(-1.2345dec / 2.0dec)
+# Multiplication drops the 5th place by truncation: 19.99 x 0.0050 = 0.09995 -> 0.0999
+say(19.99dec * 0.0050dec)
+# 1.0001^2 = 1.00020001 -> 1.0002
+say(1.0001dec * 1.0001dec)
+# Addition, subtraction, negation
+say(10.50dec + 0.25dec)
+say(10.50dec - 0.25dec)
+say(-(5.5dec))
+# Comparisons compare exact values
+say(19.99dec < 20.00dec)
+say(19.99dec == 19.9900dec)
+say(2.5dec > 2.4999dec)
+# Explicit conversions only (no implicit dec/int mixing, ever)
+say(dec_of_int(5))
+say(dec_of_int(-3))
+say(int_of_dec(19.99dec))
+say(int_of_dec(-19.99dec))
+# Canonical print: trailing zeros stripped, never empty, sign kept
+say(1.2300dec)
+say(100.0000dec)
+say(0.0001dec)
+say(-0.0005dec)
+say(0.0dec)
+# Interpolation renders decs canonically too
+say(`fee on 5000.00 at 0.50%: ${fee(5000.00dec, 0.0050dec)}`)

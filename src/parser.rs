@@ -751,6 +751,18 @@ impl<'a> Parser<'a> {
                 let tok = self.advance();
                 Ok(self.expr(ExprKind::Float(f), Span::new(tok.start, tok.end)))
             }
+            Token::Dec(text) => {
+                let tok = self.advance();
+                match crate::ast::parse_dec_scaled(&text) {
+                    Ok(scaled) => {
+                        Ok(self.expr(ExprKind::Dec(scaled), Span::new(tok.start, tok.end)))
+                    }
+                    Err(msg) => Err(ParseError {
+                        message: msg,
+                        pos: tok.start,
+                    }),
+                }
+            }
             Token::True => {
                 let tok = self.advance();
                 Ok(self.expr(ExprKind::Bool(true), Span::new(tok.start, tok.end)))

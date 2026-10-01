@@ -119,6 +119,29 @@ impl<'a> Checker<'a> {
                 name_span: Span::dummy(),
             },
         );
+        // `dec` explicit conversions (docs/DECIMAL.md §5). There is no
+        // implicit dec<->int conversion anywhere: mixing is a typeck error.
+        let dec_t = Type::Named("dec".to_string());
+        functions.insert(
+            "dec_of_int".to_string(),
+            FnSig {
+                params: vec![Type::Named("int".to_string())],
+                ret: dec_t.clone(),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "int_of_dec".to_string(),
+            FnSig {
+                params: vec![dec_t.clone()],
+                ret: Type::Named("int".to_string()),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
         let mut typs = HashMap::new();
         let mut ifaces = HashMap::new();
         let mut enums = HashMap::new();
@@ -214,7 +237,7 @@ impl<'a> Checker<'a> {
     }
 
     fn is_known_type_name(&self, name: &str) -> bool {
-        matches!(name, "int" | "float" | "str" | "bool")
+        matches!(name, "int" | "float" | "str" | "bool" | "dec")
             || self.typs.contains_key(name)
             || self.enums.contains_key(name)
     }
@@ -606,6 +629,7 @@ impl<'a> Checker<'a> {
         match &expr.kind {
             ExprKind::Int(_)
             | ExprKind::Float(_)
+            | ExprKind::Dec(_)
             | ExprKind::Bool(_)
             | ExprKind::Str(_)
             | ExprKind::NoneLit => {}
@@ -753,9 +777,10 @@ impl<'a> Checker<'a> {
                     }
                 }
             }
-            ExprKind::Binary { lhs, rhs, .. } => {
+            ExprKind::Binary { op, lhs, rhs } => {
                 self.check_expr(lhs, scope, generics, false)?;
                 self.check_expr(rhs, scope, generics, false)?;
+                self.check_dec_binary(*op, lhs, rhs, scope, generics, expr.span)?;
             }
             ExprKind::Unary { expr: inner, .. } => {
                 self.check_expr(inner, scope, generics, false)?;
@@ -779,6 +804,66 @@ impl<'a> Checker<'a> {
                     .collect();
                 self.check_block(handler, &mut handler_scope, generics, None)?;
             }
+        }
+        Ok(())
+    }
+
+    /// `dec` operand rules (docs/DECIMAL.md §3–5). Arithmetic (`+ - * /`)
+    /// and comparisons need `(dec, dec)`; any mix of `dec` with another type
+    /// is refused with an explicit-conversion fix-it; `%` is refused on `dec`
+    /// entirely. Operand pairs with no `dec` involved keep the checker's
+    /// existing leniency — this only ADDS rejections for dec-involved cases,
+    /// never new ones for old programs.
+    fn check_dec_binary(
+        &self,
+        op: BinOp,
+        lhs: &Expr,
+        rhs: &Expr,
+        scope: &HashMap<String, VarInfo>,
+        generics: &HashSet<String>,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let is_dec =
+            |t: &Option<Type>| matches!(t, Some(Type::Named(n)) if n == "dec");
+        let lt = self.infer_expr(lhs, scope, generics);
+        let rt = self.infer_expr(rhs, scope, generics);
+        let (ld, rd) = (is_dec(&lt), is_dec(&rt));
+        if !ld && !rd {
+            return Ok(());
+        }
+        let op_s = match op {
+            BinOp::Add => "+",
+            BinOp::Sub => "-",
+            BinOp::Mul => "*",
+            BinOp::Div => "/",
+            BinOp::Mod => "%",
+            BinOp::Eq => "==",
+            BinOp::Ne => "!=",
+            BinOp::Lt => "<",
+            BinOp::Gt => ">",
+            BinOp::Le => "<=",
+            BinOp::Ge => ">=",
+            BinOp::And => "and",
+            BinOp::Or => "or",
+        };
+        if matches!(op, BinOp::Mod) {
+            return err_at(
+                span,
+                "`%` is not defined on `dec` — fix-it: there is no remainder for exact decimals; restructure the computation (docs/DECIMAL.md §3)",
+            );
+        }
+        if ld != rd {
+            let other = if ld { rt } else { lt };
+            let other_s = other
+                .as_ref()
+                .map(type_str)
+                .unwrap_or_else(|| "?".to_string());
+            return err_at(
+                span,
+                format!(
+                    "cannot mix `dec` and `{other_s}` with `{op_s}` — fix-it: convert explicitly: `dec_of_int(n)` turns an int into a dec, `int_of_dec(d)` turns a dec into an int (truncates toward zero) (docs/DECIMAL.md §5)"
+                ),
+            );
         }
         Ok(())
     }
@@ -954,6 +1039,7 @@ impl<'a> Checker<'a> {
         match &expr.kind {
             ExprKind::Int(_) => Some(Type::Named("int".to_string())),
             ExprKind::Float(_) => Some(Type::Named("float".to_string())),
+            ExprKind::Dec(_) => Some(Type::Named("dec".to_string())),
             ExprKind::Bool(_) => Some(Type::Named("bool".to_string())),
             ExprKind::Str(_) | ExprKind::InterpStr(_) => Some(Type::Named("str".to_string())),
             ExprKind::NoneLit => None,

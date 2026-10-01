@@ -478,13 +478,20 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         emitted_any = true;
     }
     if let Some(out_path) = emit_lua {
-        let lua_source = codegen_lua::generate(&program);
-        if let Err(e) = fs::write(&out_path, lua_source) {
-            eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+        match codegen_lua::generate(&program) {
+            Ok(lua_source) => {
+                if let Err(e) = fs::write(&out_path, lua_source) {
+                    eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                    return ExitCode::FAILURE;
+                }
+                eprintln!("cuni: wrote {}", out_path);
+                emitted_any = true;
+            }
+            Err(e) => {
+                eprintln!("cuni: Lua refused: {}", e);
+                return ExitCode::FAILURE;
+            }
         }
-        eprintln!("cuni: wrote {}", out_path);
-        emitted_any = true;
     }
     if let Some(out_path) = emit_sol {
         // Contract name from the input file stem: provably-fair-dice -> ProvablyFairDice.
@@ -524,13 +531,20 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         }
     }
     if let Some(out_path) = emit_go {
-        let go_source = codegen_go::generate(&program);
-        if let Err(e) = fs::write(&out_path, go_source) {
-            eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+        match codegen_go::generate(&program) {
+            Ok(go_source) => {
+                if let Err(e) = fs::write(&out_path, go_source) {
+                    eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                    return ExitCode::FAILURE;
+                }
+                eprintln!("cuni: wrote {}", out_path);
+                emitted_any = true;
+            }
+            Err(e) => {
+                eprintln!("cuni: Go refused: {}", e);
+                return ExitCode::FAILURE;
+            }
         }
-        eprintln!("cuni: wrote {}", out_path);
-        emitted_any = true;
     }
     if let Some(out_path) = emit_js {
         if let Some(name) = checks::find_ext_collision(&program, "js") {

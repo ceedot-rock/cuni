@@ -1,0 +1,3 @@
+# Deliberately broken: no implicit dec/int conversion. Mixed arithmetic is a
+# type error with a fix-it (docs/DECIMAL.md §5).
+say(1.5dec + 1)
