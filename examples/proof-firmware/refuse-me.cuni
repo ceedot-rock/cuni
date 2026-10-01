@@ -1,0 +1,12 @@
+# proof-firmware/refuse-me.cuni
+#
+# DELIBERATELY BROKEN: calls `decide`, which is never defined. `cuni check`
+# refuses this at the front-end with a type error, so promote.sh must print
+# REFUSED and release nothing. This is the negative fixture for
+# tests/proof_firmware.rs — do not "fix" it.
+
+let trace = [210, 205]
+
+for t in trace do
+    say(decide(t))
+end

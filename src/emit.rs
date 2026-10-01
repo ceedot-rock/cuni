@@ -6,12 +6,14 @@
 use crate::ast::Program;
 use crate::codegen_c;
 use crate::codegen_go;
+use crate::codegen_java;
 use crate::codegen_js;
 use crate::codegen_lua;
 use crate::codegen_py;
 use crate::codegen_rb;
 use crate::codegen_rs;
 use crate::codegen_sol;
+use crate::codegen_sql;
 use crate::langs::Lang;
 use std::path::{Path, PathBuf};
 
@@ -23,7 +25,9 @@ pub enum SeatKind {
 
 pub fn seat_kind(lang: &Lang) -> SeatKind {
     match lang.id {
-        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" | "rb" | "lua" | "sol" => SeatKind::Native,
+        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" | "rb" | "lua" | "sol" | "java" | "sql" => {
+            SeatKind::Native
+        }
         _ => SeatKind::Lowering,
     }
 }
@@ -41,6 +45,10 @@ pub fn generate_exact(program: &Program, lang: &Lang) -> Result<String, String> 
         // construct must fail the emit, never produce a comment-only file
         // that solc would accept with exit 0 (a false pass).
         "sol" => codegen_sol::generate(program).map_err(|e| format!("Solidity refused: {e}")),
+        // Java and SQL are real seats with real refusal semantics: anything
+        // without an exact mapping is an Err, never a guess.
+        "java" => codegen_java::generate(program).map_err(|e| format!("Java refused: {e}")),
+        "sql" => codegen_sql::generate(program).map_err(|e| format!("SQL refused: {e}")),
         _ => {
             let mut s = String::new();
             s.push_str(&format!(
@@ -147,6 +155,36 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
         "lua" => ExecPlan {
             compile: None,
             run: ("lua5.4".into(), vec![path]),
+            compares_stdout: true,
+        },
+        "java" => {
+            // The backend emits a package-private `class Main`, so javac
+            // accepts the harness's `<stem>_java.java` filename; `-d`
+            // keeps Main.class inside the seat's own work dir, and
+            // `java -cp <dir> Main` runs it there (never the repo cwd).
+            let dir = artifact
+                .parent()
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|| ".".into());
+            ExecPlan {
+                compile: Some(("javac".into(), vec!["-d".into(), dir.clone(), path])),
+                run: ("java".into(), vec!["-cp".into(), dir, "Main".into()]),
+                compares_stdout: true,
+            }
+        }
+        "sql" => ExecPlan {
+            // One SELECT per `say`, run in order against an empty database.
+            // `.read` is a sqlite3 dot-command, accepted as the SQL argument.
+            compile: None,
+            run: (
+                "sqlite3".into(),
+                vec![
+                    "-batch".into(),
+                    "-noheader".into(),
+                    ":memory:".into(),
+                    format!(".read {path}"),
+                ],
+            ),
             compares_stdout: true,
         },
         "sol" => {

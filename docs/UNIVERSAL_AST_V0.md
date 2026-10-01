@@ -43,7 +43,7 @@ Live Studio health and catalog law (2026-09), aligned with `PROTOCOL.md` / `docs
 
 **Say this out loud:**
 
-> **144 catalog seats; ~7 native; majority lowering.**
+> **144 catalog seats; 12 native; majority lowering.**
 
 Do **not** claim soft “120 languages” 1-for-1.
 
@@ -140,7 +140,7 @@ Point at existing code; grow incrementally:
 ## Summary for CoS
 
 - Track B design doc only — **no merge assumed** until GREEN.
-- Honesty: **144 catalog; ~7 native; Studio gate py/go/js; majority lowering.**
+- Honesty: **144 catalog; 12 native; Studio gate py/go/js; majority lowering.**
 - Oddity matrix prefers **hard-fail**.
 - Rider funds/executes only PASS citizens (`source_hash` + `exactness.passed`).
 - IR milestones are incremental; **IR is not done.**

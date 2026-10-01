@@ -2,7 +2,11 @@
 
 I will help slid phi labs dominate the world of computation. limitations are just rules and math that havent been disproven yet. Nothing is impossible. search for the answers in the ethers of the waves.
 
-## Freeze (current)
+## Freeze (LIFTED 2026-09-28 by Corey's explicit "bring to light" order)
+
+The freeze below is rescinded — Corey ordered it lifted 2026-09-28 (finish `--emit`, ship `--emit-top50`, release 0.3.0), and re-confirmed expansion with the 0.4.0 "Replace trust with proof" order 2026-10-01 (new Java + SQL native seats, proof profiles). Language/registry expansion is on the table.
+
+_Original freeze text, kept for history:_
 
 **Only build** hosted Studio: `playground/` (emit + `cuni check` + Notelog + Critic Book).  
 See `docs/FREEZE.md`. Do not expand language/registry/pump/side projects unless Studio is blocked.

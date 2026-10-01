@@ -1,0 +1,112 @@
+# FNV-1a 32-bit reference digest, expressed once in CuNi.
+#
+# This is a conformance fixture, not a crypto recommendation: it exists so
+# `cuni check` can PROVE that three independently generated implementations
+# (Python, Go, Rust) agree byte-for-byte on every digest output. In
+# multi-implementation cryptography, one divergence between "the same"
+# algorithm in two languages is a vulnerability — this gate replaces that
+# trust with proof.
+#
+# Portability notes (why this is written the way it is):
+#  - CuNi's portable core has no bitwise operators (the lexer refuses `&`),
+#    so xor32 is built from pure arithmetic (%, /, *, +, -) over
+#    non-negative ints. Integer division and modulo on non-negative operands
+#    have identical semantics on the Python, Go, and Rust seats.
+#  - CuNi int is i64/int64 on the Go and Rust seats and arbitrary precision
+#    on the Python seat. Every intermediate here stays in [0, 2^32): the
+#    largest product is (2^32 - 1) * 16777619 = 72057594037993477, far below
+#    2^63 - 1, so no seat can overflow or wrap. The explicit `% 4294967296`
+#    mask documents the 32-bit wraparound in the source itself — Python's
+#    big ints and Rust/Go's fixed ints are forced to agree by construction,
+#    not by assumption.
+#  - CuNi's portable core has no char-to-codepoint operation, so test inputs
+#    are explicit byte arrays; the ASCII text each encodes is noted above it.
+#    (Byte-exact inputs are also the honest way to spec a digest: no hidden
+#    encoding step to disagree about.)
+#
+# Expected values below were computed independently (python3 one-liner, not
+# the CuNi compiler) and are asserted in-source: any seat that computes a
+# different digest prints -1 instead of the digest, which fails the gate.
+
+# 32-bit XOR from pure arithmetic. x and y stay in [0, 2^32).
+def xor32(a: int, b: int) -> int do
+    mut r = 0
+    mut p = 1
+    mut x = a
+    mut y = b
+    mut i = 0
+    whl i < 32 do
+        if x % 2 != y % 2 do
+            r = r + p
+        end
+        x = x / 2
+        y = y / 2
+        p = p * 2
+        i = i + 1
+    end
+    ret r
+end
+
+# FNV-1a 32-bit: h = offset; per byte: h = ((h xor b) * prime) mod 2^32.
+def fnv1a32(bs: list<int>) -> int do
+    mut h = 2166136261
+    for b in bs do
+        h = xor32(h, b)
+        h = (h * 16777619) % 4294967296
+    end
+    ret h
+end
+
+# Square-and-multiply modular exponentiation. Operands stay below m^2,
+# so this is exact on every seat with no masking needed.
+# (Parameter is named `m`, not `mod`: the Rust seat emits parameter names
+# verbatim and `mod` is a Rust keyword.)
+def powmod(base: int, exp: int, m: int) -> int do
+    mut r = 1
+    mut b = base % m
+    mut e = exp
+    whl e > 0 do
+        if e % 2 == 1 do
+            r = (r * b) % m
+        end
+        b = (b * b) % m
+        e = e / 2
+    end
+    ret r
+end
+
+# Digest one vector; print the digest, or -1 if it differs from the
+# independently computed expected value.
+def check_vec(bs: list<int>, want: int) -> int do
+    let got = fnv1a32(bs)
+    if got == want do
+        ret got
+    end
+    ret -1
+end
+
+# "hello"
+let v_hello = [104, 101, 108, 108, 111]
+say(check_vec(v_hello, 1335831723))
+
+# "" (empty input hashes to the offset basis). The explicit list<int>
+# annotation matters: an unannotated [] emits as []any on the Go seat,
+# which then refuses the call to check_vec.
+let v_empty: list<int> = []
+say(check_vec(v_empty, 2166136261))
+
+# "foobar"
+let v_foobar = [102, 111, 111, 98, 97, 114]
+say(check_vec(v_foobar, 3214735720))
+
+# Toy RSA signature verification (textbook key: n = 3233, e = 17).
+# Proves sig^e mod n == 65, i.e. signature 588 is valid for message 65.
+# Verification only — no key generation, no padding; a real deployment
+# needs both, plus a real hash. Included to show modular exponentiation
+# (the core of signature verification) is portable across seats too.
+let verified = powmod(588, 17, 3233)
+if verified == 65 do
+    say(verified)
+els
+    say(-1)
+end

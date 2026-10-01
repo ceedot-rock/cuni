@@ -98,6 +98,7 @@ pub fn ingest_file(path: &Path) -> Result<String, String> {
         Some("rb") => ingest_rb(&src)?,
         Some("lua") => ingest_lua(&src)?,
         Some("sol") => ingest_sol(&src)?,
+        Some("java") => ingest_java(&src)?,
         Some("awk") => ingest_awk(&src)?,
         Some("pl") => ingest_pl(&src)?,
         Some("sh") => ingest_sh(&src)?,
@@ -325,6 +326,7 @@ enum ELang {
     Lua,
     Py,
     Sol,
+    Java,
 }
 
 struct XP {
@@ -542,7 +544,7 @@ impl XP {
         match self.next() {
             Some(Tok::Int(n)) => Ok(Ix::Int(n)),
             Some(Tok::Float(f)) => {
-                if self.lang == ELang::Py || self.lang == ELang::Go {
+                if self.lang == ELang::Py || self.lang == ELang::Go || self.lang == ELang::Java {
                     Ok(Ix::Float(f))
                 } else {
                     Err("ingest: refuse float literal (outside subset)".into())
@@ -1187,6 +1189,227 @@ fn go_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
         Ix::Call(f, _) if f == "main" => Ok(vec![]),
         _ => Ok(vec![format!("{pad}{}", e.to_cuni())]),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Java — the CuNi Java backend's own output shape
+// ---------------------------------------------------------------------------
+//
+// Subset: `class Main` with `static` methods (`static <ret> name(params)`),
+// `public static void main(String[] args)` as the entry point, and the
+// statement subset the Java backend emits: `return`, `if/else`, local
+// bindings (`long`/`double`/`String`/`boolean` + boxed forms), `say(...)`,
+// `.add(...)` (CuNi `.push`), and plain assignments. Generic methods
+// (`<T>`), nested classes/enums, and the `cuni_*` helpers are skipped —
+// helpers never appear in user code, and the round-trip harness only feeds
+// this ingester artifacts the Java backend itself produced.
+
+/// Helper method names the Java backend emits (see codegen_java.rs).
+const JAVA_PRELUDE: &[&str] = &[
+    "say", "cuni_str", "cuni_range", "cuni_abs", "cuni_min", "cuni_max", "cuni_mod", "cuni_div",
+    "cuni_slice",
+];
+
+fn ingest_java(src: &str) -> Result<String, String> {
+    if is_cuni_lowering(src) {
+        return ingest_lowering(src, "java");
+    }
+    // Normalize `public static void main` so the `static ` prefix extractor
+    // sees it like every other method.
+    let src = src.replace("public static ", "static ");
+    let funcs = extract_funcs(&src, "static ")?;
+    let mut out = String::new();
+    let mut main_body = None;
+    for f in &funcs {
+        // Java sigs start with the return type (`static long add(`), so the
+        // method name is the identifier immediately before `(` — unlike Go,
+        // `extract_funcs`' own `name` field holds the return type here.
+        let sig = f.sig.trim();
+        let paren = match sig.find('(') {
+            Some(p) => p,
+            None => continue, // `static class Point` / `static enum`: not a method
+        };
+        let head = sig[..paren].trim();
+        let name = head.split_whitespace().last().unwrap_or("");
+        if name == "main" {
+            main_body = Some(f.body.clone());
+            continue;
+        }
+        if JAVA_PRELUDE.contains(&name) {
+            continue;
+        }
+        match java_def(f, name) {
+            Ok(Some(def)) => {
+                out.push_str(&def);
+                out.push('\n');
+            }
+            Ok(None) => {} // skipped; self-check refuses if still referenced
+            Err(e) => return Err(format!("ingest: Java def `{name}`: {e}")),
+        }
+    }
+    let main = main_body.ok_or("ingest: refuse Java without static main")?;
+    for st in java_block(&main, 0)? {
+        out.push_str(&st);
+        out.push('\n');
+    }
+    Ok(out)
+}
+
+fn java_type_to_cuni(t: &str) -> Option<&'static str> {
+    match t {
+        "long" | "int" | "Long" | "Integer" => Some("int"),
+        "double" | "float" | "Double" | "Float" => Some("float"),
+        "String" => Some("str"),
+        "boolean" | "Boolean" => Some("bool"),
+        _ => None,
+    }
+}
+
+/// Returns Ok(None) to skip a definition that falls outside the subset.
+fn java_def(f: &Func, name: &str) -> Result<Option<String>, String> {
+    let sig = f.sig.trim();
+    if sig.contains('<') || sig.contains('>') {
+        return Ok(None); // generics: outside subset
+    }
+    let paren = sig.find('(').ok_or("ingest: bad Java sig")?;
+    let head = sig[..paren].trim();
+    if !is_ident(name) {
+        return Ok(None);
+    }
+    let ret_s = head[..head.len() - name.len()].trim();
+    let close = sig.rfind(')').ok_or("ingest: bad Java sig")?;
+    let params_s = &sig[paren + 1..close];
+    let mut params = Vec::new();
+    if !params_s.trim().is_empty() {
+        for p in params_s.split(',') {
+            let p = p.trim().strip_prefix("final ").unwrap_or(p.trim()).trim();
+            // `String[] args` (main) never reaches here; `long a` is the shape.
+            let mut it = p.split_whitespace();
+            let pt = it.next().ok_or("ingest: bad Java param")?;
+            let pn = it.next().ok_or("ingest: bad Java param")?;
+            if it.next().is_some() || !is_ident(pn) {
+                return Ok(None);
+            }
+            let ct = java_type_to_cuni(pt).ok_or("ingest: Java param type outside subset")?;
+            params.push(format!("{pn}: {ct}"));
+        }
+    }
+    let ret = java_type_to_cuni(ret_s).ok_or("ingest: Java return type outside subset")?;
+    let mut body = Vec::new();
+    for st in java_block(&f.body, 1)? {
+        body.push(st);
+    }
+    if !body.iter().any(|s| s.trim_start().starts_with("ret")) {
+        return Ok(None); // def without return: outside subset
+    }
+    Ok(Some(format!(
+        "def {name}({}) -> {ret} do\n{}\nend",
+        params.join(", "),
+        body.join("\n")
+    )))
+}
+
+fn java_block(body: &str, indent: usize) -> Result<Vec<String>, String> {
+    let mut lines = Vec::new();
+    for chunk in split_chunks(body)? {
+        lines.extend(java_stmt(&chunk, indent)?);
+    }
+    Ok(lines)
+}
+
+fn java_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
+    let pad = "    ".repeat(indent);
+    let t = chunk.trim();
+    if t.is_empty() {
+        return Ok(vec![]);
+    }
+    if t.starts_with("if ") && t.contains('{') {
+        let (cond, then_b, else_b) = split_if(t)?;
+        // The Java backend wraps conditions in parens: `if ((a > b))`.
+        let cond = cond.trim().strip_prefix('(').unwrap_or(cond.trim());
+        let cond = cond.strip_suffix(')').unwrap_or(cond).trim();
+        let c = XP::new(cond, ELang::Java)?.expr()?.to_cuni();
+        let mut v = vec![format!("{pad}if {c} do")];
+        v.extend(java_block(&then_b, indent + 1)?);
+        if let Some(e) = else_b {
+            v.push(format!("{pad}els"));
+            v.extend(java_block(&e, indent + 1)?);
+        }
+        v.push(format!("{pad}end"));
+        return Ok(v);
+    }
+    for bad in ["for ", "while ", "switch ", "throw ", "try ", "synchronized "] {
+        if t.starts_with(bad) {
+            return Err(format!("ingest: refuse Java `{bad}` (outside subset)"));
+        }
+    }
+    if let Some(rest) = t.strip_prefix("return ") {
+        let rest = strip_semi(rest.trim());
+        if rest.is_empty() {
+            return Ok(vec![format!("{pad}ret")]);
+        }
+        let e = XP::new(rest, ELang::Java)?.expr()?.to_cuni();
+        return Ok(vec![format!("{pad}ret {e}")]);
+    }
+    if t == "return;" || t == "return" {
+        return Ok(vec![format!("{pad}ret")]);
+    }
+    if t.starts_with("say(") && t.ends_with(')') {
+        let inner = strip_semi(&t[4..t.len() - 1]);
+        let e = XP::new(inner, ELang::Java)?.expr()?.to_cuni();
+        return Ok(vec![format!("{pad}say({e})")]);
+    }
+    // `.add(x);` is the Java backend's shape for CuNi `.push(x)`.
+    if let Some(dot) = t.find(".add(") {
+        let base = t[..dot].trim();
+        let arg = strip_semi(t[dot + 5..].trim().strip_suffix(')').unwrap_or(t[dot + 5..].trim()));
+        if is_ident(base) {
+            let e = XP::new(arg, ELang::Java)?.expr()?.to_cuni();
+            return Ok(vec![format!("{pad}{base}.push({e})")]);
+        }
+    }
+    // Local binding: `[final ]<type> <name> = <expr>;`
+    if let Some((typ, rest)) = split_java_binding(t) {
+        if java_type_to_cuni(typ).is_some() {
+            if let Some(eq) = rest.find('=') {
+                let name = rest[..eq].trim();
+                if is_ident(name) {
+                    let e = XP::new(strip_semi(rest[eq + 1..].trim()), ELang::Java)?
+                        .expr()?
+                        .to_cuni();
+                    return Ok(vec![format!("{pad}let {name} = {e}")]);
+                }
+            }
+            return Err(format!("ingest: refuse Java binding `{t}` (outside subset)"));
+        }
+    }
+    if let Some((lhs, rhs)) = split_assign(t, ELang::Java)? {
+        if !is_ident(&lhs) {
+            return Err(format!("ingest: refuse Java assignment target `{lhs}`"));
+        }
+        let e = XP::new(&rhs, ELang::Java)?.expr()?.to_cuni();
+        return Ok(vec![format!("{pad}{lhs} = {e}")]);
+    }
+    // bare call statement
+    let e = XP::new(strip_semi(t), ELang::Java)?.expr()?;
+    Ok(vec![format!("{pad}{}", e.to_cuni())])
+}
+
+/// Split a leading `<type> <rest>` for a Java local binding. Returns None
+/// when the chunk doesn't start with a known Java type name.
+fn split_java_binding(t: &str) -> Option<(&str, &str)> {
+    let t = t.strip_prefix("final ").unwrap_or(t).trim_start();
+    for typ in [
+        "long", "double", "String", "boolean", "int", "float", "Long", "Double", "Boolean",
+        "Integer", "Float",
+    ] {
+        if let Some(rest) = t.strip_prefix(typ) {
+            if rest.starts_with(|c: char| c.is_whitespace()) {
+                return Some((typ, rest.trim_start()));
+            }
+        }
+    }
+    None
 }
 
 // ---------------------------------------------------------------------------

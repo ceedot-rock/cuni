@@ -15,6 +15,8 @@ Exactness applies to the whole catalog. A language in `src/langs.rs` is a seat: 
 | rb | ruby | quality Ruby |
 | lua | lua5.4 | quality Lua |
 | sol | solc | Solidity contract writer (compile-verified; events, no stdout) |
+| java | javac + java | real Java (`long`/`double`/`String`/`boolean`, collections, structs as nested classes) |
+| sql | sqlite3 | real SQL (SQLite dialect verified; PostgreSQL/MySQL emitters included, SQLite gate-verified) |
 
 `cuni check examples/full.cuni --only py,go,js,c,cpp,rs` is the native gate. It must PASS.
 
@@ -22,7 +24,7 @@ Exactness applies to the whole catalog. A language in `src/langs.rs` is a seat: 
 
 Until a seat has a native backend, its artifact is a Python lowering so the language **still emit+runs** under `cuni check`. The receipt (`--receipt`) marks each id `native` or `lowering`. Lowering is a seat with a shared runtime, not a skip.
 
-Next native seats to grow under the same law: `java`, `cs`, `rb`, `php`, `lua`
+Next native seats to grow under the same law: `cs`, `php`
 (most-used real languages still on lowerings).
 
 ## Commands this unlocks

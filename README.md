@@ -2,6 +2,29 @@
 
 <p align="center"><img src="brand/logo-cuni.jpg" alt="product logo" width="280"/></p>
 
+## What CuNi is
+
+CuNi is a programming language with one hard rule: write your code once, and it either behaves *exactly* the same in every language it builds for — or it refuses to build at all.
+
+Here is why that matters. A program written in Python and the "same" program rewritten in JavaScript are never quite the same program. Tiny differences creep in: how numbers round, how text is handled, what happens at the edges. Most of the time nobody notices. Then money or data is on the line, and a rounding difference becomes a real loss.
+
+CuNi eliminates that whole class of problem. You write one source file. CuNi can turn it into 144 targets — Python, JavaScript, Rust, C, Go, Java, SQL, even Solidity smart contracts that run on Ethereum. Before it hands you any of them, it proves they all produce identical output. If one target would behave even slightly differently, you don't get a subtly broken program. You get a refusal — and you fix the source.
+
+The refusal is the product. Other tools try to paper over differences. CuNi treats a difference as a failed build.
+
+This is why Agent Rider runs on CuNi. In a world where AI agents write and execute code across systems, "close enough" is how things break. Rider requires CuNi's exactness proof before an agent's policy is allowed to run: same behavior everywhere, or it doesn't run.
+
+## Replace trust with proof
+
+Everywhere the industry *trusts* two implementations match, CuNi *proves* it — same stdout, or refuse. That turns exactness into working infrastructure:
+
+- **Cross-chain contracts** — one escrow/transfer-validation law, proven identical on EVM (Solidity), Rust, and Go targets before anything deploys. See `examples/proof-crosschain/`.
+- **Audit-grade finance** — the bank's Java and the auditor's Python, gate-proven to agree. The new Java seat exists for exactly this.
+- **Crypto conformance** — one reference digest, three independent implementations (Rust, Python, Go) provably in agreement. See `examples/proof-crypto/`.
+- **ML inference parity** — the same scoring kernel bit-identical across Python, Rust, and C runtimes, so silent numeric drift gets caught before serving. Integer arithmetic throughout, because cross-language float exactness can't be guaranteed — and CuNi refuses rather than fakes. See `examples/proof-mlparity/`.
+- **Firmware you can ship** — control logic proven identical on C and Rust targets, with a refuse-to-promote gate: fail the proof, nothing ships. See `examples/proof-firmware/`.
+- **SQL dialect portability** — one query logic, SQLite/PostgreSQL/MySQL dialects, proven against real `sqlite3`. The new SQL seat.
+
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
 </p>
@@ -117,7 +140,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 </p>
 
 [Full MP4 (30s)](assets/demo-30s.mp4) · [HTML](assets/demo-30s.html) · live: `./examples/demo-30s.sh`  
-One program → Python / Go / JavaScript / C / C++ / Rust — identical `42` / `cuni`. 144-language gate.
+One program → Python / Go / JavaScript / Java / C / C++ / Rust — identical `42` / `cuni`. 144-language gate.
 
 ## Install
 
@@ -263,9 +286,9 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.3.0)
+## Status (v0.4.0)
 
-**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), `--emit-all` language catalog (144), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
+**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua/Java/SQL, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), **Java seat** (`--emit-java`: `javac`-compiled; audit-finance story — the bank's Java and the auditor's Python gate-proven to agree), **SQL seat** (`--emit-sql`: SQLite/PostgreSQL/MySQL dialects, verified against real `sqlite3`), `--emit-all` language catalog (144: 12 native seats + 132 Python lowerings), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
 
 **Not in v0.1 (by design):** tagged unions with payload, streaming `link`, full inference — see SPEC.md §19.
 

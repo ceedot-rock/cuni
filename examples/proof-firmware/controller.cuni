@@ -1,0 +1,41 @@
+# proof-firmware/controller.cuni
+#
+# Bang-bang thermostat controller with hysteresis, expressed ONCE in CuNi.
+#
+# The promote.sh gate compiles this exact file to C and Rust and refuses to
+# ship unless both targets print byte-identical actuator decisions on the
+# fixed input trace below. Integer logic only (tenths of a degree C), fully
+# deterministic: no floats, no input, no randomness.
+
+let LOW = 197    # heater turns ON at or below this (tenths of deg C)
+let HIGH = 205   # heater turns OFF at or above this (tenths of deg C)
+
+# Fixed sensor trace (tenths of deg C). Exercises: cold start below LOW,
+# the hysteresis band between LOW and HIGH, a crossing above HIGH, a second
+# cold dip, one sensor fault (-1: hold last actuator state, flag the step),
+# and a final rise back above HIGH.
+let trace = [
+    210, 205, 201, 198, 196, 195, 197, 200, 203, 206, 208,
+    206, 203, 200, 197, 194, 192, 190, -1, 195, 200, 205, 208
+]
+
+mut heater_on = false
+
+for t in trace do
+    if t < 0 do
+        # sensor fault: hold the last actuator decision, flag the step
+        say(`t=${t} FAULT_SENSOR`)
+    els
+        if t <= LOW and not heater_on do
+            heater_on = true
+        end
+        if t >= HIGH and heater_on do
+            heater_on = false
+        end
+        if heater_on do
+            say(`t=${t} HEAT_ON`)
+        els
+            say(`t=${t} HEAT_OFF`)
+        end
+    end
+end

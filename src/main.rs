@@ -4,12 +4,14 @@ mod check;
 mod checks;
 mod codegen_c;
 mod codegen_go;
+mod codegen_java;
 mod codegen_js;
 mod codegen_lua;
 mod codegen_py;
 mod codegen_rb;
 mod codegen_rs;
 mod codegen_sol;
+mod codegen_sql;
 mod emit;
 mod ingest;
 mod interp;
@@ -46,7 +48,7 @@ Usage:
 
 Commands:
   check   Exactness gate: emit+run every catalog language (or --only).
-          Native seats today: py, go, js, ts, c, cpp, rs, rb, lua, sol.
+          Native seats today: py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql.
           Other ids: Python lowering so the 144-language gate still runs.
           Prints:  exactness: PASS (N langs)
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.

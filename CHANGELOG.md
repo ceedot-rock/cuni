@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.4.0] — 2026-10-01 — "Replace trust with proof"
+### Added
+- Java real-toolchain seat (`--emit-java`): `javac`-compiled, `long`/`double`/`String`/`boolean`, collections, structs as nested classes. The audit-finance story: the bank's Java and the auditor's Python gate-proven to agree.
+- SQL real seat (`--emit-sql`): lowers pure computation to SQL; SQLite dialect verified against real `sqlite3`, PostgreSQL/MySQL dialect emitters included (SQLite gate-verified only, stated in the artifact header).
+- Catalog stays 144: 12 native seats (py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql) + 132 Python lowerings. `java` and `sql` were already catalog ids; promoting them adds no new languages.
+- Proof profiles under `examples/proof-*/`, each with a runnable gate test:
+  - `proof-crosschain`: escrow transfer-validation law proven across Solidity (solc-compiled, deployable) + Rust + Go + Python.
+  - `proof-crypto`: FNV-1a 32-bit reference digest + toy RSA verify, proven across Rust + Python + Go.
+  - `proof-mlparity`: integer 4x4 matmul + argmax kernel, proven across Python + Rust + C (integer-only by design — cross-language float exactness can't be guaranteed, so CuNi refuses rather than fakes).
+  - `proof-firmware`: thermostat control logic proven across C + Rust, with `promote.sh` — gate fails, nothing ships.
+- Native Java ingest (`ingest_java`) so `.java` artifacts round-trip back to CuNi.
+
 ## [0.3.0] — 2026-09-29
 ### Added
 - Solidity smart-contract seat: CuNi compiles to deployable EVM contracts
@@ -16,7 +28,7 @@
 - Docs sweep: every live "119" claim now reads 144. Historical entries below keep their original numbers.
 
 ### Honesty
-- New seats verify through the repo's Python lowering and stay header-labeled "Seat pending a native toolchain" — catalog seats that emit+run, not native toolchains. Native seats remain py, go, js, ts, c, cpp, rs.
+- New seats verify through the repo's Python lowering and stay header-labeled "Seat pending a native toolchain" — catalog seats that emit+run, not native toolchains. Native seats: py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql.
 
 ## [cuni-bank-0.1.0] — 2026-09-13
 
