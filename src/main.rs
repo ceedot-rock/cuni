@@ -28,7 +28,19 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
+
+/// Unique-per-invocation temp dir. The old scheme (`{prefix}_{pid}`) raced
+/// when one parent spawned several `cuni` processes at once (same pid for
+/// every child): concurrent gates stomped each other's artifacts. Pid +
+/// nanos makes collisions practically impossible.
+fn work_dir(prefix: &str) -> PathBuf {
+    let nanos = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    env::temp_dir().join(format!("{}_{}_{}", prefix, std::process::id(), nanos))
+}
 
 fn print_usage() {
     eprintln!(
@@ -181,7 +193,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
     sources.sort();
     sources.dedup();
 
-    let work_root = env::temp_dir().join(format!("cuni_check_{}", std::process::id()));
+    let work_root = work_dir("cuni_check");
     if let Err(e) = fs::create_dir_all(&work_root) {
         eprintln!("cuni check: couldn't create temp dir: {}", e);
         return ExitCode::FAILURE;
@@ -286,7 +298,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
         }
     };
     let result = if let Some(lang) = lang {
-        let work = env::temp_dir().join(format!("cuni_run_{}", std::process::id()));
+        let work = work_dir("cuni_run");
         let _ = fs::create_dir_all(&work);
         check::run_one(
             Path::new(&path),
@@ -680,7 +692,7 @@ fn cmd_prove(args: &[String]) -> ExitCode {
         eprintln!("cuni prove: --against <impl> required");
         return ExitCode::FAILURE;
     };
-    let work = env::temp_dir().join(format!("cuni_prove_{}", std::process::id()));
+    let work = work_dir("cuni_prove");
     let _ = fs::create_dir_all(&work);
     let report = check::check_file_only(
         PathBuf::from(&cuni_path).as_path(),
