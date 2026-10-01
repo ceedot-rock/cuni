@@ -1,0 +1,6 @@
+say("|".join("a,b,c".split(",")))
+say("a,b,".split(",").len())
+say("|".join(",a,".split(",")))
+say("|".join("".split(",")))
+say("|".join("abc".split(",")))
+say("|".join("aXXbXXc".split("XX")))

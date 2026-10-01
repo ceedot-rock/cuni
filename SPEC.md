@@ -275,6 +275,17 @@ A minimal, explicit table of stdlib surface — every name here has a ratified m
 | `max(a, b)` | `(int, int) -> int` | | `cuni_max` | |
 | `s.slice(a, b)` | `(str, int, int) -> str` | half-open `[a,b)`; OOB → `""` | same, no panic | same |
 | `xs.slice(a, b)` | `(list<T>, int, int) -> list<T>` | half-open `[a,b)`; OOB → `[]` | same, no panic | same |
+| `json.parse(s)` | `(str) -> map` | `json.loads` + integer-rule validation | `encoding/json` + `UseNumber` + validation walk | `JSON.parse` + lexical pre-scan (f64 would round) |
+| `json.emit(m)` | `(map) -> str` | `json.dumps(sort_keys, separators, ensure_ascii=False)` | hand-rolled sorted emitter | deep-sort + `JSON.stringify` |
+| `time.epoch(y,mo,d,h,mi,s)` | `(int × 6) -> int` | Howard Hinnant `days_from_civil` | same | same |
+| `time.parts(e)` | `(int) -> map` | Hinnant `civil_from_days` + floor-div | same | same |
+| `s.split(sep)` | `(str, str) -> list<str>` | `s.split(sep)`; empty sep → `ValueError` | `strings.Split` + empty-sep guard | `s.split(sep)` + empty-sep guard |
+| `sep.join(parts)` | `(str, list<str>) -> str` | `sep.join(parts)` | `strings.Join` | `parts.join(sep)` |
+| `s.trim()` | `(str) -> str` | ASCII-whitespace strip (not `strip()`'s set) | `strings.Trim` with explicit cutset | regex of the 6 ASCII whitespace chars |
+| `s.contains(sub)` | `(str, str) -> bool` | `sub in s` | `strings.Contains` | `s.includes(sub)` |
+| `sha256(s)` | `(str) -> str` | `hashlib.sha256` hex | `crypto/sha256` hex | `crypto.createHash("sha256")` hex |
+
+Wave-1 (JSON, time, strings, SHA-256) is specified in full in `docs/STDLIB.md` — the table above is the index, the STDLIB doc is the law. Key cross-seat rules: JSON numbers use the value-based integer rule (accept iff the exact value is an integer in ±(2^53−1)); `json.emit` is canonical minimal JSON (no whitespace, keys sorted in UTF-8 byte order); `json` and `time` are reserved namespace identifiers; time is proleptic Gregorian with POSIX (no-leap-second) semantics, years 1–9999; strings are byte-oriented UTF-8 with ASCII-only trim. The sol seat refuses all wave-1 functions; the sql seat hosts only `time.epoch`, `trim`, and `contains`.
 
 C / C++ / Rust native seats implement this table via the tagged `Val` runtime (not idiomatic ownership). Python lowering seats inherit the Python mappings.
 

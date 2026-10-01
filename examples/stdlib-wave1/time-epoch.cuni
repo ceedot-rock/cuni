@@ -1,0 +1,5 @@
+say(time.epoch(1970, 1, 1, 0, 0, 0))
+say(time.epoch(2000, 1, 1, 0, 0, 0))
+say(time.epoch(2024, 2, 29, 12, 0, 0))
+say(time.epoch(1, 1, 1, 0, 0, 0))
+say(time.epoch(9999, 12, 31, 23, 59, 59))

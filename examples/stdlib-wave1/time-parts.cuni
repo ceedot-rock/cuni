@@ -1,0 +1,5 @@
+say(json.emit(time.parts(0)))
+say(json.emit(time.parts(946684800)))
+say(json.emit(time.parts(-62135596800)))
+say(json.emit(time.parts(253402300799)))
+say(json.emit(time.parts(1709208000)))

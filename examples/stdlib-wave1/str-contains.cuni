@@ -1,0 +1,5 @@
+say("hello".contains("ll"))
+say("hello".contains("z"))
+say("hello".contains(""))
+say("".contains(""))
+say("".contains("a"))

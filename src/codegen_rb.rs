@@ -151,6 +151,7 @@ impl Codegen {
         self.line(1, "a.to_f / b");
         self.line(0, "end");
         self.out.push('\n');
+<<<<<<< HEAD
         self.line(0, "# CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md).");
         self.line(0, "# Stored as a scaled Integer; operators keep the tag and the scale, so");
         self.line(0, "# plain `+ - * /` in emitted code stay exact with no codegen type");
@@ -209,6 +210,155 @@ impl Codegen {
         self.line(1, "def ==(o); o.is_a?(CuniDec) && __getobj__ == o.__getobj__; end");
         self.line(1, "def to_s; CuniDec.dec_str(__getobj__); end");
         self.line(1, "def inspect; to_s; end");
+=======
+        // ---- Wave-1 stdlib (docs/STDLIB.md). `require`s are lazy (inside
+        // the helpers) so non-stdlib programs emit no extra dependencies.
+        self.line(0, "CUNI_JSON_INT_MAX = 9007199254740991");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_num(n)");
+        self.line(1, "# Integer or Float from JSON.parse; the value-based integer rule");
+        self.line(1, "# (docs/STDLIB.md §1.1). Ruby Integers are exact (bignum).");
+        self.line(1, "if n.is_a?(Integer)");
+        self.line(2, "raise CuNiError, \"json.parse: number is not an integer in ±(2^53−1)\" if n.abs > CUNI_JSON_INT_MAX");
+        self.line(2, "return n");
+        self.line(1, "elsif n.is_a?(Float)");
+        self.line(2, "raise CuNiError, \"json.parse: number is not an integer in ±(2^53−1)\" unless n == n.to_i && n.abs <= CUNI_JSON_INT_MAX");
+        self.line(2, "return n.to_i");
+        self.line(1, "else");
+        self.line(2, "raise CuNiError, \"json.parse: unexpected value\"");
+        self.line(1, "end");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_walk(v)");
+        self.line(1, "case v");
+        self.line(1, "when Hash then v.each_with_object({}) { |(k, x), o| o[k] = _cuni_json_walk(x) }");
+        self.line(1, "when Array then v.map { |x| _cuni_json_walk(x) }");
+        self.line(1, "when Integer, Float then _cuni_json_num(v)");
+        self.line(1, "when String, TrueClass, FalseClass, NilClass then v");
+        self.line(1, "else raise CuNiError, \"json.parse: unexpected value\"");
+        self.line(1, "end");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_parse(s)");
+        self.line(1, "require \"json\"");
+        self.line(1, "raise CuNiError, \"json.parse needs a str\" unless s.is_a?(String)");
+        self.line(1, "begin");
+        self.line(2, "v = JSON.parse(s)");
+        self.line(1, "rescue JSON::ParserError");
+        self.line(2, "raise CuNiError, \"json.parse: invalid JSON\"");
+        self.line(1, "end");
+        self.line(1, "raise CuNiError, \"json.parse: top-level JSON value must be an object\" unless v.is_a?(Hash)");
+        self.line(1, "_cuni_json_walk(v)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_emit_norm(v)");
+        self.line(1, "case v");
+        self.line(1, "when Hash");
+        self.line(2, "v.each_key { |k| raise CuNiError, \"json.emit: map keys must be strings\" unless k.is_a?(String) }");
+        self.line(2, "v.each_with_object({}) { |(k, x), o| o[k] = _cuni_json_emit_norm(x) }");
+        self.line(1, "when Array then v.map { |x| _cuni_json_emit_norm(x) }");
+        self.line(1, "when Integer then v");
+        self.line(1, "when Float then raise CuNiError, \"json.emit: floats have no JSON integer form\"");
+        self.line(1, "when String, TrueClass, FalseClass, NilClass then v");
+        self.line(1, "else raise CuNiError, \"json.emit: value has no JSON form\"");
+        self.line(1, "end");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_sort(v)");
+        self.line(1, "# Sort keys in UTF-8 byte order (docs/STDLIB.md §1.3).");
+        self.line(1, "case v");
+        self.line(1, "when Hash");
+        self.line(2, "o = {}");
+        self.line(2, "v.keys.sort_by { |k| k.bytes }.each { |k| o[k] = _cuni_json_sort(v[k]) }");
+        self.line(2, "o");
+        self.line(1, "when Array then v.map { |x| _cuni_json_sort(x) }");
+        self.line(1, "else v");
+        self.line(1, "end");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_emit(m)");
+        self.line(1, "require \"json\"");
+        self.line(1, "raise CuNiError, \"json.emit needs a map\" unless m.is_a?(Hash)");
+        self.line(1, "JSON.generate(_cuni_json_sort(_cuni_json_emit_norm(m)))");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_days_from_civil(y, m, d)");
+        self.line(1, "y0 = m <= 2 ? y - 1 : y");
+        self.line(1, "era = y0 / 400");
+        self.line(1, "yoe = y0 - era * 400");
+        self.line(1, "mp = (m + 9) % 12");
+        self.line(1, "doy = (153 * mp + 2) / 5 + d - 1");
+        self.line(1, "doe = yoe * 365 + yoe / 4 - yoe / 100 + doy");
+        self.line(1, "era * 146097 + doe - 719468");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_civil_from_days(z)");
+        self.line(1, "z += 719468");
+        self.line(1, "era = z / 146097");
+        self.line(1, "doe = z - era * 146097");
+        self.line(1, "yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365");
+        self.line(1, "y = yoe + era * 400");
+        self.line(1, "doy = doe - (365 * yoe + yoe / 4 - yoe / 100)");
+        self.line(1, "mp = (5 * doy + 2) / 153");
+        self.line(1, "d = doy - (153 * mp + 2) / 5 + 1");
+        self.line(1, "m = mp < 10 ? mp + 3 : mp - 9");
+        self.line(1, "y += 1 if m <= 2");
+        self.line(1, "[y, m, d]");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_time_epoch(y, mo, d, h, mi, s)");
+        self.line(1, "raise CuNiError, \"time.epoch: year out of range 1..9999\" unless (1..9999).cover?(y)");
+        self.line(1, "raise CuNiError, \"time.epoch: month out of range 1..12\" unless (1..12).cover?(mo)");
+        self.line(1, "raise CuNiError, \"time.epoch: hour out of range 0..23\" unless (0..23).cover?(h)");
+        self.line(1, "raise CuNiError, \"time.epoch: minute out of range 0..59\" unless (0..59).cover?(mi)");
+        self.line(1, "raise CuNiError, \"time.epoch: second out of range 0..59\" unless (0..59).cover?(s)");
+        self.line(1, "leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)");
+        self.line(1, "dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1]");
+        self.line(1, "raise CuNiError, \"time.epoch: day out of range for month\" unless (1..dim).cover?(d)");
+        self.line(1, "_cuni_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_time_parts(e)");
+        self.line(1, "lo = _cuni_days_from_civil(1, 1, 1) * 86400");
+        self.line(1, "hi = _cuni_days_from_civil(9999, 12, 31) * 86400 + 86399");
+        self.line(1, "raise CuNiError, \"time.parts: epoch out of range 1..9999\" unless e >= lo && e <= hi");
+        self.line(1, "days = e.div(86400)");
+        self.line(1, "secs = e - days * 86400");
+        self.line(1, "y, mo, d = _cuni_civil_from_days(days)");
+        self.line(1, "{ \"year\" => y, \"month\" => mo, \"day\" => d, \"hour\" => secs / 3600, \"min\" => (secs % 3600) / 60, \"sec\" => secs % 60 }");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_split(s, sep)");
+        self.line(1, "raise CuNiError, \".split needs strings\" unless s.is_a?(String) && sep.is_a?(String)");
+        self.line(1, "raise CuNiError, \".split: empty separator; refusing\" if sep.empty?");
+        self.line(1, "# Ruby drops the single empty part of \"\".split; the spec keeps it.");
+        self.line(1, "return [\"\"] if s.empty?");
+        self.line(1, "s.split(sep, -1)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_join(sep, parts)");
+        self.line(1, "raise CuNiError, \".join needs a str separator\" unless sep.is_a?(String)");
+        self.line(1, "raise CuNiError, \".join needs a list<str>\" unless parts.is_a?(Array)");
+        self.line(1, "parts.each { |x| raise CuNiError, \".join: all parts must be str\" unless x.is_a?(String) }");
+        self.line(1, "parts.join(sep)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_trim(s)");
+        self.line(1, "raise CuNiError, \".trim needs a str\" unless s.is_a?(String)");
+        self.line(1, "# ASCII whitespace only (docs/STDLIB.md §3.3) — not String#strip's set.");
+        self.line(1, "s.gsub(/\\A[ \\t\\n\\v\\f\\r]+|[ \\t\\n\\v\\f\\r]+\\z/, \"\")");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_contains(s, sub)");
+        self.line(1, "raise CuNiError, \".contains needs strings\" unless s.is_a?(String) && sub.is_a?(String)");
+        self.line(1, "s.include?(sub)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "def _cuni_sha256(s)");
+        self.line(1, "require \"digest\"");
+        self.line(1, "raise CuNiError, \"sha256 needs a str\" unless s.is_a?(String)");
+        self.line(1, "Digest::SHA256.hexdigest(s)");
+>>>>>>> wt-stdlib
         self.line(0, "end");
         self.out.push('\n');
         self.line(0, "class CuNiError < StandardError; end");
@@ -567,8 +717,60 @@ impl Codegen {
                             self.gen_expr(args[1].expr(), scope)
                         );
                     }
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|x| self.gen_expr(x.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "_cuni_json_parse",
+                                ("json", "emit") => "_cuni_json_emit",
+                                ("time", "epoch") => "_cuni_time_epoch",
+                                ("time", "parts") => "_cuni_time_parts",
+                                _ => "_cuni_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3).
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "_cuni_split({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "_cuni_join({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("_cuni_trim({})", self.gen_expr(base, scope));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "_cuni_contains({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
                 }
                 let callee_s = self.gen_expr(callee, scope);
+                // Wave-1 stdlib free function (docs/STDLIB.md §4).
+                if callee_s == "sha256" {
+                    let a = args
+                        .iter()
+                        .map(|x| self.gen_expr(x.expr(), scope))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return format!("_cuni_sha256({a})");
+                }
                 // Typ constructor -> .new (positional or keyword).
                 if self.typ_names.contains(&callee_s) {
                     if args.iter().all(|a| a.is_named()) && !args.is_empty() {

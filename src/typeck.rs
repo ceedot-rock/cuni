@@ -65,6 +65,49 @@ pub fn check_program(program: &Program) -> Result<(), TypeError> {
     Ok(())
 }
 
+/// Wave-1 stdlib namespaces (`json`, `time` — docs/STDLIB.md).
+/// Returns (arity, param types, return type) for a namespace function,
+/// or None if the namespace has no such function.
+fn ns_sig(ns: &str, name: &str) -> Option<(Vec<Type>, Type)> {
+    let str_t = || Type::Named("str".to_string());
+    let int_t = || Type::Named("int".to_string());
+    let any_t = || Type::Named("any".to_string());
+    let map_of = |v: Type| Type::Generic("map".to_string(), vec![str_t(), v]);
+    match (ns, name) {
+        ("json", "parse") => Some((vec![str_t()], map_of(any_t()))),
+        ("json", "emit") => Some((vec![map_of(any_t())], str_t())),
+        ("time", "epoch") => Some((
+            vec![
+                int_t(),
+                int_t(),
+                int_t(),
+                int_t(),
+                int_t(),
+                int_t(),
+            ],
+            int_t(),
+        )),
+        ("time", "parts") => Some((vec![int_t()], map_of(int_t()))),
+        _ => None,
+    }
+}
+
+/// Wave-1 stdlib string methods (docs/STDLIB.md §3).
+/// Returns (arity, return type); the receiver must be a str.
+fn str_method_sig(name: &str) -> Option<(usize, Type)> {
+    let str_t = || Type::Named("str".to_string());
+    match name {
+        "split" => Some((
+            1,
+            Type::Generic("list".to_string(), vec![str_t()]),
+        )),
+        "join" => Some((1, str_t())),
+        "trim" => Some((0, str_t())),
+        "contains" => Some((1, Type::Named("bool".to_string()))),
+        _ => None,
+    }
+}
+
 impl<'a> Checker<'a> {
     fn build(program: &'a Program) -> Result<Self, TypeError> {
         let mut functions = HashMap::new();
@@ -137,6 +180,17 @@ impl<'a> Checker<'a> {
             FnSig {
                 params: vec![dec_t.clone()],
                 ret: Type::Named("int".to_string()),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        // Wave-1 stdlib: SHA-256 hex digest of the UTF-8 bytes (docs/STDLIB.md §4).
+        functions.insert(
+            "sha256".to_string(),
+            FnSig {
+                params: vec![Type::Named("str".to_string())],
+                ret: Type::Named("str".to_string()),
                 fallible: false,
                 generics: vec![],
                 name_span: Span::dummy(),
@@ -458,6 +512,15 @@ impl<'a> Checker<'a> {
     ) -> Result<(), TypeError> {
         match &stmt.kind {
             StmtKind::Let { name, ty, value } => {
+                if name == "json" || name == "time" {
+                    return err_at(
+                        stmt.span,
+                        format!(
+                            "`{}` is a reserved stdlib namespace (docs/STDLIB.md) — rename the binding",
+                            name
+                        ),
+                    );
+                }
                 if let Some(t) = ty {
                     self.validate_type(t, generics, stmt.span)?;
                 }
@@ -474,6 +537,15 @@ impl<'a> Checker<'a> {
                 );
             }
             StmtKind::Mut { name, ty, value } => {
+                if name == "json" || name == "time" {
+                    return err_at(
+                        stmt.span,
+                        format!(
+                            "`{}` is a reserved stdlib namespace (docs/STDLIB.md) — rename the binding",
+                            name
+                        ),
+                    );
+                }
                 if let Some(t) = ty {
                     self.validate_type(t, generics, stmt.span)?;
                 }
@@ -729,7 +801,88 @@ impl<'a> Checker<'a> {
                                 "named arguments are not allowed on method calls",
                             );
                         }
+                        // Wave-1 stdlib namespaces: `json`/`time` are
+                        // reserved, so the base is never scope-checked;
+                        // validate the call against the namespace table.
+                        if let ExprKind::Ident(ns) = &base.kind {
+                            if ns == "json" || ns == "time" {
+                                match ns_sig(ns, name) {
+                                    Some((params, _ret)) => {
+                                        if args.len() != params.len() {
+                                            return err_at(
+                                                expr.span,
+                                                format!(
+                                                    "`{}.{}` expects {} argument(s), found {}",
+                                                    ns,
+                                                    name,
+                                                    params.len(),
+                                                    args.len()
+                                                ),
+                                            );
+                                        }
+                                        for (param_ty, arg) in params.iter().zip(args.iter()) {
+                                            if let Some(actual) =
+                                                self.infer_expr(arg.expr(), scope, generics)
+                                            {
+                                                if !types_compatible(param_ty, &actual) {
+                                                    return err_at(
+                                                        arg.span(),
+                                                        format!(
+                                                            "`{}.{}` expects `{}`, found `{}`",
+                                                            ns,
+                                                            name,
+                                                            type_str(param_ty),
+                                                            type_str(&actual)
+                                                        ),
+                                                    );
+                                                }
+                                            }
+                                            // uncertain — stay silent rather
+                                            // than false-reject (same rule
+                                            // as check_call_arg_types)
+                                        }
+                                        return Ok(());
+                                    }
+                                    None => {
+                                        return err_at(
+                                            expr.span,
+                                            format!(
+                                                "unknown stdlib function `{}.{}` — see docs/STDLIB.md",
+                                                ns, name
+                                            ),
+                                        );
+                                    }
+                                }
+                            }
+                        }
                         self.check_expr(base, scope, generics, false)?;
+                        // Wave-1 string methods: arity is checked; the
+                        // receiver must be a str when its type is known.
+                        if let Some((arity, _ret)) = str_method_sig(name) {
+                            if args.len() != arity {
+                                return err_at(
+                                    expr.span,
+                                    format!(
+                                        "`.{}` expects {} argument(s), found {}",
+                                        name,
+                                        arity,
+                                        args.len()
+                                    ),
+                                );
+                            }
+                            if let Some(actual) = self.infer_expr(base, scope, generics) {
+                                if !types_compatible(&Type::Named("str".to_string()), &actual) {
+                                    return err_at(
+                                        expr.span,
+                                        format!(
+                                            "`.{}` needs a str receiver, found `{}`",
+                                            name,
+                                            type_str(&actual)
+                                        ),
+                                    );
+                                }
+                            }
+                        }
                         if name == "push" {
                             if let ExprKind::Ident(var_name) = &base.kind {
                                 if let Some(info) = scope.get(var_name) {
@@ -1073,12 +1226,31 @@ impl<'a> Checker<'a> {
                 ExprKind::Field { name, .. } if name == "len" => {
                     Some(Type::Named("int".to_string()))
                 }
-                ExprKind::Field { base, name } if name == "slice" => {
-                    match self.infer_expr(base, scope, generics) {
-                        Some(Type::Named(n)) if n == "str" => Some(Type::Named("str".to_string())),
-                        Some(Type::Generic(n, args)) if n == "list" => Some(Type::Generic(n, args)),
-                        _ => None,
+                // Wave-1 stdlib namespaces: `json.parse` etc.
+                // String methods: `split`/`join`/`trim`/`contains`.
+                // (`slice` keeps its existing receiver-sensitive arm below
+                // in spirit — merged here since match arms don't fall through.)
+                ExprKind::Field { base, name } => {
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            return ns_sig(ns, name).map(|(_, ret)| ret);
+                        }
                     }
+                    if let Some((_, ret)) = str_method_sig(name) {
+                        return Some(ret);
+                    }
+                    if name == "slice" {
+                        return match self.infer_expr(base, scope, generics) {
+                            Some(Type::Named(n)) if n == "str" => {
+                                Some(Type::Named("str".to_string()))
+                            }
+                            Some(Type::Generic(n, args)) if n == "list" => {
+                                Some(Type::Generic(n, args))
+                            }
+                            _ => None,
+                        };
+                    }
+                    None
                 }
                 _ => None,
             },
@@ -1128,6 +1300,23 @@ fn types_eq(a: &Type, b: &Type) -> bool {
         (Type::Named(x), Type::Named(y)) => x == y,
         (Type::Generic(nx, ax), Type::Generic(ny, ay)) => {
             nx == ny && ax.len() == ay.len() && ax.iter().zip(ay).all(|(p, q)| types_eq(p, q))
+        }
+        _ => false,
+    }
+}
+
+/// Like [`types_eq`], but `any` matches anything on either side. Used for
+/// wave-1 stdlib namespace/method call checks (e.g. `json.emit` takes
+/// `map<str, any>` and accepts `map<str, int>`).
+fn types_compatible(expected: &Type, actual: &Type) -> bool {
+    match (expected, actual) {
+        (Type::Named(x), _) if x == "any" => true,
+        (_, Type::Named(y)) if y == "any" => true,
+        (Type::Named(x), Type::Named(y)) => x == y,
+        (Type::Generic(nx, ax), Type::Generic(ny, ay)) => {
+            nx == ny
+                && ax.len() == ay.len()
+                && ax.iter().zip(ay).all(|(p, q)| types_compatible(p, q))
         }
         _ => false,
     }

@@ -1,0 +1,6 @@
+say("  hi  ".trim() == "hi")
+say("\t\n hi \n\t".trim() == "hi")
+say("hi".trim() == "hi")
+say("".trim() == "")
+say("   ".trim() == "")
+say(" a b ".trim() == "a b")

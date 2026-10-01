@@ -8,7 +8,8 @@ pub fn generate(program: &Program) -> String {
     let mut g = Gen {
         out: String::from(
             "#![allow(dead_code, unused_mut, unused_variables, unused_assignments)]\n",
-        ) + RT,
+        ) + RT
+            + RT_STDLIB,
         fallible: HashSet::new(),
         typs: HashSet::new(),
         enums: Vec::new(),
@@ -274,9 +275,36 @@ impl Gen {
                     .join(", ");
                 format!("Val::List(vec![{inner}])")
             }
-            ExprKind::Map(_) => "Val::None".into(),
+            ExprKind::Map(pairs) => {
+                // Wave-1: real maps (docs/STDLIB.md). Keys are strings on
+                // this seat; anything else refuses at the literal.
+                let inner = pairs
+                    .iter()
+                    .map(|(k, v)| format!("(v_map_key({}), {})", self.expr(k), self.expr(v)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("Val::Map(vec![{inner}])")
+            }
             ExprKind::Call { callee, args } => {
                 if let ExprKind::Field { base, name } = &callee.kind {
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|x| self.expr(x.expr()))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "v_json_parse",
+                                ("json", "emit") => "v_json_emit",
+                                ("time", "epoch") => "v_time_epoch",
+                                ("time", "parts") => "v_time_parts",
+                                _ => "v_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
                     if name == "len" {
                         return format!("v_len({})", self.expr(base));
                     }
@@ -286,6 +314,31 @@ impl Gen {
                             self.expr(base),
                             self.expr(args[0].expr()),
                             self.expr(args[1].expr())
+                        );
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3).
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "v_split({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "v_join({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("v_trim({})", self.expr(base));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "v_contains({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
                         );
                     }
                     if name == "push" {
@@ -310,8 +363,13 @@ impl Gen {
                         "abs" => "v_abs",
                         "min" => "v_min",
                         "max" => "v_max",
+<<<<<<< HEAD
                         "dec_of_int" => "v_dec_of_int",
                         "int_of_dec" => "v_int_of_dec",
+=======
+                        // Wave-1 stdlib (docs/STDLIB.md §4).
+                        "sha256" => "v_sha256",
+>>>>>>> wt-stdlib
                         _ => n.as_str(),
                     };
                     return format!("{mapped}({a})");
@@ -380,11 +438,19 @@ enum Val {
     Bool(bool),
     None,
     List(Vec<Val>),
+    // Wave-1 stdlib: real maps (docs/STDLIB.md). Keys are strings; the
+    // Vec preserves insertion order (first-seen position on duplicates).
+    Map(Vec<(String, Val)>),
     Struct { tag: String, fields: Vec<(String, Val)> },
     Enum { ty: String, variant: String },
 }
 fn v_struct(tag: &str) -> Val { Val::Struct { tag: tag.into(), fields: vec![] } }
 fn v_enum(ty: &str, variant: &str) -> Val { Val::Enum { ty: ty.into(), variant: variant.into() } }
+// Wave-1 stdlib: map keys are strings on this seat; anything else refuses
+// at the literal (json.emit refuses non-string keys per docs/STDLIB.md §1.3).
+fn v_map_key(k: Val) -> String {
+    match k { Val::Str(s) => s, _ => panic!("rs seat: map keys must be strings") }
+}
 fn v_set(s: &mut Val, k: &str, v: Val) {
     if let Val::Struct { fields, .. } = s { fields.push((k.into(), v)); }
 }
@@ -608,5 +674,378 @@ fn cuni_say(v: Val) {
             if let Val::Str(s) = v_to_str(other) { println!("{s}"); }
         }
     }
+}
+"#;
+
+/// Wave-1 stdlib runtime (docs/STDLIB.md). Hand-rolled: the rs seat compiles
+/// with `rustc` directly (no cargo, no dependency resolution), so `serde_json`
+/// and the `sha2` crate are unavailable — and unnecessary. These implement the
+/// spec algorithms exactly, shared with the interpreter seat.
+const RT_STDLIB: &str = r#"
+// ================= Wave-1 stdlib (docs/STDLIB.md) =================
+fn v_json_parse(s: Val) -> Val {
+    let t = match s { Val::Str(t) => t, _ => panic!("json.parse needs a str") };
+    let mut p = JParser { s: t.as_str(), b: t.as_bytes(), pos: 0 };
+    p.ws();
+    let v = p.value();
+    p.ws();
+    if p.pos != p.b.len() { panic!("json.parse: trailing characters"); }
+    match v { Val::Map(_) => v, _ => panic!("json.parse: top-level JSON value must be an object") }
+}
+struct JParser<'a> { s: &'a str, b: &'a [u8], pos: usize }
+impl<'a> JParser<'a> {
+    fn ws(&mut self) {
+        while self.pos < self.b.len() && matches!(self.b[self.pos], b' '|b'\t'|b'\n'|b'\r') { self.pos += 1; }
+    }
+    fn expect(&mut self, word: &str) {
+        if self.s[self.pos..].starts_with(word) { self.pos += word.len(); }
+        else { panic!("json.parse: bad literal"); }
+    }
+    fn value(&mut self) -> Val {
+        let c = *self.b.get(self.pos).unwrap_or(&0);
+        match c {
+            b'{' => self.object(),
+            b'[' => self.array(),
+            b'"' => Val::Str(self.string()),
+            b't' => { self.expect("true"); Val::Bool(true) }
+            b'f' => { self.expect("false"); Val::Bool(false) }
+            b'n' => { self.expect("null"); Val::None }
+            b'-'|b'0'..=b'9' => {
+                let start = self.pos;
+                while self.pos < self.b.len() && matches!(self.b[self.pos], b'-'|b'+'|b'0'..=b'9'|b'.'|b'e'|b'E') { self.pos += 1; }
+                Val::Int(v_json_int(&self.s[start..self.pos]))
+            }
+            _ => panic!("json.parse: unexpected character"),
+        }
+    }
+    fn object(&mut self) -> Val {
+        self.pos += 1;
+        let mut pairs: Vec<(String, Val)> = Vec::new();
+        self.ws();
+        if self.b.get(self.pos) == Some(&b'}') { self.pos += 1; return Val::Map(pairs); }
+        loop {
+            self.ws();
+            if self.b.get(self.pos) != Some(&b'"') { panic!("json.parse: object keys must be strings"); }
+            let key = self.string();
+            self.ws();
+            if self.b.get(self.pos) != Some(&b':') { panic!("json.parse: expected ':'"); }
+            self.pos += 1; self.ws();
+            let v = self.value();
+            if let Some(slot) = pairs.iter_mut().find(|(k, _)| k == &key) { slot.1 = v; }
+            else { pairs.push((key, v)); }
+            self.ws();
+            match self.b.get(self.pos) {
+                Some(b',') => { self.pos += 1; }
+                Some(b'}') => { self.pos += 1; return Val::Map(pairs); }
+                _ => panic!("json.parse: expected ',' or '}'"),
+            }
+        }
+    }
+    fn array(&mut self) -> Val {
+        self.pos += 1;
+        let mut xs = Vec::new();
+        self.ws();
+        if self.b.get(self.pos) == Some(&b']') { self.pos += 1; return Val::List(xs); }
+        loop {
+            self.ws();
+            xs.push(self.value());
+            self.ws();
+            match self.b.get(self.pos) {
+                Some(b',') => { self.pos += 1; }
+                Some(b']') => { self.pos += 1; return Val::List(xs); }
+                _ => panic!("json.parse: expected ',' or ']'"),
+            }
+        }
+    }
+    fn hex4(&mut self) -> u32 {
+        if self.pos + 4 > self.b.len() { panic!("json.parse: bad \\u escape"); }
+        let v = u32::from_str_radix(&self.s[self.pos..self.pos+4], 16).unwrap_or_else(|_| panic!("json.parse: bad \\u escape"));
+        self.pos += 4;
+        v
+    }
+    fn string(&mut self) -> String {
+        self.pos += 1;
+        let mut out = String::new();
+        loop {
+            let rest = &self.s[self.pos..];
+            let run = rest.find(|c| c == '"' || c == '\\').unwrap_or(rest.len());
+            let chunk = &rest[..run];
+            if chunk.bytes().any(|b| b < 0x20) { panic!("json.parse: unescaped control character in string"); }
+            out.push_str(chunk);
+            self.pos += run;
+            match self.b.get(self.pos) {
+                None => panic!("json.parse: unterminated string"),
+                Some(b'"') => { self.pos += 1; return out; }
+                Some(b'\\') => {
+                    self.pos += 1;
+                    let e = *self.b.get(self.pos).unwrap_or(&0);
+                    self.pos += 1;
+                    match e {
+                        b'"' => out.push('"'), b'\\' => out.push('\\'), b'/' => out.push('/'),
+                        b'b' => out.push('\x08'), b'f' => out.push('\x0c'),
+                        b'n' => out.push('\n'), b'r' => out.push('\r'), b't' => out.push('\t'),
+                        b'u' => {
+                            let hi = self.hex4();
+                            if (0xD800..0xDC00).contains(&hi) {
+                                let is_lo = self.b.get(self.pos) == Some(&b'\\') && self.b.get(self.pos+1) == Some(&b'u');
+                                if !is_lo { panic!("json.parse: lone surrogate"); }
+                                self.pos += 2;
+                                let lo = self.hex4();
+                                if !(0xDC00..0xE000).contains(&lo) { panic!("json.parse: lone surrogate"); }
+                                let cp = 0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00);
+                                out.push(char::from_u32(cp).unwrap_or_else(|| panic!("json.parse: bad code point")));
+                            } else if (0xDC00..0xE000).contains(&hi) {
+                                panic!("json.parse: lone surrogate");
+                            } else {
+                                out.push(char::from_u32(hi).unwrap_or_else(|| panic!("json.parse: bad code point")));
+                            }
+                        }
+                        _ => panic!("json.parse: bad escape"),
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+    }
+}
+fn v_json_int(tok: &str) -> i64 {
+    let t = tok.as_bytes();
+    let mut i = 0usize;
+    let neg = if t.get(i) == Some(&b'-') { i += 1; true } else { false };
+    if t.get(i) == Some(&b'0') { i += 1; }
+    else if matches!(t.get(i), Some(b'1'..=b'9')) { while matches!(t.get(i), Some(b'0'..=b'9')) { i += 1; } }
+    else { panic!("json.parse: bad number"); }
+    let mut frac_len = 0usize;
+    if t.get(i) == Some(&b'.') {
+        i += 1;
+        let start = i;
+        while matches!(t.get(i), Some(b'0'..=b'9')) { i += 1; }
+        if i == start { panic!("json.parse: bad number"); }
+        frac_len = i - start;
+    }
+    let mut exp: i64 = 0;
+    // Mantissa ends where the exponent begins: only int+frac digits feed `d`.
+    let mant_end = i;
+    if matches!(t.get(i), Some(b'e')|Some(b'E')) {
+        i += 1;
+        let eneg = if t.get(i) == Some(&b'-') { i += 1; true } else { if t.get(i) == Some(&b'+') { i += 1; } false };
+        let start = i;
+        while matches!(t.get(i), Some(b'0'..=b'9')) { i += 1; }
+        if i == start { panic!("json.parse: bad number"); }
+        let ed: i64 = tok[start..i].parse().unwrap_or_else(|_| panic!("json.parse: bad number"));
+        exp = if eneg { -ed } else { ed };
+    }
+    if i != t.len() { panic!("json.parse: bad number"); }
+    // Mantissa only — exponent digits must NOT feed `d`.
+    let digits: Vec<u8> = t[..mant_end].iter().filter(|c| c.is_ascii_digit()).copied().collect();
+    let sig: &[u8] = match digits.iter().position(|&c| c != b'0') {
+        Some(p) => &digits[p..],
+        None => return 0,
+    };
+    if sig.len() > 16 { panic!("json.parse: number is not an integer in ±(2^53−1)"); }
+    let mut d: i64 = 0;
+    for &c in sig { d = d * 10 + (c - b'0') as i64; }
+    let mut f = frac_len as i64;
+    while d % 10 == 0 && d != 0 { d /= 10; f -= 1; }
+    let k = f - exp;
+    let mut v: i64;
+    if k <= 0 {
+        v = d;
+        for _ in 0..(-k) { v = v.checked_mul(10).unwrap_or_else(|| panic!("json.parse: number is not an integer in ±(2^53−1)")); }
+    } else {
+        if k > 16 { panic!("json.parse: number is not an integer in ±(2^53−1)"); }
+        let mut p10: i64 = 1;
+        for _ in 0..k { p10 *= 10; }
+        if d % p10 != 0 { panic!("json.parse: number is not an integer in ±(2^53−1)"); }
+        v = d / p10;
+    }
+    if neg { v = -v; }
+    if v < -9007199254740991 || v > 9007199254740991 { panic!("json.parse: number is not an integer in ±(2^53−1)"); }
+    v
+}
+fn v_json_emit(v: Val) -> Val {
+    match v { Val::Map(_) => {}, _ => panic!("json.emit needs a map") }
+    let mut out = String::new();
+    v_json_write(&v, &mut out);
+    Val::Str(out)
+}
+fn v_json_write(v: &Val, out: &mut String) {
+    match v {
+        Val::Int(n) => out.push_str(&n.to_string()),
+        Val::Str(s) => v_json_write_str(s, out),
+        Val::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Val::None => out.push_str("null"),
+        Val::List(xs) => {
+            out.push('[');
+            for (i, x) in xs.iter().enumerate() { if i > 0 { out.push(','); } v_json_write(x, out); }
+            out.push(']');
+        }
+        Val::Map(pairs) => {
+            let mut ks: Vec<(&str, &Val)> = pairs.iter().map(|(k, v)| (k.as_str(), v)).collect();
+            ks.sort_by(|a, b| a.0.as_bytes().cmp(b.0.as_bytes()));
+            out.push('{');
+            for (i, (k, val)) in ks.iter().enumerate() {
+                if i > 0 { out.push(','); }
+                v_json_write_str(k, out);
+                out.push(':');
+                v_json_write(val, out);
+            }
+            out.push('}');
+        }
+        _ => panic!("json.emit: value has no JSON form"),
+    }
+}
+fn v_json_write_str(s: &str, out: &mut String) {
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '"' => out.push_str("\\\""),
+            '\\' => out.push_str("\\\\"),
+            '\x08' => out.push_str("\\b"),
+            '\x0c' => out.push_str("\\f"),
+            '\n' => out.push_str("\\n"),
+            '\r' => out.push_str("\\r"),
+            '\t' => out.push_str("\\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\u{:04x}", c as u32)),
+            _ => out.push(c),
+        }
+    }
+    out.push('"');
+}
+fn v_days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y0 = if m <= 2 { y - 1 } else { y };
+    let era = y0 / 400;
+    let yoe = y0 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+fn v_civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719468;
+    let era = z / 146097;
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+fn v_stdlib_as_int(v: &Val) -> i64 { match v { Val::Int(n) => *n, _ => panic!("expected int") } }
+fn v_time_epoch(y: Val, mo: Val, d: Val, h: Val, mi: Val, s: Val) -> Val {
+    let (y, mo, d, h, mi, s) = (v_stdlib_as_int(&y), v_stdlib_as_int(&mo), v_stdlib_as_int(&d), v_stdlib_as_int(&h), v_stdlib_as_int(&mi), v_stdlib_as_int(&s));
+    if !(1 <= y && y <= 9999) { panic!("time.epoch: year out of range 1..9999"); }
+    if !(1 <= mo && mo <= 12) { panic!("time.epoch: month out of range 1..12"); }
+    let dim = match mo {
+        1|3|5|7|8|10|12 => 31,
+        4|6|9|11 => 30,
+        2 => if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 29 } else { 28 },
+        _ => 0,
+    };
+    if !(1 <= d && d <= dim) { panic!("time.epoch: day out of range for month"); }
+    if !(0 <= h && h <= 23) { panic!("time.epoch: hour out of range 0..23"); }
+    if !(0 <= mi && mi <= 59) { panic!("time.epoch: minute out of range 0..59"); }
+    if !(0 <= s && s <= 59) { panic!("time.epoch: second out of range 0..59"); }
+    Val::Int(v_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s)
+}
+fn v_time_parts(e: Val) -> Val {
+    let e = v_stdlib_as_int(&e);
+    let lo = v_days_from_civil(1, 1, 1) * 86400;
+    let hi = v_days_from_civil(9999, 12, 31) * 86400 + 86399;
+    if e < lo || e > hi { panic!("time.parts: epoch out of range 1..9999"); }
+    let days = e.div_euclid(86400);
+    let secs = e.rem_euclid(86400);
+    let (y, mo, d) = v_civil_from_days(days);
+    Val::Map(vec![
+        ("year".to_string(), Val::Int(y)),
+        ("month".to_string(), Val::Int(mo)),
+        ("day".to_string(), Val::Int(d)),
+        ("hour".to_string(), Val::Int(secs / 3600)),
+        ("min".to_string(), Val::Int((secs % 3600) / 60)),
+        ("sec".to_string(), Val::Int(secs % 60)),
+    ])
+}
+fn v_split(s: Val, sep: Val) -> Val {
+    let (ss, pp) = match (s, sep) {
+        (Val::Str(a), Val::Str(b)) => (a, b),
+        _ => panic!(".split needs strings"),
+    };
+    if pp.is_empty() { panic!(".split: empty separator; refusing"); }
+    Val::List(ss.split(pp.as_str()).map(|p| Val::Str(p.to_string())).collect())
+}
+fn v_join(sep: Val, parts: Val) -> Val {
+    let ss = match sep { Val::Str(s) => s, _ => panic!(".join needs a str separator") };
+    match parts {
+        Val::List(xs) => {
+            let mut out = Vec::new();
+            for x in xs {
+                match x { Val::Str(t) => out.push(t), _ => panic!(".join: all parts must be str") }
+            }
+            Val::Str(out.join(ss.as_str()))
+        }
+        _ => panic!(".join needs a list<str>"),
+    }
+}
+fn v_trim(s: Val) -> Val {
+    match s {
+        Val::Str(t) => Val::Str(t.trim_matches(|c: char| matches!(c, '\u{9}'|'\u{A}'|'\u{B}'|'\u{C}'|'\u{D}'|'\u{20}')).to_string()),
+        _ => panic!(".trim needs a str"),
+    }
+}
+fn v_contains(s: Val, sub: Val) -> Val {
+    match (s, sub) {
+        (Val::Str(a), Val::Str(b)) => Val::Bool(a.contains(b.as_str())),
+        _ => panic!(".contains needs strings"),
+    }
+}
+fn v_sha256(s: Val) -> Val {
+    let t = match s { Val::Str(t) => t, _ => panic!("sha256 needs a str") };
+    let mut msg = t.as_bytes().to_vec();
+    let bit_len = (msg.len() as u64).wrapping_mul(8);
+    msg.push(0x80);
+    while msg.len() % 64 != 56 { msg.push(0); }
+    msg.extend_from_slice(&bit_len.to_be_bytes());
+    let mut h: [u32; 8] = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    const K: [u32; 64] = [
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2,
+    ];
+    for chunk in msg.chunks_exact(64) {
+        let mut w = [0u32; 64];
+        for i in 0..16 {
+            w[i] = u32::from_be_bytes([chunk[4*i], chunk[4*i+1], chunk[4*i+2], chunk[4*i+3]]);
+        }
+        for i in 16..64 {
+            let s0 = w[i-15].rotate_right(7) ^ w[i-15].rotate_right(18) ^ (w[i-15] >> 3);
+            let s1 = w[i-2].rotate_right(17) ^ w[i-2].rotate_right(19) ^ (w[i-2] >> 10);
+            w[i] = w[i-16].wrapping_add(s0).wrapping_add(w[i-7]).wrapping_add(s1);
+        }
+        let (mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut hh) = (h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7]);
+        for i in 0..64 {
+            let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
+            let ch = (e & f) ^ ((!e) & g);
+            let t1 = hh.wrapping_add(s1).wrapping_add(ch).wrapping_add(K[i]).wrapping_add(w[i]);
+            let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
+            let maj = (a & b) ^ (a & c) ^ (b & c);
+            let t2 = s0.wrapping_add(maj);
+            hh = g; g = f; f = e; e = d.wrapping_add(t1);
+            d = c; c = b; b = a; a = t1.wrapping_add(t2);
+        }
+        h[0] = h[0].wrapping_add(a); h[1] = h[1].wrapping_add(b);
+        h[2] = h[2].wrapping_add(c); h[3] = h[3].wrapping_add(d);
+        h[4] = h[4].wrapping_add(e); h[5] = h[5].wrapping_add(f);
+        h[6] = h[6].wrapping_add(g); h[7] = h[7].wrapping_add(hh);
+    }
+    let mut out = String::with_capacity(64);
+    for x in h { out.push_str(&format!("{:08x}", x)); }
+    Val::Str(out)
 }
 "#;
