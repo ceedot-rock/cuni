@@ -154,7 +154,6 @@ impl Codegen {
         self.line(2, "return int(a / b) if a * b < 0 else a // b");
         self.line(1, "return a / b");
         self.out.push('\n');
-<<<<<<< HEAD
         self.line(0, "def _cuni_tdiv(a, b):");
         self.line(1, "# Truncation toward zero (docs/DECIMAL.md §3) — Python's // floors.");
         self.line(1, "q = abs(a) // abs(b)");
@@ -207,7 +206,6 @@ impl Codegen {
         self.line(2, "return CuniDec(_cuni_tdiv(int(self) * 10000, int(o)))");
         self.line(1, "def __neg__(self):");
         self.line(2, "return CuniDec(-int(self))");
-=======
         // ---- Wave-1 stdlib (docs/STDLIB.md). Module imports are lazy
         // (inside the helpers) so programs that don't use the stdlib pay
         // nothing and emit no extra imports.
@@ -307,9 +305,7 @@ impl Codegen {
         self.line(0, "def sha256(s):");
         self.line(1, "import hashlib as _hashlib");
         self.line(1, "if not isinstance(s, str): raise CuNiError(\"sha256 needs a str\")");
-        self.line(1, "return _hashlib.sha256(s.encode(\"utf-8\")).hexdigest()");
->>>>>>> wt-stdlib
-        self.out.push('\n');
+        self.line(1, "return _hashlib.sha256(s.encode(\"utf-8\")).hexdigest()");        self.out.push('\n');
         self.line(0, "class CuNiError(Exception):");
         self.line(
             1,

@@ -363,14 +363,10 @@ impl Gen {
                         "abs" => "v_abs",
                         "min" => "v_min",
                         "max" => "v_max",
-<<<<<<< HEAD
                         "dec_of_int" => "v_dec_of_int",
                         "int_of_dec" => "v_int_of_dec",
-=======
                         // Wave-1 stdlib (docs/STDLIB.md §4).
-                        "sha256" => "v_sha256",
->>>>>>> wt-stdlib
-                        _ => n.as_str(),
+                        "sha256" => "v_sha256",                        _ => n.as_str(),
                     };
                     return format!("{mapped}({a})");
                 }

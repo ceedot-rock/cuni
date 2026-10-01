@@ -395,14 +395,10 @@ impl Gen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
-<<<<<<< HEAD
                         "dec_of_int" => "cuni_dec_of_int",
                         "int_of_dec" => "cuni_int_of_dec",
-=======
                         // Wave-1 stdlib (docs/STDLIB.md §4).
-                        "sha256" => "cuni_sha256",
->>>>>>> wt-stdlib
-                        _ => "",
+                        "sha256" => "cuni_sha256",                        _ => "",
                     };
                     if !mapped.is_empty() {
                         let a = args
@@ -500,14 +496,9 @@ const CUNI_RT: &str = r#"
 #include <string.h>
 
 
-<<<<<<< HEAD
-typedef enum { K_INT, K_DEC, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM } K;
-=======
-typedef enum { K_INT, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM,
+typedef enum { K_INT, K_DEC, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM,
                /* Wave-1 stdlib: real maps (docs/STDLIB.md). Reuses keys/items/n. */
-               K_MAP } K;
->>>>>>> wt-stdlib
-typedef struct Val Val;
+               K_MAP } K;typedef struct Val Val;
 struct Val {
     K k;
     long long i;

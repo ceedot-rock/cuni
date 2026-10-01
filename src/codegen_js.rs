@@ -303,7 +303,6 @@ impl Codegen {
         self.line(1, "return a / b;");
         self.line(0, "}");
         self.out.push('\n');
-<<<<<<< HEAD
         self.line(0, "// CuNi `dec`: fixed-point decimal, scale 10^4, as BigInt (docs/DECIMAL.md).");
         self.line(0, "// A plain JS number is NOT exact (f64) — dec never touches Number.");
         self.line(0, "function _cuni_dec_str(v) {");
@@ -326,7 +325,6 @@ impl Codegen {
         self.line(0, "}");
         self.line(0, "function _cuni_int_of_dec(d) {");
         self.line(1, "return Number(d / 10000n);  // truncates toward zero, like every seat");
-=======
         // ---- Wave-1 stdlib (docs/STDLIB.md). ----
         self.line(
             0,
@@ -541,9 +539,7 @@ impl Codegen {
         self.out.push('\n');
         self.line(0, "function _cuni_sha256(s) {");
         self.line(1, "if (typeof s !== \"string\") throw new CuNiError(\"sha256 needs a str\");");
-        self.line(1, "return require(\"crypto\").createHash(\"sha256\").update(s, \"utf8\").digest(\"hex\");");
->>>>>>> wt-stdlib
-        self.line(0, "}");
+        self.line(1, "return require(\"crypto\").createHash(\"sha256\").update(s, \"utf8\").digest(\"hex\");");        self.line(0, "}");
         self.out.push('\n');
         self.line(
             0,

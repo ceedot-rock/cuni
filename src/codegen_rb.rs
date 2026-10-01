@@ -151,7 +151,6 @@ impl Codegen {
         self.line(1, "a.to_f / b");
         self.line(0, "end");
         self.out.push('\n');
-<<<<<<< HEAD
         self.line(0, "# CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md).");
         self.line(0, "# Stored as a scaled Integer; operators keep the tag and the scale, so");
         self.line(0, "# plain `+ - * /` in emitted code stay exact with no codegen type");
@@ -210,7 +209,6 @@ impl Codegen {
         self.line(1, "def ==(o); o.is_a?(CuniDec) && __getobj__ == o.__getobj__; end");
         self.line(1, "def to_s; CuniDec.dec_str(__getobj__); end");
         self.line(1, "def inspect; to_s; end");
-=======
         // ---- Wave-1 stdlib (docs/STDLIB.md). `require`s are lazy (inside
         // the helpers) so non-stdlib programs emit no extra dependencies.
         self.line(0, "CUNI_JSON_INT_MAX = 9007199254740991");
@@ -357,9 +355,7 @@ impl Codegen {
         self.line(0, "def _cuni_sha256(s)");
         self.line(1, "require \"digest\"");
         self.line(1, "raise CuNiError, \"sha256 needs a str\" unless s.is_a?(String)");
-        self.line(1, "Digest::SHA256.hexdigest(s)");
->>>>>>> wt-stdlib
-        self.line(0, "end");
+        self.line(1, "Digest::SHA256.hexdigest(s)");        self.line(0, "end");
         self.out.push('\n');
         self.line(0, "class CuNiError < StandardError; end");
         self.out.push('\n');

@@ -1564,13 +1564,9 @@ impl Codegen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
-<<<<<<< HEAD
                         "dec_of_int" => "cuniDecOfInt",
                         "int_of_dec" => "cuniIntOfDec",
-=======
-                        "sha256" => "cuni_sha256",
->>>>>>> wt-stdlib
-                        _ => "",
+                        "sha256" => "cuni_sha256",                        _ => "",
                     };
                     if !mapped.is_empty() {
                         return format!(

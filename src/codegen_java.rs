@@ -296,16 +296,12 @@ impl Codegen {
         self.line(2, "if (x == null) {");
         self.line(3, "OUT.println(\"None\");");
         self.line(2, "} else if (x instanceof Boolean) {");
-<<<<<<< HEAD
-        self.line(3, "System.out.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
+        self.line(3, "OUT.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
         // A `dec` is a scaled BigInteger (docs/DECIMAL.md) — it must render
         // canonically, not as its raw scaled integer. No other CuNi value
         // is a BigInteger, so this changes nothing else.
         self.line(2, "} else if (x instanceof java.math.BigInteger) {");
-        self.line(3, "System.out.println(cuni_dec_str((java.math.BigInteger) x));");
-=======
-        self.line(3, "OUT.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
->>>>>>> wt-stdlib
+        self.line(3, "OUT.println(cuni_dec_str((java.math.BigInteger) x));");
         self.line(2, "} else {");
         self.line(3, "OUT.println(x);");
         self.line(2, "}");
