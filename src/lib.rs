@@ -6,6 +6,7 @@ mod interp;
 mod lexer;
 mod oddity;
 mod parser;
+mod stdlib_use;
 mod token;
 mod typeck;
 

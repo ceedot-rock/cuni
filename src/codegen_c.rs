@@ -29,6 +29,7 @@ pub fn generate(program: &Program) -> String {
         }
     }
     g.out.push_str(CUNI_RT);
+    g.out.push_str(CUNI_RT_STDLIB);
     g.out.push('\n');
     for (name, _) in &g.enums {
         g.out.push_str(&format!("static Val {name};\n"));
@@ -299,9 +300,38 @@ impl Gen {
                     )
                 }
             }
-            ExprKind::Map(_) => "V_none()".into(),
+            ExprKind::Map(pairs) => {
+                // Wave-1: real maps (docs/STDLIB.md). Statement expression
+                // builds the map; nested literals shadow __m legally.
+                let sets = pairs
+                    .iter()
+                    .map(|(k, v)| {
+                        format!("cuni_map_set(&__m, {}, {})", self.expr(k), self.expr(v))
+                    })
+                    .collect::<Vec<_>>()
+                    .join("; ");
+                format!("({{ Val __m = V_map(); {sets}; __m; }})")
+            }
             ExprKind::Call { callee, args } => {
                 if let ExprKind::Field { base, name } = &callee.kind {
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|x| self.expr(x.expr()))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "cuni_json_parse",
+                                ("json", "emit") => "cuni_json_emit",
+                                ("time", "epoch") => "cuni_time_epoch",
+                                ("time", "parts") => "cuni_time_parts",
+                                _ => "cuni_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
                     if name == "push" {
                         return format!(
                             "cuni_push(&{}, {})",
@@ -323,6 +353,31 @@ impl Gen {
                             self.expr(args[1].expr())
                         );
                     }
+                    // Wave-1 string ops (docs/STDLIB.md §3).
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "cuni_split({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "cuni_join({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("cuni_trim({})", self.expr(base));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "cuni_contains({}, {})",
+                            self.expr(base),
+                            self.expr(args[0].expr())
+                        );
+                    }
                 }
                 if let ExprKind::Ident(n) = &callee.kind {
                     let mapped = match n.as_str() {
@@ -330,6 +385,8 @@ impl Gen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
+                        // Wave-1 stdlib (docs/STDLIB.md §4).
+                        "sha256" => "cuni_sha256",
                         _ => "",
                     };
                     if !mapped.is_empty() {
@@ -428,7 +485,9 @@ const CUNI_RT: &str = r#"
 #include <string.h>
 
 
-typedef enum { K_INT, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM } K;
+typedef enum { K_INT, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM,
+               /* Wave-1 stdlib: real maps (docs/STDLIB.md). Reuses keys/items/n. */
+               K_MAP } K;
 typedef struct Val Val;
 struct Val {
     K k;
@@ -626,5 +685,522 @@ static void cuni_say(Val v) {
         case K_NONE: printf("None\n"); break;
         default: printf("%s\n", cuni_to_str(v).s); break;
     }
+}
+"#;
+
+/// Wave-1 stdlib runtime (docs/STDLIB.md). Hand-rolled C99: no dependencies
+/// beyond libc. Mirrors the spec algorithms exactly.
+const CUNI_RT_STDLIB: &str = r#"
+/* ================= Wave-1 stdlib (docs/STDLIB.md) ================= */
+static void cuni_panic(const char *msg) {
+    fprintf(stderr, "cuni: %s\n", msg);
+    exit(1);
+}
+static Val V_map(void) { Val v = V_none(); v.k = K_MAP; return v; }
+/* Duplicate keys: last wins, first position kept (docs/STDLIB.md §1.2). */
+static void cuni_map_set(Val *m, Val key, Val val) {
+    if (key.k != K_STR || !key.s) cuni_panic("map keys must be strings");
+    for (size_t i = 0; i < m->n; i++) {
+        if (m->keys && m->keys[i] && strcmp(m->keys[i], key.s) == 0) {
+            m->items[i] = val;
+            return;
+        }
+    }
+    cuni_set(m, key.s, val);
+}
+static Val cuni_strn(const char *s, size_t len) {
+    char *p = (char*)malloc(len + 1);
+    if (!p) cuni_panic("out of memory");
+    memcpy(p, s, len);
+    p[len] = 0;
+    Val v = V_none(); v.k = K_STR; v.s = p;
+    return v;
+}
+/* Growable byte buffer. */
+typedef struct { char *p; size_t n, cap; } CuniCBuf;
+static void cuni_cbuf_reserve(CuniCBuf *b, size_t extra) {
+    if (b->n + extra + 1 > b->cap) {
+        size_t nc = b->cap ? b->cap * 2 : 64;
+        while (b->n + extra + 1 > nc) nc *= 2;
+        b->p = (char*)realloc(b->p, nc);
+        if (!b->p) cuni_panic("out of memory");
+        b->cap = nc;
+    }
+}
+static void cuni_cbuf_str(CuniCBuf *b, const char *s, size_t len) {
+    cuni_cbuf_reserve(b, len);
+    memcpy(b->p + b->n, s, len);
+    b->n += len;
+    b->p[b->n] = 0;
+}
+static void cuni_cbuf_c(CuniCBuf *b, char c) { cuni_cbuf_str(b, &c, 1); }
+static void cuni_cbuf_cstr(CuniCBuf *b, const char *s) { cuni_cbuf_str(b, s, strlen(s)); }
+
+/* ---------- JSON (docs/STDLIB.md §1) ---------- */
+typedef struct { const char *s; size_t pos; } CuniJPar;
+static void cuni_j_ws(CuniJPar *p) {
+    while (p->s[p->pos]==' '||p->s[p->pos]=='\t'||p->s[p->pos]=='\n'||p->s[p->pos]=='\r') p->pos++;
+}
+static Val cuni_j_value(CuniJPar *p);
+static void cuni_j_utf8(CuniCBuf *b, unsigned cp) {
+    if (cp < 0x80) { cuni_cbuf_c(b, (char)cp); }
+    else if (cp < 0x800) { cuni_cbuf_c(b, (char)(0xC0 | (cp >> 6))); cuni_cbuf_c(b, (char)(0x80 | (cp & 63))); }
+    else if (cp < 0x10000) {
+        cuni_cbuf_c(b, (char)(0xE0 | (cp >> 12)));
+        cuni_cbuf_c(b, (char)(0x80 | ((cp >> 6) & 63)));
+        cuni_cbuf_c(b, (char)(0x80 | (cp & 63)));
+    } else {
+        cuni_cbuf_c(b, (char)(0xF0 | (cp >> 18)));
+        cuni_cbuf_c(b, (char)(0x80 | ((cp >> 12) & 63)));
+        cuni_cbuf_c(b, (char)(0x80 | ((cp >> 6) & 63)));
+        cuni_cbuf_c(b, (char)(0x80 | (cp & 63)));
+    }
+}
+static unsigned cuni_j_hex4(CuniJPar *p) {
+    unsigned v = 0;
+    for (int i = 0; i < 4; i++) {
+        char c = p->s[p->pos++];
+        v <<= 4;
+        if (c >= '0' && c <= '9') v |= (unsigned)(c - '0');
+        else if (c >= 'a' && c <= 'f') v |= (unsigned)(c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') v |= (unsigned)(c - 'A' + 10);
+        else cuni_panic("json.parse: bad \\u escape");
+    }
+    return v;
+}
+static char *cuni_j_string(CuniJPar *p) {
+    p->pos++; /* opening " */
+    CuniCBuf b; b.p = 0; b.n = 0; b.cap = 0;
+    for (;;) {
+        size_t start = p->pos;
+        while (p->s[p->pos] && p->s[p->pos] != '"' && p->s[p->pos] != '\\') p->pos++;
+        for (size_t i = start; i < p->pos; i++) {
+            if ((unsigned char)p->s[i] < 0x20) cuni_panic("json.parse: unescaped control character in string");
+        }
+        cuni_cbuf_str(&b, p->s + start, p->pos - start);
+        char c = p->s[p->pos];
+        if (!c) cuni_panic("json.parse: unterminated string");
+        if (c == '"') { p->pos++; return b.p ? b.p : strdup(""); }
+        p->pos++; /* backslash */
+        char e = p->s[p->pos++];
+        switch (e) {
+            case '"': cuni_cbuf_c(&b, '"'); break;
+            case '\\': cuni_cbuf_c(&b, '\\'); break;
+            case '/': cuni_cbuf_c(&b, '/'); break;
+            case 'b': cuni_cbuf_c(&b, '\b'); break;
+            case 'f': cuni_cbuf_c(&b, '\f'); break;
+            case 'n': cuni_cbuf_c(&b, '\n'); break;
+            case 'r': cuni_cbuf_c(&b, '\r'); break;
+            case 't': cuni_cbuf_c(&b, '\t'); break;
+            case 'u': {
+                unsigned hi = cuni_j_hex4(p);
+                if (hi >= 0xD800 && hi < 0xDC00) {
+                    if (p->s[p->pos] != '\\' || p->s[p->pos+1] != 'u') cuni_panic("json.parse: lone surrogate");
+                    p->pos += 2;
+                    unsigned lo = cuni_j_hex4(p);
+                    if (lo < 0xDC00 || lo >= 0xE000) cuni_panic("json.parse: lone surrogate");
+                    cuni_j_utf8(&b, 0x10000u + ((hi - 0xD800u) << 10) + (lo - 0xDC00u));
+                } else if (hi >= 0xDC00 && hi < 0xE000) {
+                    cuni_panic("json.parse: lone surrogate");
+                } else {
+                    cuni_j_utf8(&b, hi);
+                }
+                break;
+            }
+            default: cuni_panic("json.parse: bad escape");
+        }
+    }
+}
+/* Value-based integer rule (docs/STDLIB.md §1.1). */
+static long long cuni_j_number(CuniJPar *p) {
+    const char *s = p->s;
+    size_t i = p->pos;
+    int neg = 0;
+    size_t int_s, int_e, frac_s = 0, frac_e = 0;
+    if (s[i] == '-') { neg = 1; i++; }
+    int_s = i;
+    if (s[i] == '0') { i++; }
+    else if (s[i] >= '1' && s[i] <= '9') { while (s[i] >= '0' && s[i] <= '9') i++; }
+    else cuni_panic("json.parse: bad number");
+    int_e = i;
+    if (s[i] == '.') {
+        i++;
+        frac_s = i;
+        while (s[i] >= '0' && s[i] <= '9') i++;
+        frac_e = i;
+        if (frac_e == frac_s) cuni_panic("json.parse: bad number");
+    }
+    long long exp = 0;
+    if (s[i] == 'e' || s[i] == 'E') {
+        i++;
+        int eneg = 0;
+        if (s[i] == '-') { eneg = 1; i++; }
+        else if (s[i] == '+') { i++; }
+        size_t es = i;
+        while (s[i] >= '0' && s[i] <= '9') i++;
+        if (i == es) cuni_panic("json.parse: bad number");
+        if (i - es > 18) cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+        char ebuf[20];
+        memcpy(ebuf, s + es, i - es);
+        ebuf[i - es] = 0;
+        exp = strtoll(ebuf, 0, 10);
+        if (eneg) exp = -exp;
+    }
+    p->pos = i;
+    /* significant digits: int part + frac part, leading zeros stripped */
+    size_t nd = (int_e - int_s) + (frac_e - frac_s);
+    if (nd > 32) cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+    char dig[33];
+    size_t w = 0;
+    for (size_t j = int_s; j < int_e; j++) dig[w++] = s[j];
+    for (size_t j = frac_s; j < frac_e; j++) dig[w++] = s[j];
+    size_t nz = 0;
+    while (nz < w && dig[nz] == '0') nz++;
+    if (nz == w) return 0;
+    if (w - nz > 16) cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+    long long d = 0;
+    for (size_t j = nz; j < w; j++) d = d * 10 + (dig[j] - '0');
+    long long f = (long long)(frac_e - frac_s);
+    while (d % 10 == 0 && d != 0) { d /= 10; f--; }
+    long long k = f - exp;
+    long long v;
+    if (k <= 0) {
+        v = d;
+        for (long long q = 0; q < -k; q++) {
+            if (v > 9007199254740991LL/10 || v < -9007199254740991LL/10)
+                cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+            v *= 10;
+        }
+    } else {
+        if (k > 16) cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+        long long p10 = 1;
+        for (long long q = 0; q < k; q++) p10 *= 10;
+        if (d % p10 != 0) cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+        v = d / p10;
+    }
+    if (neg) v = -v;
+    if (v < -9007199254740991LL || v > 9007199254740991LL)
+        cuni_panic("json.parse: number is not an integer in ±(2^53−1)");
+    return v;
+}
+static Val cuni_j_object(CuniJPar *p) {
+    p->pos++; /* { */
+    Val m = V_map();
+    cuni_j_ws(p);
+    if (p->s[p->pos] == '}') { p->pos++; return m; }
+    for (;;) {
+        cuni_j_ws(p);
+        if (p->s[p->pos] != '"') cuni_panic("json.parse: object keys must be strings");
+        char *key = cuni_j_string(p);
+        cuni_j_ws(p);
+        if (p->s[p->pos] != ':') { free(key); cuni_panic("json.parse: expected ':'"); }
+        p->pos++; cuni_j_ws(p);
+        Val v = cuni_j_value(p);
+        Val kk = V_str(key); free(key);
+        cuni_map_set(&m, kk, v);
+        cuni_j_ws(p);
+        if (p->s[p->pos] == ',') { p->pos++; continue; }
+        if (p->s[p->pos] == '}') { p->pos++; return m; }
+        cuni_panic("json.parse: expected ',' or '}'");
+    }
+}
+static Val cuni_j_array(CuniJPar *p) {
+    p->pos++; /* [ */
+    Val xs = V_list(4);
+    cuni_j_ws(p);
+    if (p->s[p->pos] == ']') { p->pos++; return xs; }
+    for (;;) {
+        cuni_j_ws(p);
+        cuni_push(&xs, cuni_j_value(p));
+        cuni_j_ws(p);
+        if (p->s[p->pos] == ',') { p->pos++; continue; }
+        if (p->s[p->pos] == ']') { p->pos++; return xs; }
+        cuni_panic("json.parse: expected ',' or ']'");
+    }
+}
+static Val cuni_j_value(CuniJPar *p) {
+    char c = p->s[p->pos];
+    switch (c) {
+        case '{': return cuni_j_object(p);
+        case '[': return cuni_j_array(p);
+        case '"': { char *t = cuni_j_string(p); Val v = V_str(t); free(t); return v; }
+        case 't':
+            if (!strncmp(p->s + p->pos, "true", 4)) { p->pos += 4; return V_bool(1); }
+            break;
+        case 'f':
+            if (!strncmp(p->s + p->pos, "false", 5)) { p->pos += 5; return V_bool(0); }
+            break;
+        case 'n':
+            if (!strncmp(p->s + p->pos, "null", 4)) { p->pos += 4; return V_none(); }
+            break;
+        case '-': case '0': case '1': case '2': case '3': case '4':
+        case '5': case '6': case '7': case '8': case '9':
+            return V_int(cuni_j_number(p));
+        default: break;
+    }
+    cuni_panic("json.parse: unexpected character");
+    return V_none();
+}
+static Val cuni_json_parse(Val s) {
+    if (s.k != K_STR) cuni_panic("json.parse needs a str");
+    CuniJPar p; p.s = s.s ? s.s : ""; p.pos = 0;
+    cuni_j_ws(&p);
+    Val v = cuni_j_value(&p);
+    cuni_j_ws(&p);
+    if (p.s[p.pos]) cuni_panic("json.parse: trailing characters");
+    if (v.k != K_MAP) cuni_panic("json.parse: top-level JSON value must be an object");
+    return v;
+}
+/* Canonical minimal emit (docs/STDLIB.md §1.3). */
+static void cuni_j_write_str(const char *s, CuniCBuf *out) {
+    cuni_cbuf_c(out, '"');
+    const unsigned char *p = (const unsigned char *)s;
+    while (*p) {
+        unsigned cp;
+        size_t len;
+        if (*p < 0x80) { cp = *p; len = 1; }
+        else if ((*p >> 5) == 6) { cp = *p & 0x1F; len = 2; }
+        else if ((*p >> 4) == 14) { cp = *p & 0x0F; len = 3; }
+        else { cp = *p & 0x07; len = 4; }
+        for (size_t i = 1; i < len && p[i]; i++) cp = (cp << 6) | (p[i] & 0x3F);
+        switch (cp) {
+            case '"': cuni_cbuf_cstr(out, "\\\""); break;
+            case '\\': cuni_cbuf_cstr(out, "\\\\"); break;
+            case 0x08: cuni_cbuf_cstr(out, "\\b"); break;
+            case 0x0C: cuni_cbuf_cstr(out, "\\f"); break;
+            case 0x0A: cuni_cbuf_cstr(out, "\\n"); break;
+            case 0x0D: cuni_cbuf_cstr(out, "\\r"); break;
+            case 0x09: cuni_cbuf_cstr(out, "\\t"); break;
+            default:
+                if (cp < 0x20) {
+                    char esc[8];
+                    snprintf(esc, sizeof esc, "\\u%04x", cp);
+                    cuni_cbuf_cstr(out, esc);
+                } else {
+                    cuni_cbuf_str(out, (const char*)p, len);
+                }
+        }
+        p += len;
+    }
+    cuni_cbuf_c(out, '"');
+}
+static void cuni_j_write(Val v, CuniCBuf *out) {
+    char tmp[32];
+    size_t i;
+    switch (v.k) {
+        case K_INT:
+            snprintf(tmp, sizeof tmp, "%lld", v.i);
+            cuni_cbuf_cstr(out, tmp);
+            break;
+        case K_STR: cuni_j_write_str(v.s ? v.s : "", out); break;
+        case K_BOOL: cuni_cbuf_cstr(out, v.b ? "true" : "false"); break;
+        case K_NONE: cuni_cbuf_cstr(out, "null"); break;
+        case K_LIST:
+            cuni_cbuf_c(out, '[');
+            for (i = 0; i < v.n; i++) {
+                if (i) cuni_cbuf_c(out, ',');
+                cuni_j_write(v.items[i], out);
+            }
+            cuni_cbuf_c(out, ']');
+            break;
+        case K_MAP: {
+            /* keys sorted in byte order */
+            size_t *idx = (size_t*)malloc(v.n * sizeof(size_t));
+            if (!idx && v.n) cuni_panic("out of memory");
+            for (i = 0; i < v.n; i++) idx[i] = i;
+            for (i = 1; i < v.n; i++) {
+                size_t t = idx[i], j = i;
+                while (j > 0 && strcmp(v.keys[idx[j-1]], v.keys[t]) > 0) {
+                    idx[j] = idx[j-1];
+                    j--;
+                }
+                idx[j] = t;
+            }
+            cuni_cbuf_c(out, '{');
+            for (i = 0; i < v.n; i++) {
+                if (i) cuni_cbuf_c(out, ',');
+                cuni_j_write_str(v.keys[idx[i]], out);
+                cuni_cbuf_c(out, ':');
+                cuni_j_write(v.items[idx[i]], out);
+            }
+            cuni_cbuf_c(out, '}');
+            free(idx);
+            break;
+        }
+        default: cuni_panic("json.emit: value has no JSON form");
+    }
+}
+static Val cuni_json_emit(Val m) {
+    if (m.k != K_MAP) cuni_panic("json.emit needs a map");
+    CuniCBuf b; b.p = 0; b.n = 0; b.cap = 0;
+    cuni_j_write(m, &b);
+    Val r = V_str(b.p ? b.p : "");
+    free(b.p);
+    return r;
+}
+
+/* ---------- time (docs/STDLIB.md §2) ---------- */
+static long long cuni_days_from_civil(long long y, long long m, long long d) {
+    long long y0 = m <= 2 ? y - 1 : y;
+    long long era = y0 / 400;
+    long long yoe = y0 - era * 400;
+    long long mp = (m + 9) % 12;
+    long long doy = (153 * mp + 2) / 5 + d - 1;
+    long long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+static void cuni_civil_from_days(long long z, long long *y, long long *m, long long *d) {
+    z += 719468;
+    long long era = z / 146097;
+    long long doe = z - era * 146097;
+    long long yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    long long yy = yoe + era * 400;
+    long long doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    long long mp = (5 * doy + 2) / 153;
+    long long dd = doy - (153 * mp + 2) / 5 + 1;
+    long long mm = mp < 10 ? mp + 3 : mp - 9;
+    *y = mm <= 2 ? yy + 1 : yy;
+    *m = mm;
+    *d = dd;
+}
+/* floor division for b > 0 */
+static long long cuni_fdiv_ll(long long a, long long b) {
+    long long q = a / b, r = a % b;
+    return r < 0 ? q - 1 : q;
+}
+static Val cuni_time_epoch(Val y, Val mo, Val d, Val h, Val mi, Val s) {
+    long long yy = y.i, mm = mo.i, dd = d.i, hh = h.i, mmi = mi.i, ss = s.i;
+    if (yy < 1 || yy > 9999) cuni_panic("time.epoch: year out of range 1..9999");
+    if (mm < 1 || mm > 12) cuni_panic("time.epoch: month out of range 1..12");
+    long long dim = 31;
+    if (mm == 4 || mm == 6 || mm == 9 || mm == 11) dim = 30;
+    else if (mm == 2) dim = (yy % 4 == 0 && (yy % 100 != 0 || yy % 400 == 0)) ? 29 : 28;
+    if (dd < 1 || dd > dim) cuni_panic("time.epoch: day out of range for month");
+    if (hh < 0 || hh > 23) cuni_panic("time.epoch: hour out of range 0..23");
+    if (mmi < 0 || mmi > 59) cuni_panic("time.epoch: minute out of range 0..59");
+    if (ss < 0 || ss > 59) cuni_panic("time.epoch: second out of range 0..59");
+    return V_int(cuni_days_from_civil(yy, mm, dd) * 86400 + hh * 3600 + mmi * 60 + ss);
+}
+static Val cuni_time_parts(Val e) {
+    long long ev = e.i;
+    long long lo = cuni_days_from_civil(1, 1, 1) * 86400;
+    long long hi = cuni_days_from_civil(9999, 12, 31) * 86400 + 86399;
+    if (ev < lo || ev > hi) cuni_panic("time.parts: epoch out of range 1..9999");
+    long long days = cuni_fdiv_ll(ev, 86400);
+    long long secs = ev - days * 86400;
+    long long y, mo, d;
+    cuni_civil_from_days(days, &y, &mo, &d);
+    Val m = V_map();
+    Val t;
+    t = V_int(y); cuni_map_set(&m, V_str("year"), t);
+    t = V_int(mo); cuni_map_set(&m, V_str("month"), t);
+    t = V_int(d); cuni_map_set(&m, V_str("day"), t);
+    t = V_int(secs / 3600); cuni_map_set(&m, V_str("hour"), t);
+    t = V_int((secs % 3600) / 60); cuni_map_set(&m, V_str("min"), t);
+    t = V_int(secs % 60); cuni_map_set(&m, V_str("sec"), t);
+    return m;
+}
+
+/* ---------- strings (docs/STDLIB.md §3): byte-oriented ---------- */
+static Val cuni_split(Val s, Val sep) {
+    if (s.k != K_STR || sep.k != K_STR) cuni_panic(".split needs strings");
+    const char *ss = s.s ? s.s : "", *pp = sep.s ? sep.s : "";
+    size_t plen = strlen(pp);
+    if (plen == 0) cuni_panic(".split: empty separator; refusing");
+    Val out = V_list(4);
+    const char *start = ss;
+    const char *hit;
+    while ((hit = strstr(start, pp)) != 0) {
+        cuni_push(&out, cuni_strn(start, (size_t)(hit - start)));
+        start = hit + plen;
+    }
+    cuni_push(&out, cuni_strn(start, strlen(start)));
+    return out;
+}
+static Val cuni_join(Val sep, Val parts) {
+    if (sep.k != K_STR) cuni_panic(".join needs a str separator");
+    if (parts.k != K_LIST) cuni_panic(".join needs a list<str>");
+    const char *ss = sep.s ? sep.s : "";
+    CuniCBuf b; b.p = 0; b.n = 0; b.cap = 0;
+    for (size_t i = 0; i < parts.n; i++) {
+        if (parts.items[i].k != K_STR) cuni_panic(".join: all parts must be str");
+        if (i) cuni_cbuf_cstr(&b, ss);
+        cuni_cbuf_cstr(&b, parts.items[i].s ? parts.items[i].s : "");
+    }
+    Val r = V_str(b.p ? b.p : "");
+    free(b.p);
+    return r;
+}
+static int cuni_is_trim_c(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\v' || c == '\f' || c == '\r';
+}
+static Val cuni_trim(Val s) {
+    if (s.k != K_STR) cuni_panic(".trim needs a str");
+    const char *ss = s.s ? s.s : "";
+    size_t n = strlen(ss), a = 0, b = n;
+    while (a < b && cuni_is_trim_c(ss[a])) a++;
+    while (b > a && cuni_is_trim_c(ss[b - 1])) b--;
+    return cuni_strn(ss + a, b - a);
+}
+static Val cuni_contains(Val s, Val sub) {
+    if (s.k != K_STR || sub.k != K_STR) cuni_panic(".contains needs strings");
+    const char *ss = s.s ? s.s : "", *pp = sub.s ? sub.s : "";
+    return V_bool(strstr(ss, pp) != 0);
+}
+
+/* ---------- SHA-256 (FIPS 180-4; docs/STDLIB.md §4) ---------- */
+static unsigned cuni_ror32(unsigned x, int n) { return (x >> n) | (x << (32 - n)); }
+static Val cuni_sha256(Val s) {
+    if (s.k != K_STR) cuni_panic("sha256 needs a str");
+    const unsigned char *msg0 = (const unsigned char *)(s.s ? s.s : "");
+    size_t len0 = strlen((const char *)msg0);
+    size_t nblocks = (len0 + 9 + 63) / 64;
+    size_t n = nblocks * 64;
+    unsigned char *msg = (unsigned char *)calloc(n, 1);
+    if (!msg) cuni_panic("out of memory");
+    memcpy(msg, msg0, len0);
+    msg[len0] = 0x80;
+    unsigned long long bitlen = (unsigned long long)len0 * 8;
+    for (int i = 0; i < 8; i++) msg[n - 1 - i] = (unsigned char)(bitlen >> (8 * i));
+    unsigned h[8] = {0x6a09e667u, 0xbb67ae85u, 0x3c6ef372u, 0xa54ff53au,
+                     0x510e527fu, 0x9b05688cu, 0x1f83d9abu, 0x5be0cd19u};
+    static const unsigned kk[64] = {
+        0x428a2f98u,0x71374491u,0xb5c0fbcfu,0xe9b5dba5u,0x3956c25bu,0x59f111f1u,0x923f82a4u,0xab1c5ed5u,
+        0xd807aa98u,0x12835b01u,0x243185beu,0x550c7dc3u,0x72be5d74u,0x80deb1feu,0x9bdc06a7u,0xc19bf174u,
+        0xe49b69c1u,0xefbe4786u,0x0fc19dc6u,0x240ca1ccu,0x2de92c6fu,0x4a7484aau,0x5cb0a9dcu,0x76f988dau,
+        0x983e5152u,0xa831c66du,0xb00327c8u,0xbf597fc7u,0xc6e00bf3u,0xd5a79147u,0x06ca6351u,0x14292967u,
+        0x27b70a85u,0x2e1b2138u,0x4d2c6dfcu,0x53380d13u,0x650a7354u,0x766a0abbu,0x81c2c92eu,0x92722c85u,
+        0xa2bfe8a1u,0xa81a664bu,0xc24b8b70u,0xc76c51a3u,0xd192e819u,0xd6990624u,0xf40e3585u,0x106aa070u,
+        0x19a4c116u,0x1e376c08u,0x2748774cu,0x34b0bcb5u,0x391c0cb3u,0x4ed8aa4au,0x5b9cca4fu,0x682e6ff3u,
+        0x748f82eeu,0x78a5636fu,0x84c87814u,0x8cc70208u,0x90befffau,0xa4506cebu,0xbef9a3f7u,0xc67178f2u,
+    };
+    for (size_t b = 0; b < nblocks; b++) {
+        unsigned w[64];
+        for (int i = 0; i < 16; i++) {
+            w[i] = ((unsigned)msg[b*64+4*i] << 24) | ((unsigned)msg[b*64+4*i+1] << 16) |
+                   ((unsigned)msg[b*64+4*i+2] << 8) | (unsigned)msg[b*64+4*i+3];
+        }
+        for (int i = 16; i < 64; i++) {
+            unsigned s0 = cuni_ror32(w[i-15], 7) ^ cuni_ror32(w[i-15], 18) ^ (w[i-15] >> 3);
+            unsigned s1 = cuni_ror32(w[i-2], 17) ^ cuni_ror32(w[i-2], 19) ^ (w[i-2] >> 10);
+            w[i] = w[i-16] + s0 + w[i-7] + s1;
+        }
+        unsigned a=h[0], bb=h[1], c=h[2], d=h[3], e=h[4], f=h[5], g=h[6], hh=h[7];
+        for (int i = 0; i < 64; i++) {
+            unsigned s1 = cuni_ror32(e, 6) ^ cuni_ror32(e, 11) ^ cuni_ror32(e, 25);
+            unsigned ch = (e & f) ^ (~e & g);
+            unsigned t1 = hh + s1 + ch + kk[i] + w[i];
+            unsigned s0 = cuni_ror32(a, 2) ^ cuni_ror32(a, 13) ^ cuni_ror32(a, 22);
+            unsigned maj = (a & bb) ^ (a & c) ^ (bb & c);
+            unsigned t2 = s0 + maj;
+            hh = g; g = f; f = e; e = d + t1;
+            d = c; c = bb; bb = a; a = t1 + t2;
+        }
+        h[0]+=a; h[1]+=bb; h[2]+=c; h[3]+=d; h[4]+=e; h[5]+=f; h[6]+=g; h[7]+=hh;
+    }
+    free(msg);
+    char hex[65];
+    for (int i = 0; i < 8; i++) snprintf(hex + 8*i, 9, "%08x", h[i]);
+    return V_str(hex);
 }
 "#;

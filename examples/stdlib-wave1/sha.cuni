@@ -1,0 +1,3 @@
+say(sha256(""))
+say(sha256("abc"))
+say(sha256("hello world"))

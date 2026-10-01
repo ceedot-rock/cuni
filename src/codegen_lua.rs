@@ -198,6 +198,531 @@ impl Codegen {
         self.line(1, "return #x");
         self.line(0, "end");
         self.out.push('\n');
+        // ---- Wave-1 stdlib (docs/STDLIB.md). Pure Lua 5.3+ (bitwise ops,
+        // integer division); no external modules.
+        self.line(0, "local function _cuni_panic(msg) error(\"cuni: \" .. msg, 0) end");
+        self.line(0, "local CUNI_INT_MAX = 9007199254740991");
+        self.line(0, "-- JSON null sentinel: Lua tables cannot hold nil, so a parsed null is a");
+        self.line(0, "-- private sentinel that _cuni_json_emit maps back to `null`.");
+        self.line(0, "local _CUNI_JSON_NULL = {}");
+        self.out.push('\n');
+        self.line(0, "-- Value-based integer rule (docs/STDLIB.md §1.1). tok is the raw token.");
+        self.line(0, "local function _cuni_json_num(tok)");
+        self.line(1, "local neg = false");
+        self.line(1, "if tok:sub(1, 1) == \"-\" then neg = true; tok = tok:sub(2) end");
+        self.line(
+            1,
+            "-- No (group)? optionals: this seat's Lua fails them before `$`; parse in pieces.",
+        );
+        self.line(1, "local int = tok:match(\"^%d+\")");
+        self.line(1, "if not int then _cuni_panic(\"json.parse: bad number\") end");
+        self.line(
+            1,
+            "if #int > 1 and int:sub(1, 1) == \"0\" then _cuni_panic(\"json.parse: bad number\") end",
+        );
+        self.line(1, "local rest = tok:sub(#int + 1)");
+        self.line(1, "local frac = \"\"");
+        self.line(1, "if rest:sub(1, 1) == \".\" then");
+        self.line(2, "frac = rest:match(\"^%.(%d+)\")");
+        self.line(2, "if not frac then _cuni_panic(\"json.parse: bad number\") end");
+        self.line(2, "rest = rest:sub(#frac + 2)");
+        self.line(1, "end");
+        self.line(1, "local e = 0");
+        self.line(1, "if rest:sub(1, 1) == \"e\" or rest:sub(1, 1) == \"E\" then");
+        self.line(2, "local es = rest:match(\"^[eE]([%+%-]?%d+)$\")");
+        self.line(2, "if not es then _cuni_panic(\"json.parse: bad number\") end");
+        self.line(
+            2,
+            "if #es > 19 then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end",
+        );
+        self.line(2, "e = tonumber(es)");
+        self.line(2, "rest = \"\"");
+        self.line(1, "end");
+        self.line(1, "if rest ~= \"\" then _cuni_panic(\"json.parse: bad number\") end");
+        self.line(1, "local dig = int .. frac");
+        self.line(1, "local nz = dig:match(\"^0*(.-)$\")");
+        self.line(1, "if nz == \"\" then return 0 end");
+        self.line(
+            1,
+            "if #nz > 16 then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end",
+        );
+        self.line(1, "local d = tonumber(nz)");
+        self.line(1, "local f = #frac");
+        self.line(1, "while d % 10 == 0 do d = d // 10; f = f - 1 end");
+        self.line(1, "local k = f - e");
+        self.line(1, "local v");
+        self.line(1, "if k <= 0 then");
+        self.line(2, "v = d");
+        self.line(2, "for _ = 1, -k do");
+        self.line(
+            3,
+            "if v > CUNI_INT_MAX // 10 then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end",
+        );
+        self.line(3, "v = v * 10");
+        self.line(2, "end");
+        self.line(1, "else");
+        self.line(2, "if k > 16 then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end");
+        self.line(2, "local p10 = 1");
+        self.line(2, "for _ = 1, k do p10 = p10 * 10 end");
+        self.line(2, "if d % p10 ~= 0 then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end");
+        self.line(2, "v = d // p10");
+        self.line(1, "end");
+        self.line(1, "if neg then v = -v end");
+        self.line(
+            1,
+            "if v < -CUNI_INT_MAX or v > CUNI_INT_MAX then _cuni_panic(\"json.parse: number is not an integer in ±(2^53−1)\") end",
+        );
+        self.line(1, "return v");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_parse(s)");
+        self.line(1, "if type(s) ~= \"string\" then _cuni_panic(\"json.parse needs a str\") end");
+        self.line(1, "local pos, n = 1, #s");
+        self.line(1, "local function err(m) _cuni_panic(\"json.parse: \" .. m) end");
+        self.line(1, "local function ws()");
+        self.line(2, "while pos <= n do");
+        self.line(3, "local b = s:byte(pos)");
+        self.line(3, "if b == 32 or b == 9 or b == 10 or b == 13 then pos = pos + 1 else break end");
+        self.line(2, "end");
+        self.line(1, "end");
+        self.line(1, "local function utf8(cp, out)");
+        self.line(2, "if cp < 0x80 then out[#out + 1] = string.char(cp)");
+        self.line(
+            2,
+            "elseif cp < 0x800 then out[#out + 1] = string.char(0xC0 + (cp >> 6), 0x80 + (cp & 63))",
+        );
+        self.line(
+            2,
+            "elseif cp < 0x10000 then out[#out + 1] = string.char(0xE0 + (cp >> 12), 0x80 + ((cp >> 6) & 63), 0x80 + (cp & 63))",
+        );
+        self.line(
+            2,
+            "else out[#out + 1] = string.char(0xF0 + (cp >> 18), 0x80 + ((cp >> 12) & 63), 0x80 + ((cp >> 6) & 63), 0x80 + (cp & 63)) end",
+        );
+        self.line(1, "end");
+        self.line(1, "local function hex4()");
+        self.line(2, "local v = 0");
+        self.line(2, "for _ = 1, 4 do");
+        self.line(3, "local dd = tonumber(s:sub(pos, pos), 16)");
+        self.line(3, "pos = pos + 1");
+        self.line(3, "if not dd then err(\"bad \\\\u escape\") end");
+        self.line(3, "v = v * 16 + dd");
+        self.line(2, "end");
+        self.line(2, "return v");
+        self.line(1, "end");
+        self.line(1, "local function jstr()");
+        self.line(2, "pos = pos + 1");
+        self.line(2, "local out = {}");
+        self.line(2, "while true do");
+        self.line(3, "local start = pos");
+        self.line(3, "while pos <= n do");
+        self.line(4, "local b = s:byte(pos)");
+        self.line(4, "if b == 34 or b == 92 then break end");
+        self.line(4, "if b < 0x20 then err(\"unescaped control character in string\") end");
+        self.line(4, "pos = pos + 1");
+        self.line(3, "end");
+        self.line(3, "out[#out + 1] = s:sub(start, pos - 1)");
+        self.line(3, "if pos > n then err(\"unterminated string\") end");
+        self.line(3, "local b = s:byte(pos)");
+        self.line(3, "if b == 34 then pos = pos + 1; return table.concat(out) end");
+        self.line(3, "pos = pos + 1");
+        self.line(3, "if pos > n then err(\"unterminated string\") end");
+        self.line(3, "local e = s:sub(pos, pos); pos = pos + 1");
+        self.line(3, "if e == '\"' then out[#out + 1] = '\"'");
+        self.line(3, "elseif e == \"\\\\\" then out[#out + 1] = \"\\\\\"");
+        self.line(3, "elseif e == \"/\" then out[#out + 1] = \"/\"");
+        self.line(3, "elseif e == \"b\" then out[#out + 1] = \"\\b\"");
+        self.line(3, "elseif e == \"f\" then out[#out + 1] = \"\\f\"");
+        self.line(3, "elseif e == \"n\" then out[#out + 1] = \"\\n\"");
+        self.line(3, "elseif e == \"r\" then out[#out + 1] = \"\\r\"");
+        self.line(3, "elseif e == \"t\" then out[#out + 1] = \"\\t\"");
+        self.line(3, "elseif e == \"u\" then");
+        self.line(4, "local hi = hex4()");
+        self.line(4, "if hi >= 0xD800 and hi < 0xDC00 then");
+        self.line(5, "if s:sub(pos, pos + 1) ~= \"\\\\u\" then err(\"lone surrogate\") end");
+        self.line(5, "pos = pos + 2");
+        self.line(5, "local lo = hex4()");
+        self.line(5, "if lo < 0xDC00 or lo >= 0xE000 then err(\"lone surrogate\") end");
+        self.line(5, "utf8(0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00), out)");
+        self.line(4, "elseif hi >= 0xDC00 and hi < 0xE000 then err(\"lone surrogate\")");
+        self.line(4, "else utf8(hi, out) end");
+        self.line(3, "else err(\"bad escape\") end");
+        self.line(2, "end");
+        self.line(1, "end");
+        self.line(1, "local jval");
+        self.line(1, "local function jnum()");
+        self.line(2, "local tok = s:match(\"^%-?%d[%d%.eE%+%-]*\", pos)");
+        self.line(2, "if not tok then err(\"unexpected character\") end");
+        self.line(2, "pos = pos + #tok");
+        self.line(2, "return _cuni_json_num(tok)");
+        self.line(1, "end");
+        self.line(1, "local function jobj()");
+        self.line(2, "pos = pos + 1");
+        self.line(2, "local m = { _cuni_kind = \"map\", _cuni_map = {} }");
+        self.line(2, "local inner = m._cuni_map");
+        self.line(2, "ws()");
+        self.line(2, "if s:sub(pos, pos) == \"}\" then pos = pos + 1; return m end");
+        self.line(2, "while true do");
+        self.line(3, "ws()");
+        self.line(3, "if s:sub(pos, pos) ~= '\"' then err(\"object keys must be strings\") end");
+        self.line(3, "local key = jstr()");
+        self.line(3, "ws()");
+        self.line(3, "if s:sub(pos, pos) ~= \":\" then err(\"expected ':'\") end");
+        self.line(3, "pos = pos + 1; ws()");
+        self.line(3, "local vv = jval()");
+        self.line(3, "inner[key] = (vv == nil) and _CUNI_JSON_NULL or vv");
+        self.line(3, "ws()");
+        self.line(3, "local c = s:sub(pos, pos)");
+        self.line(3, "if c == \",\" then pos = pos + 1");
+        self.line(3, "elseif c == \"}\" then pos = pos + 1; return m");
+        self.line(3, "else err(\"expected ',' or '}'\") end");
+        self.line(2, "end");
+        self.line(1, "end");
+        self.line(1, "local function jarr()");
+        self.line(2, "pos = pos + 1");
+        self.line(2, "local t = { _cuni_kind = \"list\" }");
+        self.line(2, "ws()");
+        self.line(2, "if s:sub(pos, pos) == \"]\" then pos = pos + 1; return t end");
+        self.line(2, "while true do");
+        self.line(3, "ws()");
+        self.line(3, "local vv = jval()");
+        self.line(3, "t[#t + 1] = (vv == nil) and _CUNI_JSON_NULL or vv");
+        self.line(3, "ws()");
+        self.line(3, "local c = s:sub(pos, pos)");
+        self.line(3, "if c == \",\" then pos = pos + 1");
+        self.line(3, "elseif c == \"]\" then pos = pos + 1; return t");
+        self.line(3, "else err(\"expected ',' or ']'\") end");
+        self.line(2, "end");
+        self.line(1, "end");
+        self.line(1, "jval = function()");
+        self.line(2, "local c = s:sub(pos, pos)");
+        self.line(2, "if c == \"{\" then return jobj()");
+        self.line(2, "elseif c == \"[\" then return jarr()");
+        self.line(2, "elseif c == '\"' then return jstr()");
+        self.line(
+            2,
+            "elseif c == \"t\" then if s:sub(pos, pos + 3) == \"true\" then pos = pos + 4; return true end",
+        );
+        self.line(
+            2,
+            "elseif c == \"f\" then if s:sub(pos, pos + 4) == \"false\" then pos = pos + 5; return false end",
+        );
+        self.line(
+            2,
+            "elseif c == \"n\" then if s:sub(pos, pos + 3) == \"null\" then pos = pos + 4; return nil end",
+        );
+        self.line(2, "elseif c == \"-\" or (c >= \"0\" and c <= \"9\") then return jnum()");
+        self.line(2, "end");
+        self.line(2, "err(\"unexpected character\")");
+        self.line(1, "end");
+        self.line(1, "ws()");
+        self.line(1, "local v = jval()");
+        self.line(1, "ws()");
+        self.line(1, "if pos <= n then err(\"trailing characters\") end");
+        self.line(
+            1,
+            "if type(v) ~= \"table\" or v._cuni_kind ~= \"map\" then err(\"top-level JSON value must be an object\") end",
+        );
+        self.line(1, "return v");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "-- Canonical minimal emit (docs/STDLIB.md §1.3).");
+        self.line(0, "function _cuni_json_emit(m)");
+        self.line(
+            1,
+            "if type(m) ~= \"table\" or m._cuni_kind ~= \"map\" then _cuni_panic(\"json.emit needs a map\") end",
+        );
+        self.line(1, "local function esc(s, out)");
+        self.line(2, "out[#out + 1] = '\"'");
+        self.line(2, "local i, nn = 1, #s");
+        self.line(2, "while i <= nn do");
+        self.line(3, "local b = s:byte(i)");
+        self.line(3, "local cp, len");
+        self.line(3, "if b < 0x80 then cp, len = b, 1");
+        self.line(
+            3,
+            "elseif b < 0xE0 then cp = (b & 0x1F) << 6 | (s:byte(i + 1) & 0x3F); len = 2",
+        );
+        self.line(
+            3,
+            "elseif b < 0xF0 then cp = (b & 0x0F) << 12 | (s:byte(i + 1) & 0x3F) << 6 | (s:byte(i + 2) & 0x3F); len = 3",
+        );
+        self.line(
+            3,
+            "else cp = (b & 0x07) << 18 | (s:byte(i + 1) & 0x3F) << 12 | (s:byte(i + 2) & 0x3F) << 6 | (s:byte(i + 3) & 0x3F); len = 4 end",
+        );
+        self.line(3, "if cp == 34 then out[#out + 1] = '\\\\\"'");
+        self.line(3, "elseif cp == 92 then out[#out + 1] = \"\\\\\\\\\"");
+        self.line(3, "elseif cp == 8 then out[#out + 1] = \"\\\\b\"");
+        self.line(3, "elseif cp == 12 then out[#out + 1] = \"\\\\f\"");
+        self.line(3, "elseif cp == 10 then out[#out + 1] = \"\\\\n\"");
+        self.line(3, "elseif cp == 13 then out[#out + 1] = \"\\\\r\"");
+        self.line(3, "elseif cp == 9 then out[#out + 1] = \"\\\\t\"");
+        self.line(3, "elseif cp < 0x20 then out[#out + 1] = string.format(\"\\\\u%04x\", cp)");
+        self.line(3, "else out[#out + 1] = s:sub(i, i + len - 1) end");
+        self.line(3, "i = i + len");
+        self.line(2, "end");
+        self.line(2, "out[#out + 1] = '\"'");
+        self.line(1, "end");
+        self.line(1, "local function w(v, out)");
+        self.line(2, "local t = type(v)");
+        self.line(2, "if v == _CUNI_JSON_NULL then out[#out + 1] = \"null\"");
+        self.line(2, "elseif t == \"string\" then esc(v, out)");
+        self.line(2, "elseif t == \"boolean\" then out[#out + 1] = v and \"true\" or \"false\"");
+        self.line(2, "elseif t == \"number\" then");
+        self.line(
+            3,
+            "if math.type(v) ~= \"integer\" then _cuni_panic(\"json.emit: floats have no JSON integer form\") end",
+        );
+        self.line(3, "out[#out + 1] = tostring(v)");
+        self.line(2, "elseif t == \"table\" and v._cuni_kind == \"list\" then");
+        self.line(3, "out[#out + 1] = \"[\"");
+        self.line(3, "for i = 1, #v do if i > 1 then out[#out + 1] = \",\" end; w(v[i], out) end");
+        self.line(3, "out[#out + 1] = \"]\"");
+        self.line(2, "elseif t == \"table\" and v._cuni_kind == \"map\" then");
+        self.line(3, "local ks = {}");
+        self.line(3, "for k in pairs(v._cuni_map) do");
+        self.line(
+            4,
+            "if type(k) ~= \"string\" then _cuni_panic(\"json.emit: map keys must be strings\") end",
+        );
+        self.line(4, "ks[#ks + 1] = k");
+        self.line(3, "end");
+        self.line(3, "table.sort(ks)");
+        self.line(3, "out[#out + 1] = \"{\"");
+        self.line(
+            3,
+            "for i, k in ipairs(ks) do if i > 1 then out[#out + 1] = \",\" end; esc(k, out); out[#out + 1] = \":\"; w(v._cuni_map[k], out) end",
+        );
+        self.line(3, "out[#out + 1] = \"}\"");
+        self.line(2, "else _cuni_panic(\"json.emit: value has no JSON form\") end");
+        self.line(1, "end");
+        self.line(1, "local out = {}");
+        self.line(1, "w(m, out)");
+        self.line(1, "return table.concat(out)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "-- Proleptic Gregorian, Howard Hinnant's algorithms (docs/STDLIB.md §2).");
+        self.line(0, "local function _cuni_days_from_civil(y, m, d)");
+        self.line(1, "local y0 = m <= 2 and y - 1 or y");
+        self.line(1, "local era = y0 // 400");
+        self.line(1, "local yoe = y0 - era * 400");
+        self.line(1, "local mp = (m + 9) % 12");
+        self.line(1, "local doy = (153 * mp + 2) // 5 + d - 1");
+        self.line(1, "local doe = yoe * 365 + yoe // 4 - yoe // 100 + doy");
+        self.line(1, "return era * 146097 + doe - 719468");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "local function _cuni_civil_from_days(z)");
+        self.line(1, "z = z + 719468");
+        self.line(1, "local era = z // 146097");
+        self.line(1, "local doe = z - era * 146097");
+        self.line(1, "local yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365");
+        self.line(1, "local y = yoe + era * 400");
+        self.line(1, "local doy = doe - (365 * yoe + yoe // 4 - yoe // 100)");
+        self.line(1, "local mp = (5 * doy + 2) // 153");
+        self.line(1, "local d = doy - (153 * mp + 2) // 5 + 1");
+        self.line(1, "local m = mp < 10 and mp + 3 or mp - 9");
+        self.line(1, "if m <= 2 then y = y + 1 end");
+        self.line(1, "return y, m, d");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_time_epoch(y, mo, d, h, mi, s)");
+        self.line(
+            1,
+            "if y < 1 or y > 9999 then _cuni_panic(\"time.epoch: year out of range 1..9999\") end",
+        );
+        self.line(
+            1,
+            "if mo < 1 or mo > 12 then _cuni_panic(\"time.epoch: month out of range 1..12\") end",
+        );
+        self.line(
+            1,
+            "if h < 0 or h > 23 then _cuni_panic(\"time.epoch: hour out of range 0..23\") end",
+        );
+        self.line(
+            1,
+            "if mi < 0 or mi > 59 then _cuni_panic(\"time.epoch: minute out of range 0..59\") end",
+        );
+        self.line(
+            1,
+            "if s < 0 or s > 59 then _cuni_panic(\"time.epoch: second out of range 0..59\") end",
+        );
+        self.line(1, "local leap = y % 4 == 0 and (y % 100 ~= 0 or y % 400 == 0)");
+        self.line(
+            1,
+            "local dim = ({ 31, leap and 29 or 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 })[mo]",
+        );
+        self.line(
+            1,
+            "if d < 1 or d > dim then _cuni_panic(\"time.epoch: day out of range for month\") end",
+        );
+        self.line(
+            1,
+            "return _cuni_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s",
+        );
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_time_parts(e)");
+        self.line(1, "local lo = _cuni_days_from_civil(1, 1, 1) * 86400");
+        self.line(1, "local hi = _cuni_days_from_civil(9999, 12, 31) * 86400 + 86399");
+        self.line(
+            1,
+            "if e < lo or e > hi then _cuni_panic(\"time.parts: epoch out of range 1..9999\") end",
+        );
+        self.line(1, "local days = e // 86400");
+        self.line(1, "local secs = e - days * 86400");
+        self.line(1, "local y, mo, d = _cuni_civil_from_days(days)");
+        self.line(
+            1,
+            "return { _cuni_kind = \"map\", _cuni_map = { year = y, month = mo, day = d, hour = secs // 3600, min = (secs % 3600) // 60, sec = secs % 60 } }",
+        );
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_split(s, sep)");
+        self.line(
+            1,
+            "if type(s) ~= \"string\" or type(sep) ~= \"string\" then _cuni_panic(\".split needs strings\") end",
+        );
+        self.line(1, "if #sep == 0 then _cuni_panic(\".split: empty separator; refusing\") end");
+        self.line(1, "local t = { _cuni_kind = \"list\" }");
+        self.line(1, "if #s == 0 then t[1] = \"\"; return t end");
+        self.line(1, "local start = 1");
+        self.line(1, "while true do");
+        self.line(2, "local a, b = s:find(sep, start, true)");
+        self.line(2, "if not a then t[#t + 1] = s:sub(start); break end");
+        self.line(2, "t[#t + 1] = s:sub(start, a - 1)");
+        self.line(2, "start = b + 1");
+        self.line(1, "end");
+        self.line(1, "return t");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_join(sep, parts)");
+        self.line(1, "if type(sep) ~= \"string\" then _cuni_panic(\".join needs a str separator\") end");
+        self.line(
+            1,
+            "if type(parts) ~= \"table\" or parts._cuni_kind ~= \"list\" then _cuni_panic(\".join needs a list<str>\") end",
+        );
+        self.line(1, "local tmp = {}");
+        self.line(1, "for i = 1, #parts do");
+        self.line(2, "if type(parts[i]) ~= \"string\" then _cuni_panic(\".join: all parts must be str\") end");
+        self.line(2, "tmp[i] = parts[i]");
+        self.line(1, "end");
+        self.line(1, "return table.concat(tmp, sep)");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_trim(s)");
+        self.line(1, "if type(s) ~= \"string\" then _cuni_panic(\".trim needs a str\") end");
+        self.line(
+            1,
+            "-- ASCII whitespace only (docs/STDLIB.md §3.3): tab LF VT FF CR space.",
+        );
+        self.line(
+            1,
+            "return (s:gsub(\"^[ \\t\\n\\v\\f\\r]+\", \"\"):gsub(\"[ \\t\\n\\v\\f\\r]+$\", \"\"))",
+        );
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "function _cuni_contains(s, sub)");
+        self.line(
+            1,
+            "if type(s) ~= \"string\" or type(sub) ~= \"string\" then _cuni_panic(\".contains needs strings\") end",
+        );
+        self.line(1, "return s:find(sub, 1, true) ~= nil");
+        self.line(0, "end");
+        self.out.push('\n');
+        self.line(0, "-- SHA-256 (FIPS 180-4; docs/STDLIB.md §4). Lua 5.3+ bitwise ops;");
+        self.line(0, "-- all state stays in 32 bits, so >> is a logical shift.");
+        self.line(0, "function _cuni_sha256(s)");
+        self.line(1, "if type(s) ~= \"string\" then _cuni_panic(\"sha256 needs a str\") end");
+        self.line(1, "local len = #s");
+        self.line(1, "local nblocks = math.ceil((len + 9) / 64)");
+        self.line(1, "local n = nblocks * 64");
+        self.line(1, "local msg = {}");
+        self.line(1, "for i = 1, len do msg[i] = s:byte(i) end");
+        self.line(1, "msg[len + 1] = 0x80");
+        self.line(1, "for i = len + 2, n - 8 do msg[i] = 0 end");
+        self.line(1, "local bitlen = len * 8");
+        self.line(1, "for i = 0, 7 do msg[n - 7 + i] = (bitlen >> (8 * (7 - i))) & 0xFF end");
+        self.line(
+            1,
+            "local h = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 }",
+        );
+        self.line(1, "local kk = {");
+        self.line(
+            2,
+            "0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,",
+        );
+        self.line(
+            2,
+            "0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,",
+        );
+        self.line(
+            2,
+            "0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,",
+        );
+        self.line(
+            2,
+            "0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,",
+        );
+        self.line(
+            2,
+            "0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,",
+        );
+        self.line(
+            2,
+            "0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,",
+        );
+        self.line(
+            2,
+            "0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,",
+        );
+        self.line(
+            2,
+            "0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,",
+        );
+        self.line(1, "}");
+        self.line(1, "local function ror(x, r) return ((x >> r) | (x << (32 - r))) & 0xFFFFFFFF end");
+        self.line(1, "for b = 0, nblocks - 1 do");
+        self.line(2, "local w = {}");
+        self.line(2, "for i = 0, 15 do");
+        self.line(
+            3,
+            "w[i] = ((msg[b * 64 + 1 + i * 4] << 24) | (msg[b * 64 + 2 + i * 4] << 16) | (msg[b * 64 + 3 + i * 4] << 8) | msg[b * 64 + 4 + i * 4]) & 0xFFFFFFFF",
+        );
+        self.line(2, "end");
+        self.line(2, "for i = 16, 63 do");
+        self.line(
+            3,
+            "local s0 = ror(w[i - 15], 7) ~ ror(w[i - 15], 18) ~ (w[i - 15] >> 3)",
+        );
+        self.line(
+            3,
+            "local s1 = ror(w[i - 2], 17) ~ ror(w[i - 2], 19) ~ (w[i - 2] >> 10)",
+        );
+        self.line(3, "w[i] = (w[i - 16] + s0 + w[i - 7] + s1) & 0xFFFFFFFF");
+        self.line(2, "end");
+        self.line(2, "local a, bb, c, d, e, f, g, hh = h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8]");
+        self.line(2, "for i = 0, 63 do");
+        self.line(3, "local s1 = ror(e, 6) ~ ror(e, 11) ~ ror(e, 25)");
+        self.line(3, "local ch = (e & f) ~ ((~e) & g)");
+        self.line(3, "local t1 = (hh + s1 + ch + kk[i + 1] + w[i]) & 0xFFFFFFFF");
+        self.line(3, "local s0 = ror(a, 2) ~ ror(a, 13) ~ ror(a, 22)");
+        self.line(3, "local maj = (a & bb) ~ (a & c) ~ (bb & c)");
+        self.line(3, "local t2 = (s0 + maj) & 0xFFFFFFFF");
+        self.line(3, "hh = g; g = f; f = e; e = (d + t1) & 0xFFFFFFFF");
+        self.line(3, "d = c; c = bb; bb = a; a = (t1 + t2) & 0xFFFFFFFF");
+        self.line(2, "end");
+        self.line(2, "h[1] = (h[1] + a) & 0xFFFFFFFF; h[2] = (h[2] + bb) & 0xFFFFFFFF");
+        self.line(2, "h[3] = (h[3] + c) & 0xFFFFFFFF; h[4] = (h[4] + d) & 0xFFFFFFFF");
+        self.line(2, "h[5] = (h[5] + e) & 0xFFFFFFFF; h[6] = (h[6] + f) & 0xFFFFFFFF");
+        self.line(2, "h[7] = (h[7] + g) & 0xFFFFFFFF; h[8] = (h[8] + hh) & 0xFFFFFFFF");
+        self.line(1, "end");
+        self.line(1, "local out = {}");
+        self.line(1, "for i = 1, 8 do out[i] = string.format(\"%08x\", h[i]) end");
+        self.line(1, "return table.concat(out)");
+        self.line(0, "end");
+        self.out.push('\n');
         // Named typ construction: Circle(kwargs{r=2.0}).
         self.line(0, "function kwargs(t) return {kwargs = t} end");
         self.out.push('\n');
@@ -562,8 +1087,60 @@ impl Codegen {
                             self.gen_expr(args[1].expr(), scope)
                         );
                     }
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|x| self.gen_expr(x.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "_cuni_json_parse",
+                                ("json", "emit") => "_cuni_json_emit",
+                                ("time", "epoch") => "_cuni_time_epoch",
+                                ("time", "parts") => "_cuni_time_parts",
+                                _ => "_cuni_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3).
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "_cuni_split({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "_cuni_join({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("_cuni_trim({})", self.gen_expr(base, scope));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "_cuni_contains({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
                 }
                 let callee_s = self.gen_expr(callee, scope);
+                // Wave-1 stdlib free function (docs/STDLIB.md §4).
+                if callee_s == "sha256" {
+                    let a = args
+                        .iter()
+                        .map(|x| self.gen_expr(x.expr(), scope))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    return format!("_cuni_sha256({a})");
+                }
                 if self.typ_names.contains(&callee_s) {
                     if args.iter().all(|a| a.is_named()) && !args.is_empty() {
                         let parts: Vec<String> = args

@@ -1229,6 +1229,55 @@ impl<'a> Codegen<'a> {
         }
     }
 
+    /// Wave-1 `time.epoch` (docs/STDLIB.md §2) as pure integer SQL.
+    /// Howard Hinnant's days_from_civil; every division is on non-negative
+    /// operands (valid dates only — the CASE guards the rest), where
+    /// SQLite's truncating `/` equals floor division. Invalid dates take the
+    /// ELSE branch, which calls json() on a non-JSON string: sqlite3
+    /// validates function *names* at prepare time (so a bogus name would
+    /// break even valid dates), but json() only fails when *evaluated* —
+    /// giving a genuine runtime refusal with a nonzero exit. The engine's
+    /// message ("malformed JSON") is generic; the refusal intent is
+    /// documented in the argument. Only the SQLite dialect is lowered.
+    fn sql_time_epoch(&self, av: &[Val]) -> Result<Val, String> {
+        if !matches!(self.dialect, Dialect::SQLite) {
+            return Err("`time.epoch` is only lowered for the SQLite dialect; refusing".into());
+        }
+        let (y, mo, d, h, mi, s) = (
+            &av[0].sql, &av[1].sql, &av[2].sql, &av[3].sql, &av[4].sql, &av[5].sql,
+        );
+        // Days in month, with the Gregorian leap rule.
+        let dim = format!(
+            "(CASE ({mo}) WHEN 2 THEN (CASE WHEN (({y}) % 4 = 0 AND (({y}) % 100 <> 0 OR ({y}) % 400 = 0)) THEN 29 ELSE 28 END) WHEN 4 THEN 30 WHEN 6 THEN 30 WHEN 9 THEN 30 WHEN 11 THEN 30 ELSE 31 END)",
+            y = y, mo = mo
+        );
+        let valid = format!(
+            "(({y}) BETWEEN 1 AND 9999 AND ({mo}) BETWEEN 1 AND 12 AND ({d}) BETWEEN 1 AND {dim} AND ({h}) BETWEEN 0 AND 23 AND ({mi}) BETWEEN 0 AND 59 AND ({s}) BETWEEN 0 AND 59)",
+            y = y, mo = mo, d = d, h = h, mi = mi, s = s, dim = dim
+        );
+        let y0 = format!("(CASE WHEN ({mo}) <= 2 THEN ({y}) - 1 ELSE ({y}) END)", y = y, mo = mo);
+        let era = format!("(({y0}) / 400)", y0 = y0);
+        let yoe = format!("(({y0}) - ({era}) * 400)", y0 = y0, era = era);
+        let mp = format!("((({mo}) + 9) % 12)", mo = mo);
+        let doy = format!("((153 * ({mp}) + 2) / 5 + ({d}) - 1)", mp = mp, d = d);
+        let doe = format!(
+            "(({yoe}) * 365 + ({yoe}) / 4 - ({yoe}) / 100 + ({doy}))",
+            yoe = yoe, doy = doy
+        );
+        let days = format!("(({era}) * 146097 + ({doe}) - 719468)", era = era, doe = doe);
+        let epoch = format!(
+            "(({days}) * 86400 + ({h}) * 3600 + ({mi}) * 60 + ({s}))",
+            days = days, h = h, mi = mi, s = s
+        );
+        Ok(Val::scalar(
+            format!(
+                "(CASE WHEN {valid} THEN {epoch} ELSE json('cuni_refusal: time.epoch received an invalid date') END)",
+                valid = valid, epoch = epoch
+            ),
+            VKind::Int,
+        ))
+    }
+
     fn eval_call(&mut self, callee: &Expr, args: &[CallArg]) -> Result<Val, String> {
         if let ExprKind::Ident(fname) = &callee.kind {
             match fname.as_str() {
@@ -1277,6 +1326,13 @@ impl<'a> Codegen<'a> {
                         format!("CASE WHEN (({}) {o} ({})) THEN ({}) ELSE ({}) END", a.sql, b.sql, a.sql, b.sql),
                         kind,
                     ));
+                }
+                // Wave-1 stdlib (docs/STDLIB.md §4): SQLite core has no
+                // SHA-256 (the CLI's sha3() is a different algorithm).
+                "sha256" => {
+                    return Err(
+                        "`sha256` has no SQL form (SQLite core has no SHA-256); refusing".into(),
+                    )
                 }
                 _ => {}
             }
@@ -1331,6 +1387,44 @@ impl<'a> Codegen<'a> {
             return Err(format!("call of unknown function `{fname}`; refusing"));
         }
         if let ExprKind::Field { base, name } = &callee.kind {
+            // Wave-1 stdlib namespaces (docs/STDLIB.md): `json`/`time` are
+            // reserved identifiers, so an Ident base here is a namespace.
+            if let ExprKind::Ident(ns) = &base.kind {
+                if ns == "json" || ns == "time" {
+                    match (ns.as_str(), name.as_str()) {
+                        ("json", _) => {
+                            return Err(
+                                "`json` has no SQL form (maps are refused seat-wide); refusing"
+                                    .into(),
+                            )
+                        }
+                        ("time", "parts") => {
+                            return Err(
+                                "`time.parts` returns a map, which has no SQL form; refusing"
+                                    .into(),
+                            )
+                        }
+                        ("time", "epoch") => {
+                            if args.len() != 6 {
+                                return Err(
+                                    "`time.epoch` takes exactly six arguments; refusing".into(),
+                                );
+                            }
+                            let av: Vec<Val> = args
+                                .iter()
+                                .map(|a| self.eval(a.expr()))
+                                .collect::<Result<_, _>>()?;
+                            return self.sql_time_epoch(&av);
+                        }
+                        _ => {
+                            return Err(format!(
+                                "unknown stdlib function `{}.{}`; refusing",
+                                ns, name
+                            ))
+                        }
+                    }
+                }
+            }
             let b = self.eval(base)?;
             match name.as_str() {
                 "len" => {
@@ -1389,6 +1483,52 @@ impl<'a> Codegen<'a> {
                         "`.push` used as an expression has no honest SQL value; refusing — use it as a statement"
                             .into(),
                     )
+                }
+                // Wave-1 string ops (docs/STDLIB.md §3). Only trim/contains
+                // have a static SQL form; split/join build dynamic-length
+                // lists, which the seat refuses.
+                "split" => {
+                    return Err(
+                        "`.split` builds a dynamic-length list, which has no static SQL form; refusing"
+                            .into(),
+                    )
+                }
+                "join" => {
+                    return Err(
+                        "`.join` consumes a dynamic-length list, which has no static SQL form; refusing"
+                            .into(),
+                    )
+                }
+                "trim" => {
+                    if !args.is_empty() {
+                        return Err("`.trim` takes no arguments; refusing".into());
+                    }
+                    if !matches!(b.kind, VKind::Str) {
+                        return Err("`.trim` needs a string target; refusing".into());
+                    }
+                    // ASCII whitespace only (docs/STDLIB.md §3.3): space,
+                    // tab, LF, VT, FF, CR — not trim(x)'s space-only default.
+                    return Ok(Val::scalar(
+                        format!(
+                            "trim(({b}), ' ' || char(9, 10, 11, 12, 13))",
+                            b = b.sql
+                        ),
+                        VKind::Str,
+                    ));
+                }
+                "contains" => {
+                    if args.len() != 1 {
+                        return Err("`.contains` takes exactly one argument; refusing".into());
+                    }
+                    if !matches!(b.kind, VKind::Str) {
+                        return Err("`.contains` needs a string target; refusing".into());
+                    }
+                    let sub = self.eval(args[0].expr())?;
+                    // instr() > 0; instr(s, '') is 1, so contains("") is true.
+                    return Ok(Val::scalar(
+                        format!("(instr({}, {}) > 0)", b.sql, sub.sql),
+                        VKind::Bool,
+                    ));
                 }
                 _ => return Err(format!("unknown method `.{name}()` has no SQL mapping; refusing")),
             }

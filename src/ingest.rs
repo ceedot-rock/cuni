@@ -1035,6 +1035,22 @@ const GO_PRELUDE: &[&str] = &[
     "cuni_max",
     "cuni_len",
     "cuni_slice",
+    // Wave-1 stdlib (docs/STDLIB.md).
+    "cuni_json_int",
+    "cuni_json_parse",
+    "cuni_json_norm",
+    "cuni_json_emit",
+    "cuni_json_write",
+    "cuni_json_write_str",
+    "cuni_days_from_civil",
+    "cuni_civil_from_days",
+    "cuni_time_epoch",
+    "cuni_time_parts",
+    "cuni_split",
+    "cuni_join",
+    "cuni_trim",
+    "cuni_contains",
+    "cuni_sha256",
 ];
 
 fn go_type_to_cuni(t: &str) -> Result<String, String> {
@@ -1208,6 +1224,11 @@ fn go_stmt(chunk: &str, indent: usize) -> Result<Vec<String>, String> {
 const JAVA_PRELUDE: &[&str] = &[
     "say", "cuni_str", "cuni_range", "cuni_abs", "cuni_min", "cuni_max", "cuni_mod", "cuni_div",
     "cuni_slice",
+    // Wave-1 stdlib (docs/STDLIB.md).
+    "cuniErr", "cuniJsonNum", "cuniJws", "cuniJhex4", "cuniJstr", "cuniJval", "cuniJobj", "cuniJarr",
+    "cuniJsonParse", "cuniJesc", "cuniJwrite", "cuniJsonEmit", "cuniDaysFromCivil", "cuniCivilFromDays",
+    "cuniTimeEpoch", "cuniTimeParts", "cuniSplit", "cuniJoin", "cuniIsTrim", "cuniTrim",
+    "cuniContains", "cuniSha256",
 ];
 
 fn ingest_java(src: &str) -> Result<String, String> {
@@ -2084,6 +2105,23 @@ const JS_PRELUDE: &[&str] = &[
     "max",
     "_cuni_slice",
     "_cuni_div",
+    // Wave-1 stdlib (docs/STDLIB.md).
+    "_cuni_json_int_value",
+    "_cuni_json_parse",
+    "_cuni_json_walk",
+    "_cuni_json_set",
+    "_cuni_json_norm",
+    "_cuni_json_emit",
+    "_cuni_json_sort",
+    "_cuni_days_from_civil",
+    "_cuni_civil_from_days",
+    "_cuni_time_epoch",
+    "_cuni_time_parts",
+    "_cuni_split",
+    "_cuni_join",
+    "_cuni_trim",
+    "_cuni_contains",
+    "_cuni_sha256",
 ];
 
 // ---------------------------------------------------------------------------
@@ -3099,6 +3137,17 @@ const PY_PRELUDE_SKIP: &[&str] = &[
     "_cuni_divmod",
     "_cuni_len",
     "_cuni_iter",
+    // Wave-1 stdlib (docs/STDLIB.md). split/join/trim/contains lower to
+    // native str methods, so they need no prelude entries.
+    "_cuni_json_int_value",
+    "_cuni_json_parse",
+    "_cuni_json_norm",
+    "_cuni_json_emit",
+    "_cuni_days_from_civil",
+    "_cuni_civil_from_days",
+    "_cuni_time_epoch",
+    "_cuni_time_parts",
+    "sha256",
 ];
 
 fn py_type_to_cuni(t: &str) -> Option<String> {
@@ -3391,6 +3440,22 @@ const RB_PRELUDE: &[&str] = &[
     "max",
     "_cuni_slice",
     "_cuni_div",
+    // Wave-1 stdlib (docs/STDLIB.md).
+    "_cuni_json_num",
+    "_cuni_json_walk",
+    "_cuni_json_parse",
+    "_cuni_json_emit_norm",
+    "_cuni_json_sort",
+    "_cuni_json_emit",
+    "_cuni_days_from_civil",
+    "_cuni_civil_from_days",
+    "_cuni_time_epoch",
+    "_cuni_time_parts",
+    "_cuni_split",
+    "_cuni_join",
+    "_cuni_trim",
+    "_cuni_contains",
+    "_cuni_sha256",
 ];
 
 /// Prelude helpers the Lua backend always emits.
@@ -3409,6 +3474,20 @@ const LUA_PRELUDE: &[&str] = &[
     "_cuni_div",
     "_cuni_len",
     "kwargs",
+    // Wave-1 stdlib (docs/STDLIB.md).
+    "_cuni_panic",
+    "_cuni_json_num",
+    "_cuni_json_parse",
+    "_cuni_json_emit",
+    "_cuni_days_from_civil",
+    "_cuni_civil_from_days",
+    "_cuni_time_epoch",
+    "_cuni_time_parts",
+    "_cuni_split",
+    "_cuni_join",
+    "_cuni_trim",
+    "_cuni_contains",
+    "_cuni_sha256",
 ];
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -3616,6 +3695,25 @@ fn ingest_end_lang(el: EndLang, src: &str) -> Result<String, String> {
     let seat = el.seat();
     let lines: Vec<&str> = src.lines().collect();
     let (funcs, top) = extract_end_funcs(el, &lines)?;
+    // Prelude top-level statements are runtime, not user code: drop them
+    // before either branch sees them (Lua's JSON-null sentinel and
+    // integer-limit locals; Ruby's class stub and integer-limit constant).
+    let top: Vec<String> = top
+        .into_iter()
+        .filter(|t| {
+            let s = t.trim();
+            match el {
+                EndLang::Lua => {
+                    !(s.starts_with("local _CUNI_JSON_NULL =")
+                        || s.starts_with("local CUNI_INT_MAX ="))
+                }
+                EndLang::Rb => {
+                    !(s.starts_with("class ") || s.starts_with("CUNI_JSON_INT_MAX ="))
+                }
+                _ => true,
+            }
+        })
+        .collect();
     // The `main` body: a `def main` / `function main` when present, else the
     // leftover top-level statements (hand-written scripts).
     let (main_body, main_is_def): (String, bool) = match funcs.iter().find(|f| f.name == "main") {
@@ -3623,10 +3721,6 @@ fn ingest_end_lang(el: EndLang, src: &str) -> Result<String, String> {
             for t in &top {
                 let s = t.trim();
                 if s.is_empty() || el.is_comment(s) || s == "main" {
-                    continue;
-                }
-                // The Ruby prelude's one-line class stub is runtime, not code.
-                if el == EndLang::Rb && s.starts_with("class ") {
                     continue;
                 }
                 return Err(format!(

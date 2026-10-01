@@ -1,0 +1,6 @@
+let m = json.parse("{\"b\": [1, 2, {\"x\": true}], \"a\": 1, \"n\": null, \"s\": \"hi\\nthere\"}")
+say(json.emit(m))
+say(json.emit({"z": 1, "a": {"q": [3]}}))
+say(json.emit(json.parse("{\"e\": 1e3, \"f\": 1.0, \"g\": 100e-2, \"h\": -0}")))
+say(json.emit(json.parse("{\"u\": \"\\u00e9\\u2028\", \"lt\": \"<>\"}")))
+say(json.emit(json.parse("{\"dup\": 1, \"dup\": 2}")))

@@ -572,6 +572,26 @@ impl Codegen {
         args: &[CallArg],
         scope: &HashMap<String, SolKind>,
     ) -> Result<String, String> {
+        // Wave-1 stdlib (docs/STDLIB.md §5): the sol seat refuses every
+        // wave-1 function. Namespaced calls are refused here with the
+        // documented reason; method calls (`.split`, `.trim`, …) fall
+        // through to the direct-call refusal below.
+        if let ExprKind::Field { base, name } = &callee.kind {
+            if let ExprKind::Ident(ns) = &base.kind {
+                if ns == "json" {
+                    return Err(format!(
+                        "`json.{}` has no Solidity form (no meaningful on-chain JSON); refusing",
+                        name
+                    ));
+                }
+                if ns == "time" {
+                    return Err(format!(
+                        "`time.{}` has no Solidity form (block timestamps are not calendar arithmetic); refusing",
+                        name
+                    ));
+                }
+            }
+        }
         let name = match &callee.kind {
             ExprKind::Ident(n) => n.clone(),
             _ => return Err("only direct function calls have a Solidity form; refusing".into()),
@@ -602,6 +622,10 @@ impl Codegen {
                     "builtin `{}` needs a v1 helper; refusing for now",
                     name
                 ))
+            }
+            // Wave-1 stdlib (docs/STDLIB.md §5).
+            "sha256" => {
+                return Err("`sha256` has no Solidity form (keccak256 ≠ SHA-256; the SHA-256 precompile is unobservable in the compile-only seat); refusing".into())
             }
             _ => {}
         }

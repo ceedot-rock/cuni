@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::stdlib_use::{self, StdlibUse};
 use std::collections::HashMap;
 
 /// A toy, best-effort Go emitter for the CuNi AST. Like codegen_py.rs, it exists
@@ -190,6 +191,8 @@ struct Codegen {
     tmp_counter: usize,
     has_link: bool,
     has_link_int_param: bool,
+    /// Wave-1 stdlib usage (docs/STDLIB.md) — drives conditional imports.
+    stdlib: StdlibUse,
     out: String,
 }
 
@@ -246,6 +249,7 @@ impl Codegen {
             tmp_counter: 0,
             has_link,
             has_link_int_param,
+            stdlib: stdlib_use::scan(program),
             out: String::new(),
         }
     }
@@ -268,14 +272,47 @@ impl Codegen {
         );
         self.line(0, "package main");
         self.out.push('\n');
-        if self.has_link {
+        // Wave-1 stdlib (docs/STDLIB.md): every import below is used by at
+        // least one helper; Go refuses to compile unused imports, so each
+        // is gated on the family that needs it.
+        let (sj, st, ss, sh) = (
+            self.stdlib.json,
+            self.stdlib.time,
+            self.stdlib.strings,
+            self.stdlib.sha,
+        );
+        let std = sj || st || ss || sh;
+        if self.has_link || std {
             self.line(0, "import (");
-            self.line(1, "\"bytes\"");
-            self.line(1, "\"encoding/json\"");
+            if self.has_link {
+                self.line(1, "\"bytes\"");
+            }
+            if sh {
+                self.line(1, "\"crypto/sha256\"");
+                self.line(1, "\"encoding/hex\"");
+            }
+            if self.has_link || sj {
+                self.line(1, "\"encoding/json\"");
+            }
             self.line(1, "\"fmt\"");
-            self.line(1, "\"net/http\"");
-            if self.has_link_int_param {
+            if sj {
+                self.line(1, "\"io\"");
+            }
+            if self.has_link {
+                self.line(1, "\"net/http\"");
+            }
+            if sj || ss {
+                self.line(1, "\"reflect\"");
+            }
+            if sj {
+                self.line(1, "\"sort\"");
                 self.line(1, "\"strconv\"");
+            } else if self.has_link_int_param {
+                self.line(1, "\"strconv\"");
+            }
+            // The JSON emitter also builds via strings.Builder.
+            if sj || ss {
+                self.line(1, "\"strings\"");
             }
             self.line(0, ")");
         } else {
@@ -353,6 +390,10 @@ impl Codegen {
         self.line(2, "return len(v)");
         self.line(1, "case []int:");
         self.line(2, "return len(v)");
+        // Wave-1: `.split` returns []string, and string-list literals emit
+        // as []string — both need a real length (was: fell to `default` → 0).
+        self.line(1, "case []string:");
+        self.line(2, "return len(v)");
         self.line(1, "default:");
         self.line(2, "return 0");
         self.line(1, "}");
@@ -396,11 +437,294 @@ impl Codegen {
             }
         }
 
+        self.gen_stdlib_helpers();
         self.line(0, "func main() {");
         for s in script_stmts {
             self.gen_stmt(1, s, &mut top_scope);
         }
         self.line(0, "}");
+    }
+
+    /// Wave-1 stdlib helpers (docs/STDLIB.md), gated per family so every
+    /// emitted import is used (Go rejects unused imports).
+    fn gen_stdlib_helpers(&mut self) {
+        if self.stdlib.json {
+            self.line(0, "// Wave-1 stdlib: JSON (docs/STDLIB.md §1).");
+            self.line(0, "func cuni_json_int(tok string) int {");
+            self.line(1, "t := tok");
+            self.line(1, "neg := false");
+            self.line(1, "if strings.HasPrefix(t, \"-\") { neg = true; t = t[1:] }");
+            self.line(1, "mant, exp := t, 0");
+            self.line(1, "if i := strings.IndexAny(mant, \"eE\"); i >= 0 {");
+            self.line(2, "e, err := strconv.Atoi(mant[i+1:])");
+            self.line(2, "if err != nil { panic(\"json.parse: bad number\") }");
+            self.line(2, "exp, mant = e, mant[:i]");
+            self.line(1, "}");
+            self.line(1, "f := 0");
+            self.line(1, "digits := mant");
+            self.line(1, "if i := strings.IndexByte(mant, '.'); i >= 0 {");
+            self.line(2, "f = len(mant) - i - 1");
+            self.line(2, "digits = mant[:i] + mant[i+1:]");
+            self.line(1, "}");
+            self.line(1, "digits = strings.TrimLeft(digits, \"0\")");
+            self.line(1, "if digits == \"\" { return 0 }");
+            self.line(
+                1,
+                "if len(digits) > 16 { panic(\"json.parse: number is not an integer in ±(2^53−1)\") }",
+            );
+            self.line(1, "d, _ := strconv.Atoi(digits)");
+            self.line(1, "for d%10 == 0 && d != 0 { d /= 10; f-- }");
+            self.line(1, "k := f - exp");
+            self.line(1, "v := d");
+            self.line(1, "if k <= 0 {");
+            self.line(2, "for i := 0; i < -k; i++ {");
+            self.line(3, "if v > 9007199254740991/10 || v < -9007199254740991/10 { panic(\"json.parse: number is not an integer in ±(2^53−1)\") }");
+            self.line(3, "v *= 10");
+            self.line(2, "}");
+            self.line(1, "} else {");
+            self.line(2, "if k > 16 { panic(\"json.parse: number is not an integer in ±(2^53−1)\") }");
+            self.line(2, "p10 := 1");
+            self.line(2, "for i := 0; i < k; i++ { p10 *= 10 }");
+            self.line(2, "if d%p10 != 0 { panic(\"json.parse: number is not an integer in ±(2^53−1)\") }");
+            self.line(2, "v = d / p10");
+            self.line(1, "}");
+            self.line(1, "if neg { v = -v }");
+            self.line(
+                1,
+                "if v > 9007199254740991 || v < -9007199254740991 { panic(\"json.parse: number is not an integer in ±(2^53−1)\") }",
+            );
+            self.line(1, "return v");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_json_parse(s any) any {");
+            self.line(1, "str, ok := s.(string)");
+            self.line(1, "if !ok { panic(\"json.parse needs a str\") }");
+            self.line(1, "dec := json.NewDecoder(strings.NewReader(str))");
+            self.line(1, "dec.UseNumber()");
+            self.line(1, "var v any");
+            self.line(
+                1,
+                "if err := dec.Decode(&v); err != nil { panic(\"json.parse: invalid JSON: \" + err.Error()) }",
+            );
+            self.line(1, "var extra any");
+            self.line(
+                1,
+                "if err := dec.Decode(&extra); err != io.EOF { panic(\"json.parse: trailing characters\") }",
+            );
+            self.line(1, "m, ok := cuni_json_norm(v).(map[string]any)");
+            self.line(
+                1,
+                "if !ok { panic(\"json.parse: top-level JSON value must be an object\") }",
+            );
+            self.line(1, "return m");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_json_norm(v any) any {");
+            self.line(1, "switch t := v.(type) {");
+            self.line(1, "case json.Number:");
+            self.line(2, "return cuni_json_int(string(t))");
+            self.line(1, "case string, bool, nil:");
+            self.line(2, "return t");
+            self.line(1, "case []any:");
+            self.line(2, "for i, x := range t { t[i] = cuni_json_norm(x) }");
+            self.line(2, "return t");
+            self.line(1, "case map[string]any:");
+            self.line(2, "for k, x := range t { t[k] = cuni_json_norm(x) }");
+            self.line(2, "return t");
+            self.line(1, "default:");
+            self.line(2, "panic(\"json.parse: unexpected value\")");
+            self.line(1, "}");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_json_emit(v any) string {");
+            self.line(1, "var sb strings.Builder");
+            self.line(1, "cuni_json_write(v, &sb)");
+            self.line(1, "return sb.String()");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_json_write(v any, sb *strings.Builder) {");
+            self.line(1, "switch t := v.(type) {");
+            self.line(1, "case nil:");
+            self.line(2, "sb.WriteString(\"null\")");
+            self.line(1, "case string:");
+            self.line(2, "cuni_json_write_str(t, sb)");
+            self.line(1, "case bool:");
+            self.line(2, "if t { sb.WriteString(\"true\") } else { sb.WriteString(\"false\") }");
+            self.line(1, "case int:");
+            self.line(2, "sb.WriteString(strconv.Itoa(t))");
+            self.line(1, "case int64:");
+            self.line(2, "sb.WriteString(strconv.FormatInt(t, 10))");
+            self.line(1, "case float64:");
+            self.line(2, "panic(\"json.emit: floats have no JSON integer form\")");
+            self.line(1, "default:");
+            self.line(2, "rv := reflect.ValueOf(v)");
+            self.line(2, "switch rv.Kind() {");
+            self.line(2, "case reflect.Map:");
+            self.line(3, "keys := make([]string, 0, rv.Len())");
+            self.line(3, "iter := rv.MapRange()");
+            self.line(3, "for iter.Next() {");
+            self.line(4, "k := iter.Key()");
+            self.line(4, "var ks string");
+            self.line(4, "if k.Kind() == reflect.String { ks = k.String() } else if k.Kind() == reflect.Interface {");
+            self.line(5, "s, ok := k.Interface().(string)");
+            self.line(5, "if !ok { panic(\"json.emit: map keys must be strings\") }");
+            self.line(5, "ks = s");
+            self.line(4, "} else { panic(\"json.emit: map keys must be strings\") }");
+            self.line(4, "keys = append(keys, ks)");
+            self.line(3, "}");
+            self.line(3, "sort.Strings(keys)");
+            self.line(3, "sb.WriteByte('{')");
+            self.line(3, "for i, ks := range keys {");
+            self.line(4, "if i > 0 { sb.WriteByte(',') }");
+            self.line(4, "cuni_json_write_str(ks, sb)");
+            self.line(4, "sb.WriteByte(':')");
+            self.line(
+                4,
+                "cuni_json_write(rv.MapIndex(reflect.ValueOf(ks)).Interface(), sb)",
+            );
+            self.line(3, "}");
+            self.line(3, "sb.WriteByte('}')");
+            self.line(2, "case reflect.Slice, reflect.Array:");
+            self.line(3, "sb.WriteByte('[')");
+            self.line(3, "for i := 0; i < rv.Len(); i++ {");
+            self.line(4, "if i > 0 { sb.WriteByte(',') }");
+            self.line(4, "cuni_json_write(rv.Index(i).Interface(), sb)");
+            self.line(3, "}");
+            self.line(3, "sb.WriteByte(']')");
+            self.line(2, "default:");
+            self.line(3, "panic(\"json.emit: value has no JSON form\")");
+            self.line(2, "}");
+            self.line(1, "}");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_json_write_str(s string, sb *strings.Builder) {");
+            self.line(1, "sb.WriteByte('\"')");
+            self.line(1, "for _, r := range s {");
+            self.line(2, "switch r {");
+            self.line(2, "case '\"': sb.WriteString(\"\\\\\\\"\")");
+            self.line(2, "case '\\\\': sb.WriteString(\"\\\\\\\\\")");
+            self.line(2, "case '\\b': sb.WriteString(\"\\\\b\")");
+            self.line(2, "case '\\f': sb.WriteString(\"\\\\f\")");
+            self.line(2, "case '\\n': sb.WriteString(\"\\\\n\")");
+            self.line(2, "case '\\r': sb.WriteString(\"\\\\r\")");
+            self.line(2, "case '\\t': sb.WriteString(\"\\\\t\")");
+            self.line(2, "default:");
+            self.line(
+                3,
+                "if r < 0x20 { sb.WriteString(fmt.Sprintf(\"\\\\u%04x\", r)) } else { sb.WriteRune(r) }",
+            );
+            self.line(2, "}");
+            self.line(1, "}");
+            self.line(1, "sb.WriteByte('\"')");
+            self.line(0, "}");
+            self.out.push('\n');
+        }
+        if self.stdlib.time {
+            self.line(0, "// Wave-1 stdlib: unix time conversions (docs/STDLIB.md §2).");
+            self.line(0, "// Proleptic Gregorian, no leap seconds; years 1..9999.");
+            self.line(0, "func cuni_days_from_civil(y, m, d int) int {");
+            self.line(1, "y0 := y");
+            self.line(1, "if m <= 2 { y0 = y - 1 }");
+            self.line(1, "era := y0 / 400");
+            self.line(1, "yoe := y0 - era*400");
+            self.line(1, "mp := (m + 9) % 12");
+            self.line(1, "doy := (153*mp+2)/5 + d - 1");
+            self.line(1, "doe := yoe*365 + yoe/4 - yoe/100 + doy");
+            self.line(1, "return era*146097 + doe - 719468");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_civil_from_days(z int) (int, int, int) {");
+            self.line(1, "z += 719468");
+            self.line(1, "era := z / 146097");
+            self.line(1, "doe := z - era*146097");
+            self.line(1, "yoe := (doe - doe/1460 + doe/36524 - doe/146096) / 365");
+            self.line(1, "y := yoe + era*400");
+            self.line(1, "doy := doe - (365*yoe + yoe/4 - yoe/100)");
+            self.line(1, "mp := (5*doy + 2) / 153");
+            self.line(1, "d := doy - (153*mp+2)/5 + 1");
+            self.line(1, "m := mp + 3");
+            self.line(1, "if mp >= 10 { m = mp - 9 }");
+            self.line(1, "if m <= 2 { y++ }");
+            self.line(1, "return y, m, d");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_time_epoch(y, mo, d, h, mi, s any) int {");
+            self.line(1, "yy, mm, dd, hh, mmi, ss := cuni_as_int(y), cuni_as_int(mo), cuni_as_int(d), cuni_as_int(h), cuni_as_int(mi), cuni_as_int(s)");
+            self.line(1, "if yy < 1 || yy > 9999 { panic(\"time.epoch: year out of range 1..9999\") }");
+            self.line(1, "if mm < 1 || mm > 12 { panic(\"time.epoch: month out of range 1..12\") }");
+            self.line(1, "dim := 31");
+            self.line(1, "switch mm { case 4, 6, 9, 11: dim = 30; case 2: dim = 28; if yy%4 == 0 && (yy%100 != 0 || yy%400 == 0) { dim = 29 } }");
+            self.line(1, "if dd < 1 || dd > dim { panic(\"time.epoch: day out of range for month\") }");
+            self.line(1, "if hh < 0 || hh > 23 { panic(\"time.epoch: hour out of range 0..23\") }");
+            self.line(1, "if mmi < 0 || mmi > 59 { panic(\"time.epoch: minute out of range 0..59\") }");
+            self.line(1, "if ss < 0 || ss > 59 { panic(\"time.epoch: second out of range 0..59\") }");
+            self.line(
+                1,
+                "return cuni_days_from_civil(yy, mm, dd)*86400 + hh*3600 + mmi*60 + ss",
+            );
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_time_parts(e any) any {");
+            self.line(1, "ev := cuni_as_int(e)");
+            self.line(1, "lo := cuni_days_from_civil(1, 1, 1) * 86400");
+            self.line(1, "hi := cuni_days_from_civil(9999, 12, 31)*86400 + 86399");
+            self.line(1, "if ev < lo || ev > hi { panic(\"time.parts: epoch out of range 1..9999\") }");
+            self.line(1, "days, secs := ev/86400, ev%86400");
+            self.line(1, "if secs < 0 { days--; secs += 86400 }");
+            self.line(1, "y, mo, d := cuni_civil_from_days(days)");
+            self.line(1, "return map[string]any{\"year\": y, \"month\": mo, \"day\": d, \"hour\": secs / 3600, \"min\": (secs % 3600) / 60, \"sec\": secs % 60}");
+            self.line(0, "}");
+            self.out.push('\n');
+        }
+        if self.stdlib.strings {
+            self.line(0, "// Wave-1 stdlib: string ops (docs/STDLIB.md §3). Byte-oriented.");
+            self.line(0, "func cuni_split(s, sep any) []string {");
+            self.line(1, "ss, ok1 := s.(string); pp, ok2 := sep.(string)");
+            self.line(1, "if !ok1 || !ok2 { panic(\".split needs strings\") }");
+            self.line(1, "if pp == \"\" { panic(\".split: empty separator; refusing\") }");
+            self.line(1, "return strings.Split(ss, pp)");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_join(sep, parts any) string {");
+            self.line(1, "ss, ok := sep.(string)");
+            self.line(1, "if !ok { panic(\".join needs a str separator\") }");
+            self.line(1, "rv := reflect.ValueOf(parts)");
+            self.line(
+                1,
+                "if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array { panic(\".join needs a list<str>\") }",
+            );
+            self.line(1, "out := make([]string, 0, rv.Len())");
+            self.line(1, "for i := 0; i < rv.Len(); i++ {");
+            self.line(2, "el, ok := rv.Index(i).Interface().(string)");
+            self.line(2, "if !ok { panic(\".join: all parts must be str\") }");
+            self.line(2, "out = append(out, el)");
+            self.line(1, "}");
+            self.line(1, "return strings.Join(out, ss)");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_trim(s any) string {");
+            self.line(1, "ss, ok := s.(string)");
+            self.line(1, "if !ok { panic(\".trim needs a str\") }");
+            self.line(1, "return strings.Trim(ss, \" \\t\\n\\v\\f\\r\")");
+            self.line(0, "}");
+            self.out.push('\n');
+            self.line(0, "func cuni_contains(s, sub any) bool {");
+            self.line(1, "ss, ok1 := s.(string); pp, ok2 := sub.(string)");
+            self.line(1, "if !ok1 || !ok2 { panic(\".contains needs strings\") }");
+            self.line(1, "return strings.Contains(ss, pp)");
+            self.line(0, "}");
+            self.out.push('\n');
+        }
+        if self.stdlib.sha {
+            self.line(0, "// Wave-1 stdlib: SHA-256 (docs/STDLIB.md §4).");
+            self.line(0, "func cuni_sha256(s any) string {");
+            self.line(1, "ss, ok := s.(string)");
+            self.line(1, "if !ok { panic(\"sha256 needs a str\") }");
+            self.line(1, "sum := sha256.Sum256([]byte(ss))");
+            self.line(1, "return hex.EncodeToString(sum[:])");
+            self.line(0, "}");
+            self.out.push('\n');
+        }
     }
 
     fn gen_item(&mut self, item: &Item, scope: &mut HashMap<String, VarKind>) {
@@ -1118,6 +1442,7 @@ impl Codegen {
                         "abs" => "cuni_abs",
                         "min" => "cuni_min",
                         "max" => "cuni_max",
+                        "sha256" => "cuni_sha256",
                         _ => "",
                     };
                     if !mapped.is_empty() {
@@ -1132,6 +1457,24 @@ impl Codegen {
                     }
                 }
                 if let ExprKind::Field { base, name } = &callee.kind {
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|a| self.gen_expr(a.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "cuni_json_parse",
+                                ("json", "emit") => "cuni_json_emit",
+                                ("time", "epoch") => "cuni_time_epoch",
+                                ("time", "parts") => "cuni_time_parts",
+                                _ => "cuni_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
                     if name == "len" {
                         return format!("cuni_len({})", self.gen_expr(base, scope));
                     }
@@ -1141,6 +1484,31 @@ impl Codegen {
                             self.gen_expr(base, scope),
                             self.gen_expr(args[0].expr(), scope),
                             self.gen_expr(args[1].expr(), scope)
+                        );
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3).
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "cuni_split({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "cuni_join({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("cuni_trim({})", self.gen_expr(base, scope));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "cuni_contains({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
                         );
                     }
                     if name == "push" {
@@ -1309,22 +1677,35 @@ fn infer_list_elem_type(items: &[Expr]) -> Option<String> {
 }
 
 fn infer_map_kv_type(pairs: &[(Expr, Expr)]) -> Option<(String, String)> {
-    let (k, v) = pairs.first()?;
-    let kt = match &k.kind {
-        ExprKind::Int(_) => "int".to_string(),
-        ExprKind::Float(_) => "float64".to_string(),
-        ExprKind::Bool(_) => "bool".to_string(),
-        ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),
-        _ => "any".to_string(),
-    };
-    let vt = match &v.kind {
-        ExprKind::Int(_) => "int".to_string(),
-        ExprKind::Float(_) => "float64".to_string(),
-        ExprKind::Bool(_) => "bool".to_string(),
-        ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),
-        _ => "any".to_string(),
-    };
-    Some((kt, vt))
+    // Infer from ALL pairs: if value (or key) shapes differ, there is no
+    // single Go map type — return None so the caller falls back to
+    // map[any]any (heterogeneous maps are exactly what json.emit needs).
+    fn simple(kind: &ExprKind) -> &'static str {
+        match kind {
+            ExprKind::Int(_) => "int",
+            ExprKind::Float(_) => "float64",
+            ExprKind::Bool(_) => "bool",
+            ExprKind::Str(_) | ExprKind::InterpStr(_) => "string",
+            _ => "any",
+        }
+    }
+    let mut kt: Option<&str> = None;
+    let mut vt: Option<&str> = None;
+    for (k, v) in pairs {
+        let k2 = simple(&k.kind);
+        let v2 = simple(&v.kind);
+        match kt {
+            None => kt = Some(k2),
+            Some(p) if p == k2 => {}
+            _ => return None,
+        }
+        match vt {
+            None => vt = Some(v2),
+            Some(p) if p == v2 => {}
+            _ => return None,
+        }
+    }
+    Some((kt.unwrap_or("any").to_string(), vt.unwrap_or("any").to_string()))
 }
 
 /// Capitalizes the first character — Go's `encoding/json` only sees exported

@@ -152,6 +152,107 @@ impl Codegen {
         self.line(2, "return int(a / b) if a * b < 0 else a // b");
         self.line(1, "return a / b");
         self.out.push('\n');
+        // ---- Wave-1 stdlib (docs/STDLIB.md). Module imports are lazy
+        // (inside the helpers) so programs that don't use the stdlib pay
+        // nothing and emit no extra imports.
+        self.line(0, "_CUNI_JSON_INT_MAX = 9007199254740991");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_int_value(tok):");
+        self.line(1, "\"\"\"Value-based integer rule (docs/STDLIB.md §1.1): accept iff the");
+        self.line(1, "number's exact value is an integer in ±(2^53−1).\"\"\"");
+        self.line(1, "t = tok.strip()");
+        self.line(1, "neg = t.startswith(\"-\")");
+        self.line(1, "if neg: t = t[1:]");
+        self.line(1, "if \"e\" in t or \"E\" in t:");
+        self.line(2, "mant, _, exp_s = t.replace(\"E\", \"e\").partition(\"e\")");
+        self.line(2, "exp = int(exp_s)");
+        self.line(1, "else: mant, exp = t, 0");
+        self.line(1, "if \".\" in mant:");
+        self.line(2, "ip, _, fp = mant.partition(\".\")");
+        self.line(2, "f = len(fp)");
+        self.line(2, "digits = (ip + fp).lstrip(\"0\")");
+        self.line(1, "else: digits, f = mant.lstrip(\"0\"), 0");
+        self.line(1, "if not digits: return 0");
+        self.line(1, "if len(digits) > 16: raise CuNiError(\"json.parse: number is not an integer in ±(2^53−1)\")");
+        self.line(1, "d = int(digits)");
+        self.line(1, "while d % 10 == 0 and d != 0: d //= 10; f -= 1");
+        self.line(1, "k = f - exp");
+        self.line(1, "if k <= 0: v = d * (10 ** (-k))");
+        self.line(1, "else:");
+        self.line(2, "if k > 16 or d % (10 ** k) != 0: raise CuNiError(\"json.parse: number is not an integer in ±(2^53−1)\")");
+        self.line(2, "v = d // (10 ** k)");
+        self.line(1, "if neg: v = -v");
+        self.line(1, "if abs(v) > _CUNI_JSON_INT_MAX: raise CuNiError(\"json.parse: number is not an integer in ±(2^53−1)\")");
+        self.line(1, "return v");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_parse(s):");
+        self.line(1, "import json as _json");
+        self.line(1, "if not isinstance(s, str): raise CuNiError(\"json.parse needs a str\")");
+        self.line(1, "try:");
+        self.line(2, "v = _json.loads(s, parse_int=_cuni_json_int_value, parse_float=_cuni_json_int_value)");
+        self.line(1, "except ValueError: raise CuNiError(\"json.parse: invalid JSON\")");
+        self.line(1, "if not isinstance(v, dict): raise CuNiError(\"json.parse: top-level JSON value must be an object\")");
+        self.line(1, "return v");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_norm(v):");
+        self.line(1, "if isinstance(v, bool): return v");
+        self.line(1, "if isinstance(v, int): return v");
+        self.line(1, "if isinstance(v, float): raise CuNiError(\"json.emit: floats have no JSON integer form\")");
+        self.line(1, "if isinstance(v, str): return v");
+        self.line(1, "if v is None: return None");
+        self.line(1, "if isinstance(v, list): return [_cuni_json_norm(x) for x in v]");
+        self.line(1, "if isinstance(v, dict):");
+        self.line(2, "for k in v:");
+        self.line(3, "if not isinstance(k, str): raise CuNiError(\"json.emit: map keys must be strings\")");
+        self.line(2, "return {k: _cuni_json_norm(x) for k, x in v.items()}");
+        self.line(1, "raise CuNiError(\"json.emit: value has no JSON form\")");
+        self.out.push('\n');
+        self.line(0, "def _cuni_json_emit(m):");
+        self.line(1, "import json as _json");
+        self.line(1, "if not isinstance(m, dict): raise CuNiError(\"json.emit needs a map\")");
+        self.line(1, "return _json.dumps(_cuni_json_norm(m), sort_keys=True, separators=(\",\", \":\"), ensure_ascii=False)");
+        self.out.push('\n');
+        self.line(0, "def _cuni_days_from_civil(y, m, d):");
+        self.line(1, "y0 = y - 1 if m <= 2 else y");
+        self.line(1, "era = y0 // 400");
+        self.line(1, "yoe = y0 - era * 400");
+        self.line(1, "mp = (m + 9) % 12");
+        self.line(1, "doy = (153 * mp + 2) // 5 + d - 1");
+        self.line(1, "doe = yoe * 365 + yoe // 4 - yoe // 100 + doy");
+        self.line(1, "return era * 146097 + doe - 719468");
+        self.out.push('\n');
+        self.line(0, "def _cuni_civil_from_days(z):");
+        self.line(1, "z += 719468");
+        self.line(1, "era = z // 146097");
+        self.line(1, "doe = z - era * 146097");
+        self.line(1, "yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365");
+        self.line(1, "y = yoe + era * 400");
+        self.line(1, "doy = doe - (365 * yoe + yoe // 4 - yoe // 100)");
+        self.line(1, "mp = (5 * doy + 2) // 153");
+        self.line(1, "d = doy - (153 * mp + 2) // 5 + 1");
+        self.line(1, "m = mp + 3 if mp < 10 else mp - 9");
+        self.line(1, "return (y + 1 if m <= 2 else y, m, d)");
+        self.out.push('\n');
+        self.line(0, "def _cuni_time_epoch(y, mo, d, h, mi, s):");
+        self.line(1, "for v, lo, hi, nm in ((y,1,9999,\"year\"),(mo,1,12,\"month\"),(h,0,23,\"hour\"),(mi,0,59,\"minute\"),(s,0,59,\"second\")):");
+        self.line(2, "if not (lo <= v <= hi): raise CuNiError(\"time.epoch: %s out of range\" % nm)");
+        self.line(1, "dim = [31, 29 if y % 4 == 0 and (y % 100 != 0 or y % 400 == 0) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1]");
+        self.line(1, "if not (1 <= d <= dim): raise CuNiError(\"time.epoch: day out of range for month\")");
+        self.line(1, "return _cuni_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s");
+        self.out.push('\n');
+        self.line(0, "def _cuni_time_parts(e):");
+        self.line(1, "lo = _cuni_days_from_civil(1, 1, 1) * 86400");
+        self.line(1, "hi = _cuni_days_from_civil(9999, 12, 31) * 86400 + 86399");
+        self.line(1, "if not (lo <= e <= hi): raise CuNiError(\"time.parts: epoch out of range 1..9999\")");
+        self.line(1, "days, secs = divmod(e, 86400)");
+        self.line(1, "y, mo, d = _cuni_civil_from_days(days)");
+        self.line(1, "return {\"year\": y, \"month\": mo, \"day\": d, \"hour\": secs // 3600, \"min\": (secs % 3600) // 60, \"sec\": secs % 60}");
+        self.out.push('\n');
+        self.line(0, "def sha256(s):");
+        self.line(1, "import hashlib as _hashlib");
+        self.line(1, "if not isinstance(s, str): raise CuNiError(\"sha256 needs a str\")");
+        self.line(1, "return _hashlib.sha256(s.encode(\"utf-8\")).hexdigest()");
+        self.out.push('\n');
         self.line(0, "class CuNiError(Exception):");
         self.line(
             1,
@@ -593,6 +694,24 @@ impl Codegen {
             ),
             ExprKind::Call { callee, args } => {
                 if let ExprKind::Field { base, name } = &callee.kind {
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|a| self.gen_expr(a.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "_cuni_json_parse",
+                                ("json", "emit") => "_cuni_json_emit",
+                                ("time", "epoch") => "_cuni_time_epoch",
+                                ("time", "parts") => "_cuni_time_parts",
+                                _ => "json.time.unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
                     if name == "push" {
                         return format!(
                             "{}.append({})",
@@ -612,6 +731,37 @@ impl Codegen {
                             self.gen_expr(base, scope),
                             self.gen_expr(args[0].expr(), scope),
                             self.gen_expr(args[1].expr(), scope)
+                        );
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3). `split` with an
+                    // empty separator raises ValueError natively (a runtime
+                    // refusal, as specified); `trim` uses the explicit
+                    // ASCII-whitespace set, not str.strip()'s Unicode set.
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "{}.split({})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "{}.join({})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!(
+                            "{}.strip(' \\t\\n\\r\\x0b\\x0c')",
+                            self.gen_expr(base, scope)
+                        );
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "({} in {})",
+                            self.gen_expr(args[0].expr(), scope),
+                            self.gen_expr(base, scope)
                         );
                     }
                 }

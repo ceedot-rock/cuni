@@ -291,6 +291,223 @@ impl Codegen {
         self.line(1, "return a / b;");
         self.line(0, "}");
         self.out.push('\n');
+        // ---- Wave-1 stdlib (docs/STDLIB.md). ----
+        self.line(
+            0,
+            "// JSON: value-based integer rule (docs/STDLIB.md §1.1). JS numbers",
+        );
+        self.line(
+            0,
+            "// are f64, so number tokens are validated lexically (exact string",
+        );
+        self.line(
+            0,
+            "// arithmetic) BEFORE JSON.parse sees them — JSON.parse would",
+        );
+        self.line(
+            0,
+            "// silently round 9007199254740993 to 9007199254740992.",
+        );
+        self.line(
+            0,
+            "function _cuni_json_int_value(tok) {",
+        );
+        self.line(1, "const bad = () => { throw new CuNiError(\"json.parse: number is not an integer in ±(2^53−1)\"); };");
+        self.line(1, "let t = tok, neg = false;");
+        self.line(1, "if (t[0] === \"-\") { neg = true; t = t.slice(1); }");
+        self.line(1, "let mant = t, exp = 0;");
+        self.line(1, "const ei = mant.search(/[eE]/);");
+        self.line(1, "if (ei >= 0) {");
+        self.line(2, "const es = mant.slice(ei + 1);");
+        self.line(2, "if (!/^[+-]?\\d+$/.test(es)) bad();");
+        self.line(2, "exp = parseInt(es, 10); mant = mant.slice(0, ei);");
+        self.line(1, "}");
+        self.line(1, "let f = 0, digits = mant;");
+        self.line(1, "const di = mant.indexOf(\".\");");
+        self.line(1, "if (di >= 0) {");
+        self.line(2, "const fp = mant.slice(di + 1);");
+        self.line(2, "if (!/^\\d+$/.test(fp) || fp === \"\") bad();");
+        self.line(2, "f = fp.length; digits = mant.slice(0, di) + fp;");
+        self.line(1, "}");
+        self.line(1, "if (!/^\\d+$/.test(digits) || digits === \"\") bad();");
+        self.line(1, "digits = digits.replace(/^0+/, \"\");");
+        self.line(1, "if (digits === \"\") return 0;");
+        self.line(1, "const tz = digits.match(/0+$/);");
+        self.line(1, "if (tz) { f -= tz[0].length; digits = digits.slice(0, -tz[0].length); }");
+        self.line(1, "const k = f - exp;");
+        self.line(1, "if (k > 0) bad(); // no trailing zeros left: can't divide evenly");
+        self.line(1, "const total = digits + \"0\".repeat(-k);");
+        self.line(1, "if (total.length > 16) bad();");
+        self.line(1, "if (total.padStart(16, \"0\") > \"9007199254740991\") bad();");
+        self.line(1, "let v = parseInt(total, 10); // <= 2^53-1: exact in f64");
+        self.line(1, "if (neg) v = -v;");
+        self.line(1, "return v;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(
+            0,
+            "function _cuni_json_parse(s) {",
+        );
+        self.line(1, "if (typeof s !== \"string\") throw new CuNiError(\"json.parse needs a str\");");
+        self.line(1, "// Lexical pre-check: string-aware scan so numbers inside strings");
+        self.line(1, "// are skipped; every number token outside strings must satisfy");
+        self.line(1, "// the integer rule. JSON.parse remains the syntax authority.");
+        self.line(1, "// NOTE: no regex literals containing quotes here — the ingest");
+        self.line(1, "// extractor is quote-aware but not regex-aware.");
+        self.line(
+            1,
+            "const _cuni_num_re = /-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?/g;",
+        );
+        self.line(1, "let _cuni_pi = 0, _cuni_pm;");
+        self.line(1, "while (_cuni_pi < s.length) {");
+        self.line(2, "const _cuni_pc = s[_cuni_pi];");
+        self.line(2, "if (_cuni_pc === \"\\\"\") {");
+        self.line(
+            3,
+            "_cuni_pi++; while (_cuni_pi < s.length) { const _cuni_pd = s[_cuni_pi]; if (_cuni_pd === \"\\\\\") _cuni_pi += 2; else { _cuni_pi++; if (_cuni_pd === \"\\\"\") break; } }",
+        );
+        self.line(2, "continue;");
+        self.line(2, "}");
+        self.line(2, "_cuni_num_re.lastIndex = _cuni_pi;");
+        self.line(2, "_cuni_pm = _cuni_num_re.exec(s);");
+        self.line(
+            2,
+            "if (_cuni_pm !== null && _cuni_pm.index === _cuni_pi) { _cuni_json_int_value(_cuni_pm[0]); _cuni_pi += _cuni_pm[0].length; } else { _cuni_pi++; }",
+        );
+        self.line(1, "}");
+        self.line(1, "let v;");
+        self.line(1, "try { v = JSON.parse(s); } catch (e) { throw new CuNiError(\"json.parse: invalid JSON\"); }");
+        self.line(1, "const w = _cuni_json_walk(v);");
+        self.line(1, "if (!(w instanceof Map)) throw new CuNiError(\"json.parse: top-level JSON value must be an object\");");
+        self.line(1, "return w;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_walk(v) {");
+        self.line(1, "if (typeof v === \"number\") {");
+        self.line(2, "if (!Number.isInteger(v) || Math.abs(v) > 9007199254740991) throw new CuNiError(\"json.parse: number is not an integer in ±(2^53−1)\");");
+        self.line(2, "return v;");
+        self.line(1, "}");
+        self.line(1, "if (typeof v === \"string\" || typeof v === \"boolean\" || v === null) return v;");
+        self.line(1, "if (Array.isArray(v)) return v.map(_cuni_json_walk);");
+        self.line(1, "if (typeof v === \"object\") {");
+        self.line(2, "const out = new Map();");
+        self.line(2, "for (const k of Object.keys(v)) out.set(k, _cuni_json_walk(v[k]));");
+        self.line(2, "return out;");
+        self.line(1, "}");
+        self.line(1, "throw new CuNiError(\"json.parse: unexpected value\");");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_set(o, k, v) {");
+        self.line(1, "// defineProperty: a plain assignment would route \"__proto__\" to the prototype.");
+        self.line(1, "Object.defineProperty(o, k, { value: v, enumerable: true, writable: true, configurable: true });");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_norm(v) {");
+        self.line(1, "if (v instanceof Map) {");
+        self.line(2, "const o = {};");
+        self.line(2, "for (const [k, x] of v) {");
+        self.line(3, "if (typeof k !== \"string\") throw new CuNiError(\"json.emit: map keys must be strings\");");
+        self.line(3, "_cuni_json_set(o, k, _cuni_json_norm(x));");
+        self.line(2, "}");
+        self.line(2, "return o;");
+        self.line(1, "}");
+        self.line(1, "if (Array.isArray(v)) return v.map(_cuni_json_norm);");
+        self.line(1, "if (typeof v === \"number\") {");
+        self.line(2, "if (!Number.isInteger(v) || Math.abs(v) > 9007199254740991) throw new CuNiError(\"json.emit: floats have no JSON integer form\");");
+        self.line(2, "return v;");
+        self.line(1, "}");
+        self.line(1, "if (typeof v === \"string\" || typeof v === \"boolean\" || v === null) return v;");
+        self.line(1, "throw new CuNiError(\"json.emit: value has no JSON form\");");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_emit(v) {");
+        self.line(1, "if (!(v instanceof Map)) throw new CuNiError(\"json.emit needs a map\");");
+        self.line(1, "return JSON.stringify(_cuni_json_sort(_cuni_json_norm(v)));");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_json_sort(v) {");
+        self.line(1, "if (Array.isArray(v)) return v.map(_cuni_json_sort);");
+        self.line(1, "if (v !== null && typeof v === \"object\") {");
+        self.line(2, "const o = {};");
+        self.line(2, "for (const k of Object.keys(v).sort()) _cuni_json_set(o, k, _cuni_json_sort(v[k]));");
+        self.line(2, "return o;");
+        self.line(1, "}");
+        self.line(1, "return v;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "// Time: proleptic Gregorian, no leap seconds, years 1..9999 (docs/STDLIB.md §2).");
+        self.line(0, "function _cuni_days_from_civil(y, m, d) {");
+        self.line(1, "const y0 = m <= 2 ? y - 1 : y;");
+        self.line(1, "const era = Math.floor(y0 / 400);");
+        self.line(1, "const yoe = y0 - era * 400;");
+        self.line(1, "const mp = (m + 9) % 12;");
+        self.line(1, "const doy = Math.floor((153 * mp + 2) / 5) + d - 1;");
+        self.line(1, "const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;");
+        self.line(1, "return era * 146097 + doe - 719468;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_civil_from_days(z) {");
+        self.line(1, "z += 719468;");
+        self.line(1, "const era = Math.floor(z / 146097);");
+        self.line(1, "const doe = z - era * 146097;");
+        self.line(1, "const yoe = Math.floor((doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365);");
+        self.line(1, "let y = yoe + era * 400;");
+        self.line(1, "const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));");
+        self.line(1, "const mp = Math.floor((5 * doy + 2) / 153);");
+        self.line(1, "const d = doy - Math.floor((153 * mp + 2) / 5) + 1;");
+        self.line(1, "let m = mp < 10 ? mp + 3 : mp - 9;");
+        self.line(1, "if (m <= 2) y++;");
+        self.line(1, "return [y, m, d];");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_time_epoch(y, mo, d, h, mi, s) {");
+        self.line(1, "const chk = (v, lo, hi, nm) => { if (!(v >= lo && v <= hi)) throw new CuNiError(\"time.epoch: \" + nm + \" out of range\"); };");
+        self.line(1, "chk(y, 1, 9999, \"year\"); chk(mo, 1, 12, \"month\"); chk(h, 0, 23, \"hour\"); chk(mi, 0, 59, \"minute\"); chk(s, 0, 59, \"second\");");
+        self.line(1, "const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);");
+        self.line(1, "const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];");
+        self.line(1, "if (!(d >= 1 && d <= dim)) throw new CuNiError(\"time.epoch: day out of range for month\");");
+        self.line(1, "return _cuni_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s;");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_time_parts(e) {");
+        self.line(1, "const lo = _cuni_days_from_civil(1, 1, 1) * 86400;");
+        self.line(1, "const hi = _cuni_days_from_civil(9999, 12, 31) * 86400 + 86399;");
+        self.line(1, "if (!(e >= lo && e <= hi)) throw new CuNiError(\"time.parts: epoch out of range 1..9999\");");
+        self.line(1, "const days = Math.floor(e / 86400);");
+        self.line(1, "const secs = e - days * 86400;");
+        self.line(1, "const [y, mo, d] = _cuni_civil_from_days(days);");
+        self.line(1, "return new Map([[\"year\", y], [\"month\", mo], [\"day\", d], [\"hour\", Math.floor(secs / 3600)], [\"min\", Math.floor((secs % 3600) / 60)], [\"sec\", secs % 60]]);");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "// String ops: byte-oriented on UTF-8 (docs/STDLIB.md §3).");
+        self.line(0, "function _cuni_split(s, sep) {");
+        self.line(1, "if (typeof s !== \"string\" || typeof sep !== \"string\") throw new CuNiError(\".split needs strings\");");
+        self.line(1, "if (sep === \"\") throw new CuNiError(\".split: empty separator; refusing\");");
+        self.line(1, "return s.split(sep);");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_join(sep, parts) {");
+        self.line(1, "if (typeof sep !== \"string\") throw new CuNiError(\".join needs a str separator\");");
+        self.line(1, "if (!Array.isArray(parts)) throw new CuNiError(\".join needs a list<str>\");");
+        self.line(1, "for (const x of parts) if (typeof x !== \"string\") throw new CuNiError(\".join: all parts must be str\");");
+        self.line(1, "return parts.join(sep);");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_trim(s) {");
+        self.line(1, "if (typeof s !== \"string\") throw new CuNiError(\".trim needs a str\");");
+        self.line(1, "return s.replace(/^[ \\t\\n\\v\\f\\r]+|[ \\t\\n\\v\\f\\r]+$/g, \"\");");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_contains(s, sub) {");
+        self.line(1, "if (typeof s !== \"string\" || typeof sub !== \"string\") throw new CuNiError(\".contains needs strings\");");
+        self.line(1, "return s.includes(sub);");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "function _cuni_sha256(s) {");
+        self.line(1, "if (typeof s !== \"string\") throw new CuNiError(\"sha256 needs a str\");");
+        self.line(1, "return require(\"crypto\").createHash(\"sha256\").update(s, \"utf8\").digest(\"hex\");");
+        self.line(0, "}");
+        self.out.push('\n');
         self.line(
             0,
             "// Raised by `fail` — CuNi's explicit failure-signaling statement.",
@@ -761,6 +978,24 @@ impl Codegen {
                 // (`.length`, no parens) — needs its own rewrite, unlike
                 // `.push`, which already matches JS's own method shape.
                 if let ExprKind::Field { base, name } = &callee.kind {
+                    // Wave-1 stdlib namespaces (docs/STDLIB.md).
+                    if let ExprKind::Ident(ns) = &base.kind {
+                        if ns == "json" || ns == "time" {
+                            let a = args
+                                .iter()
+                                .map(|a| self.gen_expr(a.expr(), scope))
+                                .collect::<Vec<_>>()
+                                .join(", ");
+                            let f = match (ns.as_str(), name.as_str()) {
+                                ("json", "parse") => "_cuni_json_parse",
+                                ("json", "emit") => "_cuni_json_emit",
+                                ("time", "epoch") => "_cuni_time_epoch",
+                                ("time", "parts") => "_cuni_time_parts",
+                                _ => "_cuni_stdlib_unknown",
+                            };
+                            return format!("{f}({a})");
+                        }
+                    }
                     if name == "len" {
                         return format!("{}.length", self.gen_expr(base, scope));
                     }
@@ -770,6 +1005,34 @@ impl Codegen {
                             self.gen_expr(base, scope),
                             self.gen_expr(args[0].expr(), scope),
                             self.gen_expr(args[1].expr(), scope)
+                        );
+                    }
+                    // Wave-1 string ops (docs/STDLIB.md §3): the native
+                    // methods either don't exist (join/contains) or disagree
+                    // with the spec (trim's Unicode set; split's empty-sep
+                    // behavior), so all four go through checked helpers.
+                    if name == "split" && args.len() == 1 {
+                        return format!(
+                            "_cuni_split({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "join" && args.len() == 1 {
+                        return format!(
+                            "_cuni_join({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                    if name == "trim" && args.is_empty() {
+                        return format!("_cuni_trim({})", self.gen_expr(base, scope));
+                    }
+                    if name == "contains" && args.len() == 1 {
+                        return format!(
+                            "_cuni_contains({}, {})",
+                            self.gen_expr(base, scope),
+                            self.gen_expr(args[0].expr(), scope)
                         );
                     }
                 }
@@ -817,6 +1080,10 @@ impl Codegen {
                 if let ExprKind::Ident(tname) = &callee.kind {
                     if self.typ_names.contains(tname) {
                         return format!("new {}({})", tname, arg_list);
+                    }
+                    // Wave-1 stdlib free function (docs/STDLIB.md §4).
+                    if tname == "sha256" {
+                        return format!("_cuni_sha256({})", arg_list);
                     }
                 }
                 format!("{}({})", self.gen_expr(callee, scope), arg_list)

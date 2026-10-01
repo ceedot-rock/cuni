@@ -21,6 +21,7 @@ mod modules;
 mod oddity;
 mod parser;
 mod said;
+mod stdlib_use;
 mod token;
 mod typeck;
 

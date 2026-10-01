@@ -65,7 +65,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Java-side type of a CuNi value, tracked so `==` vs `Objects.equals`,
 /// overload choice, and boxing are decided from types, not guesses.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum JTy {
     Long,
     Double,
@@ -278,13 +278,20 @@ impl Codegen {
     /// `abs`, `min`, `max`, `_cuni_slice`, `_cuni_div`'s truncation, and the
     /// floored `%` the py seat gets from Python's own operator).
     fn gen_helpers(&mut self) {
+        // UTF-8 stdout explicitly: the JVM's default stdout.encoding can be
+        // ASCII (seen in CI), which would mangle non-ASCII the spec requires
+        // to pass through raw (docs/STDLIB.md §1.3).
+        self.line(
+            1,
+            "static final java.io.PrintStream OUT = new java.io.PrintStream(System.out, true, java.nio.charset.StandardCharsets.UTF_8);",
+        );
         self.line(1, "static void say(Object x) {");
         self.line(2, "if (x == null) {");
-        self.line(3, "System.out.println(\"None\");");
+        self.line(3, "OUT.println(\"None\");");
         self.line(2, "} else if (x instanceof Boolean) {");
-        self.line(3, "System.out.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
+        self.line(3, "OUT.println(((Boolean) x).booleanValue() ? \"True\" : \"False\");");
         self.line(2, "} else {");
-        self.line(3, "System.out.println(x);");
+        self.line(3, "OUT.println(x);");
         self.line(2, "}");
         self.line(1, "}");
         self.line(1, "static String cuni_str(Object x) {");
@@ -351,6 +358,407 @@ impl Codegen {
         self.line(2, "long n = xs.length();");
         self.line(2, "if (a < 0 || b < 0 || a > n || b > n || a > b) return \"\";");
         self.line(2, "return xs.substring((int) a, (int) b);");
+        self.line(1, "}");
+        // ---- Wave-1 stdlib (docs/STDLIB.md). Zero external dependencies:
+        // JSON is a hand-rolled recursive-descent parser, SHA-256 uses the
+        // JDK's java.security.MessageDigest.
+        self.line(
+            1,
+            "static RuntimeException cuniErr(String msg) { return new RuntimeException(\"cuni: \" + msg); }",
+        );
+        self.line(1, "static final long CUNI_JSON_INT_MAX = 9007199254740991L;");
+        self.line(1, "static final java.util.regex.Pattern CUNI_NUM_RE =");
+        self.line(
+            2,
+            "java.util.regex.Pattern.compile(\"-?(0|[1-9][0-9]*)(\\\\.[0-9]+)?([eE][+-]?[0-9]+)?\");",
+        );
+        self.line(1, "// Value-based integer rule (docs/STDLIB.md §1.1). BigDecimal is exact,");
+        self.line(1, "// so the token's mathematical value is decided without float error.");
+        self.line(1, "static long cuniJsonNum(String tok) {");
+        self.line(
+            2,
+            "if (!CUNI_NUM_RE.matcher(tok).matches()) throw cuniErr(\"json.parse: bad number\");",
+        );
+        self.line(2, "java.math.BigDecimal bd;");
+        self.line(2, "try { bd = new java.math.BigDecimal(tok); }");
+        self.line(2, "catch (NumberFormatException ex) { throw cuniErr(\"json.parse: bad number\"); }");
+        self.line(2, "bd = bd.stripTrailingZeros();");
+        self.line(
+            2,
+            "if (bd.scale() > 0) throw cuniErr(\"json.parse: number is not an integer in ±(2^53−1)\");",
+        );
+        self.line(2, "if (bd.abs().compareTo(java.math.BigDecimal.valueOf(CUNI_JSON_INT_MAX)) > 0)");
+        self.line(
+            3,
+            "throw cuniErr(\"json.parse: number is not an integer in ±(2^53−1)\");",
+        );
+        self.line(2, "return bd.longValueExact();");
+        self.line(1, "}");
+        self.line(1, "static void cuniJws(String s, int[] p) {");
+        self.line(2, "while (p[0] < s.length()) {");
+        self.line(3, "char c = s.charAt(p[0]);");
+        self.line(3, "if (c == ' ' || c == '\\t' || c == '\\n' || c == '\\r') p[0]++; else break;");
+        self.line(2, "}");
+        self.line(1, "}");
+        self.line(1, "static int cuniJhex4(String s, int[] p) {");
+        self.line(2, "int v = 0;");
+        self.line(2, "for (int i = 0; i < 4; i++) {");
+        self.line(3, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: bad \\\\u escape\");");
+        self.line(3, "int d = Character.digit(s.charAt(p[0]++), 16);");
+        self.line(3, "if (d < 0) throw cuniErr(\"json.parse: bad \\\\u escape\");");
+        self.line(3, "v = v * 16 + d;");
+        self.line(2, "}");
+        self.line(2, "return v;");
+        self.line(1, "}");
+        self.line(1, "static String cuniJstr(String s, int[] p) {");
+        self.line(2, "p[0]++; // opening quote");
+        self.line(2, "StringBuilder b = new StringBuilder();");
+        self.line(2, "while (true) {");
+        self.line(3, "int start = p[0];");
+        self.line(3, "while (p[0] < s.length()) {");
+        self.line(4, "char c = s.charAt(p[0]);");
+        self.line(4, "if (c == '\"' || c == '\\\\') break;");
+        self.line(
+            4,
+            "if (c < 0x20) throw cuniErr(\"json.parse: unescaped control character in string\");",
+        );
+        self.line(4, "p[0]++;");
+        self.line(3, "}");
+        self.line(3, "b.append(s, start, p[0]);");
+        self.line(3, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: unterminated string\");");
+        self.line(3, "char c = s.charAt(p[0]);");
+        self.line(3, "if (c == '\"') { p[0]++; return b.toString(); }");
+        self.line(3, "p[0]++; // backslash");
+        self.line(3, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: unterminated string\");");
+        self.line(3, "char e = s.charAt(p[0]++);");
+        self.line(3, "switch (e) {");
+        self.line(4, "case '\"': b.append('\"'); break;");
+        self.line(4, "case '\\\\': b.append('\\\\'); break;");
+        self.line(4, "case '/': b.append('/'); break;");
+        self.line(4, "case 'b': b.append('\\b'); break;");
+        self.line(4, "case 'f': b.append('\\f'); break;");
+        self.line(4, "case 'n': b.append('\\n'); break;");
+        self.line(4, "case 'r': b.append('\\r'); break;");
+        self.line(4, "case 't': b.append('\\t'); break;");
+        self.line(4, "case 'u': {");
+        self.line(5, "int hi = cuniJhex4(s, p);");
+        self.line(5, "if (hi >= 0xD800 && hi < 0xDC00) {");
+        self.line(
+            6,
+            "if (p[0] + 1 >= s.length() || s.charAt(p[0]) != '\\\\' || s.charAt(p[0] + 1) != 'u')",
+        );
+        self.line(7, "throw cuniErr(\"json.parse: lone surrogate\");");
+        self.line(6, "p[0] += 2;");
+        self.line(6, "int lo = cuniJhex4(s, p);");
+        self.line(6, "if (lo < 0xDC00 || lo >= 0xE000) throw cuniErr(\"json.parse: lone surrogate\");");
+        self.line(6, "b.appendCodePoint(0x10000 + ((hi - 0xD800) << 10) + (lo - 0xDC00));");
+        self.line(5, "} else if (hi >= 0xDC00 && hi < 0xE000) {");
+        self.line(6, "throw cuniErr(\"json.parse: lone surrogate\");");
+        self.line(5, "} else {");
+        self.line(6, "b.appendCodePoint(hi);");
+        self.line(5, "}");
+        self.line(5, "break;");
+        self.line(4, "}");
+        self.line(4, "default: throw cuniErr(\"json.parse: bad escape\");");
+        self.line(3, "}");
+        self.line(2, "}");
+        self.line(1, "}");
+        self.line(1, "static Object cuniJval(String s, int[] p) {");
+        self.line(2, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: unexpected end\");");
+        self.line(2, "char c = s.charAt(p[0]);");
+        self.line(2, "switch (c) {");
+        self.line(3, "case '{': return cuniJobj(s, p);");
+        self.line(3, "case '[': return cuniJarr(s, p);");
+        self.line(3, "case '\"': return cuniJstr(s, p);");
+        self.line(3, "case 't': if (s.startsWith(\"true\", p[0])) { p[0] += 4; return Boolean.TRUE; } break;");
+        self.line(
+            3,
+            "case 'f': if (s.startsWith(\"false\", p[0])) { p[0] += 5; return Boolean.FALSE; } break;",
+        );
+        self.line(3, "case 'n': if (s.startsWith(\"null\", p[0])) { p[0] += 4; return null; } break;");
+        self.line(3, "default: break;");
+        self.line(2, "}");
+        self.line(2, "if (c == '-' || (c >= '0' && c <= '9')) {");
+        self.line(3, "int start = p[0];");
+        self.line(3, "while (p[0] < s.length()) {");
+        self.line(4, "char d = s.charAt(p[0]);");
+        self.line(
+            4,
+            "if ((d >= '0' && d <= '9') || d == '.' || d == 'e' || d == 'E' || d == '+' || d == '-') p[0]++; else break;",
+        );
+        self.line(3, "}");
+        self.line(3, "return cuniJsonNum(s.substring(start, p[0]));");
+        self.line(2, "}");
+        self.line(2, "throw cuniErr(\"json.parse: unexpected character\");");
+        self.line(1, "}");
+        self.line(1, "static java.util.Map<String, Object> cuniJobj(String s, int[] p) {");
+        self.line(2, "p[0]++; // {");
+        self.line(2, "java.util.Map<String, Object> m = new java.util.HashMap<>();");
+        self.line(2, "cuniJws(s, p);");
+        self.line(2, "if (p[0] < s.length() && s.charAt(p[0]) == '}') { p[0]++; return m; }");
+        self.line(2, "while (true) {");
+        self.line(3, "cuniJws(s, p);");
+        self.line(
+            3,
+            "if (p[0] >= s.length() || s.charAt(p[0]) != '\"') throw cuniErr(\"json.parse: object keys must be strings\");",
+        );
+        self.line(3, "String key = cuniJstr(s, p);");
+        self.line(3, "cuniJws(s, p);");
+        self.line(
+            3,
+            "if (p[0] >= s.length() || s.charAt(p[0]) != ':') throw cuniErr(\"json.parse: expected ':'\");",
+        );
+        self.line(3, "p[0]++; cuniJws(s, p);");
+        self.line(3, "m.put(key, cuniJval(s, p)); // duplicate keys: last wins");
+        self.line(3, "cuniJws(s, p);");
+        self.line(3, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: expected ',' or '}'\");");
+        self.line(3, "char d = s.charAt(p[0]);");
+        self.line(3, "if (d == ',') { p[0]++; continue; }");
+        self.line(3, "if (d == '}') { p[0]++; return m; }");
+        self.line(3, "throw cuniErr(\"json.parse: expected ',' or '}'\");");
+        self.line(2, "}");
+        self.line(1, "}");
+        self.line(1, "static java.util.List<Object> cuniJarr(String s, int[] p) {");
+        self.line(2, "p[0]++; // [");
+        self.line(2, "java.util.List<Object> xs = new java.util.ArrayList<>();");
+        self.line(2, "cuniJws(s, p);");
+        self.line(2, "if (p[0] < s.length() && s.charAt(p[0]) == ']') { p[0]++; return xs; }");
+        self.line(2, "while (true) {");
+        self.line(3, "cuniJws(s, p);");
+        self.line(3, "xs.add(cuniJval(s, p));");
+        self.line(3, "cuniJws(s, p);");
+        self.line(3, "if (p[0] >= s.length()) throw cuniErr(\"json.parse: expected ',' or ']'\");");
+        self.line(3, "char d = s.charAt(p[0]);");
+        self.line(3, "if (d == ',') { p[0]++; continue; }");
+        self.line(3, "if (d == ']') { p[0]++; return xs; }");
+        self.line(3, "throw cuniErr(\"json.parse: expected ',' or ']'\");");
+        self.line(2, "}");
+        self.line(1, "}");
+        self.line(1, "static java.util.Map<String, Object> cuniJsonParse(Object s) {");
+        self.line(2, "if (!(s instanceof String)) throw cuniErr(\"json.parse needs a str\");");
+        self.line(2, "String t = (String) s;");
+        self.line(2, "int[] p = { 0 };");
+        self.line(2, "cuniJws(t, p);");
+        self.line(2, "Object v = cuniJval(t, p);");
+        self.line(2, "cuniJws(t, p);");
+        self.line(2, "if (p[0] != t.length()) throw cuniErr(\"json.parse: trailing characters\");");
+        self.line(
+            2,
+            "if (!(v instanceof java.util.Map)) throw cuniErr(\"json.parse: top-level JSON value must be an object\");",
+        );
+        self.line(2, "@SuppressWarnings(\"unchecked\")");
+        self.line(2, "java.util.Map<String, Object> m = (java.util.Map<String, Object>) v;");
+        self.line(2, "return m;");
+        self.line(1, "}");
+        self.line(1, "// Canonical minimal emit (docs/STDLIB.md §1.3). TreeMap sorts on");
+        self.line(1, "// UTF-16 code units, which order exactly like UTF-8 bytes.");
+        self.line(1, "static void cuniJesc(String s, StringBuilder b) {");
+        self.line(2, "b.append('\"');");
+        self.line(2, "for (int i = 0; i < s.length(); ) {");
+        self.line(3, "int cp = s.codePointAt(i);");
+        self.line(3, "switch (cp) {");
+        self.line(4, "case '\"': b.append(\"\\\\\\\"\"); break;");
+        self.line(4, "case '\\\\': b.append(\"\\\\\\\\\"); break;");
+        self.line(4, "case '\\b': b.append(\"\\\\b\"); break;");
+        self.line(4, "case '\\f': b.append(\"\\\\f\"); break;");
+        self.line(4, "case '\\n': b.append(\"\\\\n\"); break;");
+        self.line(4, "case '\\r': b.append(\"\\\\r\"); break;");
+        self.line(4, "case '\\t': b.append(\"\\\\t\"); break;");
+        self.line(4, "default:");
+        self.line(5, "if (cp < 0x20) b.append(String.format(\"\\\\u%04x\", cp));");
+        self.line(5, "else b.appendCodePoint(cp);");
+        self.line(3, "}");
+        self.line(3, "i += Character.charCount(cp);");
+        self.line(2, "}");
+        self.line(2, "b.append('\"');");
+        self.line(1, "}");
+        self.line(1, "static void cuniJwrite(Object v, StringBuilder b) {");
+        self.line(2, "if (v == null) { b.append(\"null\"); }");
+        self.line(2, "else if (v instanceof String) { cuniJesc((String) v, b); }");
+        self.line(2, "else if (v instanceof Boolean) { b.append(((Boolean) v) ? \"true\" : \"false\"); }");
+        self.line(2, "else if (v instanceof Long) { b.append(v); }");
+        self.line(2, "else if (v instanceof java.util.List) {");
+        self.line(3, "b.append('[');");
+        self.line(3, "boolean first = true;");
+        self.line(3, "for (Object x : (java.util.List<?>) v) {");
+        self.line(4, "if (!first) b.append(',');");
+        self.line(4, "first = false;");
+        self.line(4, "cuniJwrite(x, b);");
+        self.line(3, "}");
+        self.line(3, "b.append(']');");
+        self.line(2, "} else if (v instanceof java.util.Map) {");
+        self.line(3, "java.util.TreeMap<String, Object> sorted = new java.util.TreeMap<>();");
+        self.line(3, "for (java.util.Map.Entry<?, ?> e : ((java.util.Map<?, ?>) v).entrySet()) {");
+        self.line(
+            4,
+            "if (!(e.getKey() instanceof String)) throw cuniErr(\"json.emit: map keys must be strings\");",
+        );
+        self.line(4, "sorted.put((String) e.getKey(), e.getValue());");
+        self.line(3, "}");
+        self.line(3, "b.append('{');");
+        self.line(3, "boolean first = true;");
+        self.line(3, "for (java.util.Map.Entry<String, Object> e : sorted.entrySet()) {");
+        self.line(4, "if (!first) b.append(',');");
+        self.line(4, "first = false;");
+        self.line(4, "cuniJesc(e.getKey(), b);");
+        self.line(4, "b.append(':');");
+        self.line(4, "cuniJwrite(e.getValue(), b);");
+        self.line(3, "}");
+        self.line(3, "b.append('}');");
+        self.line(2, "} else {");
+        self.line(3, "throw cuniErr(\"json.emit: value has no JSON form\");");
+        self.line(2, "}");
+        self.line(1, "}");
+        self.line(1, "static String cuniJsonEmit(Object m) {");
+        self.line(2, "if (!(m instanceof java.util.Map)) throw cuniErr(\"json.emit needs a map\");");
+        self.line(2, "StringBuilder b = new StringBuilder();");
+        self.line(2, "cuniJwrite(m, b);");
+        self.line(2, "return b.toString();");
+        self.line(1, "}");
+        self.line(1, "// Proleptic Gregorian, Howard Hinnant's algorithms (docs/STDLIB.md §2).");
+        self.line(1, "// All divisions below are on non-negative operands.");
+        self.line(1, "static long cuniDaysFromCivil(long y, long m, long d) {");
+        self.line(2, "long y0 = m <= 2 ? y - 1 : y;");
+        self.line(2, "long era = y0 / 400;");
+        self.line(2, "long yoe = y0 - era * 400;");
+        self.line(2, "long mp = (m + 9) % 12;");
+        self.line(2, "long doy = (153 * mp + 2) / 5 + d - 1;");
+        self.line(2, "long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;");
+        self.line(2, "return era * 146097 + doe - 719468;");
+        self.line(1, "}");
+        self.line(1, "static long[] cuniCivilFromDays(long z) {");
+        self.line(2, "z += 719468;");
+        self.line(2, "long era = z / 146097;");
+        self.line(2, "long doe = z - era * 146097;");
+        self.line(2, "long yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;");
+        self.line(2, "long y = yoe + era * 400;");
+        self.line(2, "long doy = doe - (365 * yoe + yoe / 4 - yoe / 100);");
+        self.line(2, "long mp = (5 * doy + 2) / 153;");
+        self.line(2, "long d = doy - (153 * mp + 2) / 5 + 1;");
+        self.line(2, "long mo = mp < 10 ? mp + 3 : mp - 9;");
+        self.line(2, "if (mo <= 2) y++;");
+        self.line(2, "return new long[] { y, mo, d };");
+        self.line(1, "}");
+        self.line(1, "static long cuniTimeEpoch(long y, long mo, long d, long h, long mi, long s) {");
+        self.line(
+            2,
+            "if (y < 1 || y > 9999) throw cuniErr(\"time.epoch: year out of range 1..9999\");",
+        );
+        self.line(
+            2,
+            "if (mo < 1 || mo > 12) throw cuniErr(\"time.epoch: month out of range 1..12\");",
+        );
+        self.line(2, "if (h < 0 || h > 23) throw cuniErr(\"time.epoch: hour out of range 0..23\");");
+        self.line(
+            2,
+            "if (mi < 0 || mi > 59) throw cuniErr(\"time.epoch: minute out of range 0..59\");",
+        );
+        self.line(2, "if (s < 0 || s > 59) throw cuniErr(\"time.epoch: second out of range 0..59\");");
+        self.line(2, "boolean leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);");
+        self.line(
+            2,
+            "long dim = mo == 2 ? (leap ? 29 : 28) : (mo == 4 || mo == 6 || mo == 9 || mo == 11 ? 30 : 31);",
+        );
+        self.line(
+            2,
+            "if (d < 1 || d > dim) throw cuniErr(\"time.epoch: day out of range for month\");",
+        );
+        self.line(2, "return cuniDaysFromCivil(y, mo, d) * 86400 + h * 3600 + mi * 60 + s;");
+        self.line(1, "}");
+        self.line(1, "static java.util.Map<String, Object> cuniTimeParts(long e) {");
+        self.line(2, "long lo = cuniDaysFromCivil(1, 1, 1) * 86400;");
+        self.line(2, "long hi = cuniDaysFromCivil(9999, 12, 31) * 86400 + 86399;");
+        self.line(
+            2,
+            "if (e < lo || e > hi) throw cuniErr(\"time.parts: epoch out of range 1..9999\");",
+        );
+        self.line(2, "long days = Math.floorDiv(e, 86400);");
+        self.line(2, "long secs = e - days * 86400;");
+        self.line(2, "long[] ymd = cuniCivilFromDays(days);");
+        self.line(2, "java.util.Map<String, Object> m = new java.util.HashMap<>();");
+        self.line(2, "m.put(\"year\", ymd[0]); m.put(\"month\", ymd[1]); m.put(\"day\", ymd[2]);");
+        self.line(
+            2,
+            "m.put(\"hour\", secs / 3600); m.put(\"min\", (secs % 3600) / 60); m.put(\"sec\", secs % 60);",
+        );
+        self.line(2, "return m;");
+        self.line(1, "}");
+        self.line(1, "static java.util.List<String> cuniSplit(Object s, Object sep) {");
+        self.line(
+            2,
+            "if (!(s instanceof String) || !(sep instanceof String)) throw cuniErr(\".split needs strings\");",
+        );
+        self.line(2, "String ss = (String) s, pp = (String) sep;");
+        self.line(2, "if (pp.isEmpty()) throw cuniErr(\".split: empty separator; refusing\");");
+        self.line(2, "java.util.List<String> out = new java.util.ArrayList<>();");
+        self.line(2, "if (ss.isEmpty()) { out.add(\"\"); return out; }");
+        self.line(2, "int start = 0, hit;");
+        self.line(2, "while ((hit = ss.indexOf(pp, start)) >= 0) {");
+        self.line(3, "out.add(ss.substring(start, hit));");
+        self.line(3, "start = hit + pp.length();");
+        self.line(2, "}");
+        self.line(2, "out.add(ss.substring(start));");
+        self.line(2, "return out;");
+        self.line(1, "}");
+        self.line(1, "static String cuniJoin(Object sep, Object parts) {");
+        self.line(
+            2,
+            "if (!(sep instanceof String)) throw cuniErr(\".join needs a str separator\");",
+        );
+        self.line(
+            2,
+            "if (!(parts instanceof java.util.List)) throw cuniErr(\".join needs a list<str>\");",
+        );
+        self.line(2, "StringBuilder b = new StringBuilder();");
+        self.line(2, "boolean first = true;");
+        self.line(2, "for (Object x : (java.util.List<?>) parts) {");
+        self.line(3, "if (!(x instanceof String)) throw cuniErr(\".join: all parts must be str\");");
+        self.line(3, "if (!first) b.append((String) sep);");
+        self.line(3, "first = false;");
+        self.line(3, "b.append((String) x);");
+        self.line(2, "}");
+        self.line(2, "return b.toString();");
+        self.line(1, "}");
+        self.line(1, "static boolean cuniIsTrim(char c) {");
+        self.line(
+            2,
+            "return c == ' ' || c == '\\t' || c == '\\n' || c == 0x0B || c == '\\f' || c == '\\r';",
+        );
+        self.line(1, "}");
+        self.line(1, "// ASCII whitespace only (docs/STDLIB.md §3.3) — not String.strip().");
+        self.line(1, "static String cuniTrim(Object s) {");
+        self.line(2, "if (!(s instanceof String)) throw cuniErr(\".trim needs a str\");");
+        self.line(2, "String ss = (String) s;");
+        self.line(2, "int a = 0, b = ss.length();");
+        self.line(2, "while (a < b && cuniIsTrim(ss.charAt(a))) a++;");
+        self.line(2, "while (b > a && cuniIsTrim(ss.charAt(b - 1))) b--;");
+        self.line(2, "return ss.substring(a, b);");
+        self.line(1, "}");
+        self.line(1, "static boolean cuniContains(Object s, Object sub) {");
+        self.line(
+            2,
+            "if (!(s instanceof String) || !(sub instanceof String)) throw cuniErr(\".contains needs strings\");",
+        );
+        self.line(2, "return ((String) s).contains((String) sub);");
+        self.line(1, "}");
+        self.line(1, "// SHA-256 (docs/STDLIB.md §4) via the JDK's MessageDigest.");
+        self.line(1, "static String cuniSha256(Object s) {");
+        self.line(2, "if (!(s instanceof String)) throw cuniErr(\"sha256 needs a str\");");
+        self.line(2, "try {");
+        self.line(
+            3,
+            "java.security.MessageDigest md = java.security.MessageDigest.getInstance(\"SHA-256\");",
+        );
+        self.line(
+            3,
+            "byte[] h = md.digest(((String) s).getBytes(java.nio.charset.StandardCharsets.UTF_8));",
+        );
+        self.line(3, "StringBuilder b = new StringBuilder();");
+        self.line(3, "for (byte x : h) b.append(String.format(\"%02x\", x & 0xFF));");
+        self.line(3, "return b.toString();");
+        self.line(2, "} catch (java.security.NoSuchAlgorithmException ex) {");
+        self.line(3, "throw cuniErr(\"sha256: SHA-256 unavailable\");");
+        self.line(2, "}");
         self.line(1, "}");
     }
 
@@ -1074,23 +1482,37 @@ impl Codegen {
                 })
             }
             ExprKind::Map(pairs) => {
-                let mut kty: Option<JTy> = None;
-                let mut vty: Option<JTy> = None;
+                let tmp = self.fresh_tmp();
+                let mut kt: Option<JTy> = None;
+                let mut first_vt: Option<JTy> = None;
+                let mut hetero = false;
                 let mut puts = Vec::new();
                 for (k, v) in pairs {
                     let kk = self.gen_expr(k)?;
                     let vv = self.gen_expr(v)?;
-                    if kty.is_none() {
-                        kty = Some(kk.ty.clone());
+                    if kt.is_none() {
+                        kt = Some(kk.ty.clone());
                     }
-                    if vty.is_none() {
-                        vty = Some(vv.ty.clone());
+                    match &first_vt {
+                        None => first_vt = Some(vv.ty.clone()),
+                        Some(t) => {
+                            if *t != vv.ty {
+                                hetero = true;
+                            }
+                        }
                     }
-                    puts.push(format!("m.put({}, {});", kk.code, vv.code));
+                    // Puts must target this literal's own temp, not a
+                    // hardcoded name (a user variable could be named `m`).
+                    puts.push(format!("{tmp}.put({}, {});", kk.code, vv.code));
                 }
-                let kt = kty.unwrap_or(JTy::Named("Object".into()));
-                let vt = vty.unwrap_or(JTy::Named("Object".into()));
-                let tmp = self.fresh_tmp();
+                let kt = kt.unwrap_or(JTy::Named("Object".into()));
+                // Heterogeneous value types widen to Object: first-pair-only
+                // would emit uncompilable puts for e.g. {"z": 1, "a": {...}}.
+                let vt = if hetero {
+                    JTy::Named("Object".into())
+                } else {
+                    first_vt.unwrap_or(JTy::Named("Object".into()))
+                };
                 // Double-brace would work but leaks a class per literal; a
                 // block-scoped temp map is plain and honest.
                 Ok(JExpr {
@@ -1183,6 +1605,7 @@ impl Codegen {
                 "abs" => Some("cuni_abs"),
                 "min" => Some("cuni_min"),
                 "max" => Some("cuni_max"),
+                "sha256" => Some("cuniSha256"),
                 "say" => None, // handled below (needs arg-count check)
                 _ => None,
             };
@@ -1199,6 +1622,7 @@ impl Codegen {
                     .collect::<Result<_, _>>()?;
                 let ty = match fname.as_str() {
                     "range" => JTy::List(Box::new(JTy::Long)),
+                    "sha256" => JTy::Str,
                     _ => JTy::Long,
                 };
                 return Ok(JExpr {
@@ -1261,6 +1685,39 @@ impl Codegen {
         }
         // Method calls: only the portable builtins have a Java shape.
         if let ExprKind::Field { base, name } = &callee.kind {
+            // Wave-1 stdlib namespaces (docs/STDLIB.md): `json`/`time` are
+            // reserved identifiers, so an Ident base here is a namespace.
+            if let ExprKind::Ident(ns) = &base.kind {
+                if ns == "json" || ns == "time" {
+                    let av: Vec<String> = args
+                        .iter()
+                        .map(|a| self.gen_expr(a.expr()).map(|e| e.code))
+                        .collect::<Result<_, _>>()?;
+                    let obj_map =
+                        || JTy::Map(Box::new(JTy::Str), Box::new(JTy::TVar("Object".into())));
+                    let (code, ty) = match (ns.as_str(), name.as_str()) {
+                        ("json", "parse") => {
+                            (format!("cuniJsonParse({})", av.join(", ")), obj_map())
+                        }
+                        ("json", "emit") => {
+                            (format!("cuniJsonEmit({})", av.join(", ")), JTy::Str)
+                        }
+                        ("time", "epoch") => {
+                            (format!("cuniTimeEpoch({})", av.join(", ")), JTy::Long)
+                        }
+                        ("time", "parts") => {
+                            (format!("cuniTimeParts({})", av.join(", ")), obj_map())
+                        }
+                        _ => {
+                            return Err(format!(
+                                "unknown stdlib function `{}.{}`; refusing",
+                                ns, name
+                            ))
+                        }
+                    };
+                    return Ok(JExpr { code, ty });
+                }
+            }
             let b = self.gen_expr(base)?;
             let av: Vec<String> = args
                 .iter()
@@ -1325,6 +1782,67 @@ impl Codegen {
                         "`.push` used as an expression has no honest Java value (Java `add` returns boolean, py returns None); refusing — use it as a statement"
                             .into(),
                     );
+                }
+                // Wave-1 string ops (docs/STDLIB.md §3).
+                "split" => {
+                    if args.len() != 1 {
+                        return Err("`.split` takes exactly one argument; refusing".into());
+                    }
+                    if !matches!(b.ty, JTy::Str) {
+                        return Err(format!(
+                            "`.split` needs a string target (got {}); refusing",
+                            b.ty.decl()
+                        ));
+                    }
+                    return Ok(JExpr {
+                        code: format!("cuniSplit({}, {})", b.code, av[0]),
+                        ty: JTy::List(Box::new(JTy::Str)),
+                    });
+                }
+                "join" => {
+                    if args.len() != 1 {
+                        return Err("`.join` takes exactly one argument; refusing".into());
+                    }
+                    if !matches!(b.ty, JTy::Str) {
+                        return Err(format!(
+                            "`.join` needs a string separator (got {}); refusing",
+                            b.ty.decl()
+                        ));
+                    }
+                    return Ok(JExpr {
+                        code: format!("cuniJoin({}, {})", b.code, av[0]),
+                        ty: JTy::Str,
+                    });
+                }
+                "trim" => {
+                    if !args.is_empty() {
+                        return Err("`.trim` takes no arguments; refusing".into());
+                    }
+                    if !matches!(b.ty, JTy::Str) {
+                        return Err(format!(
+                            "`.trim` needs a string target (got {}); refusing",
+                            b.ty.decl()
+                        ));
+                    }
+                    return Ok(JExpr {
+                        code: format!("cuniTrim({})", b.code),
+                        ty: JTy::Str,
+                    });
+                }
+                "contains" => {
+                    if args.len() != 1 {
+                        return Err("`.contains` takes exactly one argument; refusing".into());
+                    }
+                    if !matches!(b.ty, JTy::Str) {
+                        return Err(format!(
+                            "`.contains` needs a string target (got {}); refusing",
+                            b.ty.decl()
+                        ));
+                    }
+                    return Ok(JExpr {
+                        code: format!("cuniContains({}, {})", b.code, av[0]),
+                        ty: JTy::Bool,
+                    });
                 }
                 _ => {
                     return Err(format!(
