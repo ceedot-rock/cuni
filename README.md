@@ -14,9 +14,13 @@ The refusal is the product. Other tools try to paper over differences. CuNi trea
 
 This is why Agent Rider runs on CuNi. In a world where AI agents write and execute code across systems, "close enough" is how things break. Rider requires CuNi's exactness proof before an agent's policy is allowed to run: same behavior everywhere, or it doesn't run.
 
-## Replace trust with proof
+## Trust Provable, in all things
 
-Everywhere the industry *trusts* two implementations match, CuNi *proves* it — same stdout, or refuse. That turns exactness into working infrastructure:
+CuNi's mission. Everywhere the industry *trusts* two implementations match, CuNi *proves* it — same stdout, or refuse. ("Replace trust with proof" was the 0.4.0-era line; the mission it named now leads the project.)
+
+The three divisions sit under it, in build order: **Code** (the compiler — emitters, seats, stdlib, ingest, tooling), **Financial** (audit proofs, compliance code, verification gates), **Onchain** (chain emitters, cross-chain proofs). This release is Code Division work.
+
+That turns exactness into working infrastructure:
 
 - **Cross-chain contracts** — one escrow/transfer-validation law, proven identical on EVM (Solidity), Rust, and Go targets before anything deploys. See `examples/proof-crosschain/`.
 - **Audit-grade finance** — the bank's Java and the auditor's Python, gate-proven to agree. The new Java seat exists for exactly this.
@@ -25,6 +29,8 @@ Everywhere the industry *trusts* two implementations match, CuNi *proves* it —
 - **Firmware you can ship** — control logic proven identical on C and Rust targets, with a refuse-to-promote gate: fail the proof, nothing ships. See `examples/proof-firmware/`.
 - **SQL dialect portability** — one query logic, SQLite/PostgreSQL/MySQL dialects, proven against real `sqlite3`. The new SQL seat.
 - **Solana programs** — one transfer-validation law compiled to an Anchor-shaped Solana program: the logic core gate-proven byte-identical, the program shell honestly delimited (not compiled here — no Solana toolchain on the check machine). See `examples/proof-solana/` and `docs/SOLANA.md`.
+- **Exact money math** — the `dec` type: fixed-point decimals (scale 10⁴, truncation toward zero), same stdout on all 12 native seats plus solc-compiled Solidity. See `examples/proof-decimal/` and `docs/DECIMAL.md`.
+- **Standard library, wave 1** — JSON parse/emit (canonical form), unix timestamps, string ops, SHA-256: same behavior on every seat, honest refusals where a seat can't be exact. See `docs/STDLIB.md`.
 
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
@@ -114,6 +120,7 @@ Result: agents can be implemented in the language that is most convenient, while
 | **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → every catalog language → **same stdout** |
 | **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
 | **Decimal (`dec`)** | `cuni check examples/proof-decimal/money.cuni` | Exact fixed-point money math (scale 10⁴, truncation toward zero) → **same stdout** on all 12 native seats + solc-compiled Solidity |
+| **Stdlib wave 1** | `cuni check examples/stdlib-wave1/` | JSON / unix time / strings / SHA-256 → **same stdout** on every seat that can be exact, tested refusals where a seat can't |
 
 ### Flagship: one `link`, three languages
 
@@ -288,9 +295,11 @@ tests/
 assets/logo.png                        # brand mark
 ```
 
-## Status (v0.4.0)
+## Status (v0.5.0)
 
 **Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua/Java/SQL, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), **Java seat** (`--emit-java`: `javac`-compiled; audit-finance story — the bank's Java and the auditor's Python gate-proven to agree), **SQL seat** (`--emit-sql`: SQLite/PostgreSQL/MySQL dialects, verified against real `sqlite3`), `--emit-all` language catalog (144: 12 native seats + 132 Python lowerings), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
+
+**New in v0.5.0:** **`dec` exact decimal type** (scale 10⁴ — money math proven byte-identical on all 12 native seats + solc-compiled Solidity), **stdlib wave 1** (JSON, unix time, strings, SHA-256 with per-seat support/refusal matrix), **Solana program emitter** (`--emit-solana`: Anchor-shaped program, logic core gate-proven, shell honestly delimited — proof profile, not a new seat). Mission line: **"Trust Provable, in all things"**.
 
 **Not in v0.1 (by design):** tagged unions with payload, streaming `link`, full inference — see SPEC.md §19.
 

@@ -206,6 +206,7 @@ impl Codegen {
         self.line(2, "return CuniDec(_cuni_tdiv(int(self) * 10000, int(o)))");
         self.line(1, "def __neg__(self):");
         self.line(2, "return CuniDec(-int(self))");
+        self.out.push('\n');
         // ---- Wave-1 stdlib (docs/STDLIB.md). Module imports are lazy
         // (inside the helpers) so programs that don't use the stdlib pay
         // nothing and emit no extra imports.

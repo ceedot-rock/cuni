@@ -209,6 +209,8 @@ impl Codegen {
         self.line(1, "def ==(o); o.is_a?(CuniDec) && __getobj__ == o.__getobj__; end");
         self.line(1, "def to_s; CuniDec.dec_str(__getobj__); end");
         self.line(1, "def inspect; to_s; end");
+        self.line(0, "end");
+        self.out.push('\n');
         // ---- Wave-1 stdlib (docs/STDLIB.md). `require`s are lazy (inside
         // the helpers) so non-stdlib programs emit no extra dependencies.
         self.line(0, "CUNI_JSON_INT_MAX = 9007199254740991");

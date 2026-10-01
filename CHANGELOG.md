@@ -1,7 +1,10 @@
 # Changelog
 
-## [Unreleased] — "Trust Provable, in all things"
+## [0.5.0] — 2026-10-01 — "Trust Provable, in all things"
+Code Division, first release under the new mission line. ("Replace trust with proof" stays as the 0.4.0-era supporting line.)
 ### Added
+- Exact decimal type `dec` (scale 10⁴, docs/DECIMAL.md): fixed-point money math across all 13 seats — Python int, Rust i128, Go int64 (out-of-range refused), JS/TS BigInt (never f64), C/C++ `__int128` or refuse, Ruby bignum, Lua int64 or refuse, Java scaled `BigInteger`, SQL scaled INTEGER (never REAL), Solidity `uint256` via real solc. Truncation toward zero on division; no implicit dec↔int conversion; `%` refused; `dec_of_int`/`int_of_dec` explicit conversions; canonical printing; division by zero loud everywhere. `cuni check` gates `examples/proof-decimal/money.cuni` byte-identical on all 12 native seats + solc-compiled Solidity.
+- Stdlib wave 1 (docs/STDLIB.md): JSON parse/emit (canonical form), unix timestamp conversions (no wall-clock `now()` — nondeterministic), string ops (split/join/trim/contains with exact semantics), SHA-256. Per-seat support/refusal matrix in the spec; Solidity refuses all wave-1 (tested refusals).
 - Solana program emitter (`cuni --emit-solana <out.rs>`, `src/codegen_solana.rs`): one `.cuni` source becomes an Anchor-shaped Solana program — a pure logic core (the part CuNi proves) plus the program shell (entrypoint, accounts struct, program id) in two clearly delimited regions. Mirrors the Solidity backend's posture: genuine artifact, real-toolchain verification where possible, honest refusal everywhere else (`float`/`list`/`map`/`opt`/`??`/structs/enums refuse).
 - `examples/proof-solana/` + `cargo test --test proof_solana`: the transfer-validation law gate-proven byte-identical on rs/go/py seats AND on the logic module extracted from the emitted program (compiled standalone with plain `rustc`, no dependencies).
 - `docs/SOLANA.md`: honest boundaries (logic gate-proven; shell NOT compiled here — no Solana toolchain on the check machine; nothing executed on-chain) and the full verification recipe (Solana CLI + Anchor) for a tooled machine.

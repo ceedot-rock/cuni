@@ -51,10 +51,12 @@ verification where possible, refusal everywhere else.
   off-chain proof). A production shell maps it to `Err` — that mapping is a
   deployment-time decision, not something CuNi guesses.
 - **v1 refusal set.** `float`, `list`, `map`, `opt`, `??`, structs, enums,
-  indexing, and field access are honestly refused. A Solana program's
-  verifiable core is integer math; the backend will not guess at mappings it
-  cannot prove. (Solidity's seat is the model: same posture, `solc`'s
-  compile-to-bytecode in place of our `rustc` standalone check.)
+  indexing, field access, and **`dec`** literals are honestly refused. A
+  Solana program's verifiable core is integer math; the backend will not
+  guess at mappings it cannot prove. (`dec` needs a scaled-decimal form in
+  the logic core — a separate proof, not this release.) (Solidity's seat is
+  the model: same posture, `solc`'s compile-to-bytecode in place of our
+  `rustc` standalone check.)
 - **Integers are `i64`.** On-chain convention would be `u64` amounts; CuNi
   proves the `i64` semantics it was given (truncated `/` and `%`, exactly
   like CuNi's `int`). A `u64` port is a separate proof.

@@ -605,6 +605,9 @@ impl Codegen {
         match &e.kind {
             ExprKind::Int(n) => Ok(format!("{}i64", n)),
             ExprKind::Float(_) => Err("float literals have no Solana-logic form; refusing".into()),
+            // `dec` literals (docs/DECIMAL.md): v1 has no scaled-decimal form in
+            // the logic core — refuse rather than fake exactness.
+            ExprKind::Dec(_) => Err("dec literals have no Solana-logic form (v1); refusing".into()),
             ExprKind::Bool(b) => Ok(b.to_string()),
             ExprKind::Str(s) => Ok(format!("\"{}\"", Self::esc(s))),
             ExprKind::InterpStr(parts) => {

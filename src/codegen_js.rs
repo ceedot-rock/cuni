@@ -325,6 +325,8 @@ impl Codegen {
         self.line(0, "}");
         self.line(0, "function _cuni_int_of_dec(d) {");
         self.line(1, "return Number(d / 10000n);  // truncates toward zero, like every seat");
+        self.line(0, "}");
+        self.out.push('\n');
         // ---- Wave-1 stdlib (docs/STDLIB.md). ----
         self.line(
             0,
