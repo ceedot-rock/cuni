@@ -1,0 +1,49 @@
+# escrow.cuni — the Solana program proof fixture.
+#
+# "Trust Provable, in all things."
+#
+# One transfer-validation law, written once in CuNi, compiled by
+# `cuni --emit-solana` into an Anchor-shaped Solana program
+# (see docs/SOLANA.md). A transfer is VALID only when the amount is
+# positive, the fee rate sits within 0..10000 basis points, and
+# amount + fee fits the balance.
+#
+# All arithmetic is integer-exact (truncated division), so every seat —
+# including the Solana logic core's i64, whose `/` truncates toward zero
+# exactly like CuNi's int — computes the same values.
+#
+# Status codes (exact integers, no error strings — strings diverge across
+# chains; codes don't):
+#   0 = OK           — transfer valid, fee exact
+#   1 = INSUFFICIENT — amount + fee exceeds balance
+#   2 = BAD_AMOUNT   — amount must be > 0
+#   3 = BAD_FEE_RATE — fee_bps must be within 0..10000
+def transfer_fee(amount: int, fee_bps: int) -> int do
+    ret amount * fee_bps / 10000
+end
+
+def validate_transfer(balance: int, amount: int, fee_bps: int) -> int do
+    if amount <= 0 do
+        ret 2
+    end
+    if fee_bps < 0 do
+        ret 3
+    end
+    if fee_bps > 10000 do
+        ret 3
+    end
+    let total: int = amount + transfer_fee(amount, fee_bps)
+    if total > balance do
+        ret 1
+    end
+    ret 0
+end
+
+# Driver: six fixed cases, printed verdicts must be byte-identical
+# on every gate seat (rs, go, py) and on the extracted Solana logic core.
+say(validate_transfer(10000, 5000, 50))
+say(transfer_fee(5000, 50))
+say(validate_transfer(100, 90, 2000))
+say(validate_transfer(10000, 0, 50))
+say(validate_transfer(10000, 5000, 15000))
+say(validate_transfer(5025, 5000, 50))
