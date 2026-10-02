@@ -1,0 +1,93 @@
+# Proof fixture: deferred-seat exactness (clj, ex, hs, pro, erl, tcl).
+# Exercises the full core subset every native seat must honor:
+# say/let/mut, def/ret (incl. recursion), if/els, whl, int arithmetic
+# (+ - * / % with truncation-toward-zero / and Python-floored %),
+# comparisons, and/or/not, unary minus, string concat and escapes.
+
+def add(a: int, b: int) -> int do
+  ret a + b
+end
+
+def fact(n: int) -> int do
+  mut r = 1
+  mut i = 1
+  whl i <= n do
+    r = r * i
+    i = i + 1
+  end
+  ret r
+end
+
+def fib(n: int) -> int do
+  if n <= 1 do
+    ret n
+  end
+  ret fib(n - 1) + fib(n - 2)
+end
+
+def greet(name: str) -> str do
+  ret "hi " + name
+end
+
+def is_pos(n: int) -> bool do
+  ret n > 0
+end
+
+let x = 40
+let y = 2
+say(x + y)
+say(x - y)
+say(x * y)
+say(7 / 2)
+say(7 % 3)
+say(-7 / 2)
+say(-7 % 3)
+say(add(10, 32))
+say(fact(5))
+say(fib(10))
+say(greet("bob"))
+say(greet("a" + "b"))
+say(is_pos(-5))
+say(is_pos(5) and is_pos(10) or is_pos(-1))
+say(not (x < y))
+let s = "hello"
+say(s + " world")
+say("line1\nline2")
+say("quote\"end")
+say("dollar$sign")
+say("back\\slash")
+say("tab\there")
+say("")
+say(x == 40)
+say(x != 40)
+say(x > y and y < 100)
+let a = 1 + 2 * 3 - 4 / 2 + 10 % 3
+say(a)
+say((1 + 2) * (3 - 4))
+say(1000000 * 1000000)
+say(0 - 5)
+say(10 % 3 + 10 / 3 * 2)
+mut m = 10
+m = m * 2 + 1
+say(m)
+mut c = 0
+whl c < 3 do
+  say(c)
+  c = c + 1
+end
+if x > y do
+  say("big")
+els
+  say("small")
+end
+if true do
+  if false do
+    say("inner")
+  els
+    say("nested-else")
+  end
+els
+  say("outer-else")
+end
+say(true)
+say(false)
