@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CuNi Developers — Quickstart</title>
+<meta name="description" content="Install CuNi in one command. Write a .cuni file, prove it across every seat, emit it for a chain.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="nav"><div class="wrap">
+<a class="brand" href="index.html">Slid Phi Labs</a>
+<a class="nl" href="index.html">Home</a>
+<a class="nl" href="cuni.html">CuNi</a>
+<a class="nl" href="cuni-audit.html">Audit</a>
+<a class="nl" href="cuni-onchain.html">Onchain</a>
+<a class="nl" href="rider.html">Rider</a>
+<a class="nl" href="products.html">Products</a>
+</div></nav>
+
+<div class="wrap">
+<header class="hero">
+<div class="kicker">Developers</div>
+<h1>Build with CuNi.</h1>
+<p class="sub">Four steps. Five minutes. Proof included.</p>
+</header>
+
+<ol class="steps">
+<li><strong>Install.</strong><pre class="code">$ cargo install cuni</pre></li>
+<li><strong>Write it.</strong><pre class="code">$ cat &gt; hello.cuni
+say "hello, exact world"</pre></li>
+<li><strong>Prove it.</strong><p><code class="inline">cuni check</code> runs your program on every seat. Same bytes everywhere, or it refuses.</p><pre class="code">$ cuni check hello.cuni
+PASS — 12 seats, byte-identical</pre></li>
+<li><strong>Ship it anywhere.</strong><p>Emit for a chain, a language, a database.</p><pre class="code">$ cuni --emit-vyper hello.cuni</pre></li>
+</ol>
+
+<section class="block">
+<h2 class="sec">Keep proving it.</h2>
+<p class="lead">The <code class="inline">cuni-audit</code> GitHub Action drops the exactness gate into any CI pipeline: law in, implementation in, signed receipt out. A moved boundary cent fails the PR.</p>
+<div class="btnrow">
+<a class="btn primary" href="https://github.com/ceedot-rock/cuni">GitHub</a>
+<a class="btn ghost" href="https://crates.io/crates/cuni">crates.io</a>
+<a class="btn ghost" href="https://cuni-studio.fly.dev">Studio</a>
+</div>
+</section>
+</div>
+
+<footer><div class="wrap">
+<div class="fbrand">Slid Phi Labs — Trust Provable, in all things.</div>
+<div>Slid Phi Labs accepts donations to keep the lab independent: <a href="https://www.patreon.com/SlidPhiLabs">https://www.patreon.com/SlidPhiLabs</a></div>
+</div></footer>
+</body>
+</html>

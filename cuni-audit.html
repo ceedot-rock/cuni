@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CuNi Audit — forget trust. Prove.</title>
+<meta name="description" content="cuni audit: hand it a financial law and an implementation, get back a signed receipt. PASS or REFUSE — refusals signed too.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="nav"><div class="wrap">
+<a class="brand" href="index.html">Slid Phi Labs</a>
+<a class="nl" href="index.html">Home</a>
+<a class="nl" href="cuni.html">CuNi</a>
+<a class="nl" href="cuni-audit.html">Audit</a>
+<a class="nl" href="cuni-onchain.html">Onchain</a>
+<a class="nl" href="rider.html">Rider</a>
+<a class="nl" href="products.html">Products</a>
+</div></nav>
+
+<div class="wrap">
+<header class="hero">
+<div class="kicker">CuNi · Financial Division</div>
+<h1>forget trust. Prove.</h1>
+<p class="sub">The audit trail that can't lie. State the financial law once. Every implementation proves against it — or refuses.</p>
+</header>
+
+<pre class="code">$ cuni audit law.cuni --against impl.py
+PASS — receipt signed: audit-2026-10-02.json</pre>
+
+<section class="block">
+<h2 class="sec">A signed receipt.</h2>
+<p class="lead">PASS means the implementation printed byte-identical output to the law on every driver case. REFUSE means it didn't — and the refusal is signed too. File either one. The disagreement itself is evidence.</p>
+<div class="grid">
+<div class="card"><h3>PASS</h3><p>The hashes match. The bytes match. Ship it.</p></div>
+<div class="card"><h3>REFUSE</h3><p>Signed, hash-bound, timestamped. The refusal is the audit output.</p></div>
+<div class="card"><h3>$0.10</h3><p>per hosted check. Submit a law and an implementation, get the signed receipt back.</p></div>
+</div>
+</section>
+
+<section class="block">
+<h2 class="sec">Three worked laws.</h2>
+<p class="lead">Real financial math, boundary-exact, shipped with CuNi.</p>
+<div class="grid">
+<div class="card"><h3>Tiered fees</h3><p>Fee schedules with exact bracket edges. The boundary cent is where fee bugs live — the gate pins every one.</p></div>
+<div class="card"><h3>Interest accrual</h3><p><code class="inline">dec</code> × <code class="inline">time</code>. Daily accrual over vesting windows, leap days included.</p></div>
+<div class="card"><h3>Withholding</h3><p>Bracket math, boundary-exact at every edge.</p></div>
+</div>
+</section>
+
+<section class="block">
+<h2 class="sec">Drop it in CI.</h2>
+<p class="lead">Exits 0 on PASS, nonzero on REFUSE. A pricing-engine change that moves one boundary cent fails the gate before it reaches production.</p>
+<div class="btnrow">
+<a class="btn primary" href="cuni-developers.html">Build with it</a>
+<a class="btn ghost" href="cuni-enterprise.html">Enterprise story</a>
+<a class="btn ghost" href="https://github.com/ceedot-rock/cuni">GitHub</a>
+</div>
+</section>
+</div>
+
+<footer><div class="wrap">
+<div class="fbrand">Slid Phi Labs — Trust Provable, in all things.</div>
+<div>Slid Phi Labs accepts donations to keep the lab independent: <a href="https://www.patreon.com/SlidPhiLabs">https://www.patreon.com/SlidPhiLabs</a></div>
+</div></footer>
+</body>
+</html>
