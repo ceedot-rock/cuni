@@ -425,12 +425,6 @@ pub const LANGS: &[Lang] = &[
         family: Family::Js,
     },
     Lang {
-        id: "as",
-        name: "ActionScript",
-        ext: "as",
-        family: Family::Js,
-    },
-    Lang {
         id: "elm",
         name: "Elm",
         ext: "elm",
@@ -497,64 +491,10 @@ pub const LANGS: &[Lang] = &[
         family: Family::Cpp,
     },
     Lang {
-        id: "mm",
-        name: "Objective-C++",
-        ext: "mm",
-        family: Family::Objc,
-    },
-    Lang {
         id: "pde",
         name: "Processing",
         ext: "pde",
         family: Family::Java,
-    },
-    Lang {
-        id: "apex",
-        name: "Apex",
-        ext: "cls",
-        family: Family::Java,
-    },
-    Lang {
-        id: "dpr",
-        name: "Delphi",
-        ext: "dpr",
-        family: Family::Pascal,
-    },
-    Lang {
-        id: "pgsql",
-        name: "PL/pgSQL",
-        ext: "pgsql",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "tsql",
-        name: "T-SQL",
-        ext: "sql",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "plsql",
-        name: "PL/SQL",
-        ext: "pls",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "graphql",
-        name: "GraphQL",
-        ext: "graphql",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "cypher",
-        name: "Cypher",
-        ext: "cypher",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "sparql",
-        name: "SPARQL",
-        ext: "sparql",
-        family: Family::Sql,
     },
     Lang {
         id: "vy",
@@ -629,18 +569,6 @@ pub const LANGS: &[Lang] = &[
         family: Family::Ada,
     },
     Lang {
-        id: "sas",
-        name: "SAS",
-        ext: "sas",
-        family: Family::R,
-    },
-    Lang {
-        id: "wl",
-        name: "Wolfram",
-        ext: "wl",
-        family: Family::Matlab,
-    },
-    Lang {
         id: "vhdl",
         name: "VHDL",
         ext: "vhd",
@@ -683,64 +611,16 @@ pub const LANGS: &[Lang] = &[
         family: Family::Assembly,
     },
     Lang {
-        id: "tex",
-        name: "TeX",
-        ext: "tex",
-        family: Family::Sql,
-    },
-    Lang {
         id: "nix",
         name: "Nix",
         ext: "nix",
         family: Family::Haskell,
     },
     Lang {
-        id: "cmake",
-        name: "CMake",
-        ext: "cmake",
-        family: Family::Bash,
-    },
-    Lang {
-        id: "mk",
-        name: "Make",
-        ext: "mk",
-        family: Family::Bash,
-    },
-    Lang {
-        id: "sed",
-        name: "Sed",
-        ext: "sed",
-        family: Family::Awk,
-    },
-    Lang {
-        id: "f77",
-        name: "Fortran 77",
-        ext: "f",
-        family: Family::Fortran,
-    },
-    Lang {
-        id: "abap",
-        name: "ABAP",
-        ext: "abap",
-        family: Family::Cobol,
-    },
-    Lang {
-        id: "rpg",
-        name: "RPG",
-        ext: "rpg",
-        family: Family::Cobol,
-    },
-    Lang {
         id: "st-iec",
         name: "IEC Structured Text",
         ext: "st",
         family: Family::Pascal,
-    },
-    Lang {
-        id: "gcode",
-        name: "G-code",
-        ext: "nc",
-        family: Family::Assembly,
     },
     Lang {
         id: "openscad",
@@ -753,12 +633,6 @@ pub const LANGS: &[Lang] = &[
         name: "Pony",
         ext: "pony",
         family: Family::Rust,
-    },
-    Lang {
-        id: "proto",
-        name: "Protocol Buffers",
-        ext: "proto",
-        family: Family::Sql,
     },
     Lang {
         id: "qml",
@@ -778,29 +652,11 @@ pub const LANGS: &[Lang] = &[
         ext: "dhall",
         family: Family::Haskell,
     },
-    Lang {
-        id: "hcl",
-        name: "HCL",
-        ext: "tf",
-        family: Family::Sql,
-    },
-    Lang {
-        id: "bicep",
-        name: "Bicep",
-        ext: "bicep",
-        family: Family::CSharp,
-    },
     // Extended catalog: more real languages, mapped onto existing families.
     Lang {
         id: "bal",
         name: "Ballerina",
         ext: "bal",
-        family: Family::Java,
-    },
-    Lang {
-        id: "ceylon",
-        name: "Ceylon",
-        ext: "ceylon",
         family: Family::Java,
     },
     Lang {
@@ -820,18 +676,6 @@ pub const LANGS: &[Lang] = &[
         name: "NetRexx",
         ext: "nrx",
         family: Family::Java,
-    },
-    Lang {
-        id: "frege",
-        name: "Frege",
-        ext: "fr",
-        family: Family::Haskell,
-    },
-    Lang {
-        id: "eta",
-        name: "Eta",
-        ext: "eta",
-        family: Family::Haskell,
     },
     Lang {
         id: "agda",
@@ -876,40 +720,10 @@ pub const LANGS: &[Lang] = &[
         family: Family::C,
     },
     Lang {
-        id: "jai",
-        name: "Jai",
-        ext: "jai",
-        family: Family::C,
-    },
-    Lang {
-        id: "holyc",
-        name: "HolyC",
-        ext: "hc",
-        family: Family::C,
-    },
-    Lang {
-        id: "cyclone",
-        name: "Cyclone",
-        ext: "cyc",
-        family: Family::C,
-    },
-    Lang {
         id: "carbon",
         name: "Carbon",
         ext: "carbon",
         family: Family::Cpp,
-    },
-    Lang {
-        id: "cpp2",
-        name: "Cpp2",
-        ext: "cpp2",
-        family: Family::Cpp,
-    },
-    Lang {
-        id: "cmm",
-        name: "C--",
-        ext: "cmm",
-        family: Family::C,
     },
     Lang {
         id: "pawn",

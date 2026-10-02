@@ -1,0 +1,15 @@
+mut x = 10
+mut y = 3
+say(x)
+say(y)
+y = y + 1
+say(y)
+x = 99
+say(x)
+let s = "ab"
+mut t = "cd"
+say(s + t)
+t = t + "!"
+say(t)
+let b = true
+say(b)

@@ -1,7 +1,7 @@
 //! Exactness emit + run plan for every catalog language.
 //!
 //! Native seats compile with that language's toolchain. Other ids use the
-//! Python lowering so the 144-language gate still emit+runs instead of skipping.
+//! Python lowering so the 113-language gate still emit+runs instead of skipping.
 
 use crate::ast::Program;
 use crate::codegen_c;
@@ -9,6 +9,13 @@ use crate::codegen_go;
 use crate::codegen_java;
 use crate::codegen_js;
 use crate::codegen_lua;
+use crate::codegen_php;
+use crate::codegen_pl;
+use crate::codegen_pas;
+use crate::codegen_f90;
+use crate::codegen_lisp;
+use crate::codegen_ml;
+use crate::codegen_r;
 use crate::codegen_py;
 use crate::codegen_rb;
 use crate::codegen_rs;
@@ -25,7 +32,7 @@ pub enum SeatKind {
 
 pub fn seat_kind(lang: &Lang) -> SeatKind {
     match lang.id {
-        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" | "rb" | "lua" | "sol" | "java" | "sql" => {
+        "py" | "go" | "js" | "ts" | "c" | "cpp" | "rs" | "rb" | "lua" | "sol" | "java" | "sql" | "php" | "r" | "ml" | "lisp" | "f90" | "pas" | "pl" => {
             SeatKind::Native
         }
         _ => SeatKind::Lowering,
@@ -49,6 +56,13 @@ pub fn generate_exact(program: &Program, lang: &Lang) -> Result<String, String> 
         // without an exact mapping is an Err, never a guess.
         "java" => codegen_java::generate(program).map_err(|e| format!("Java refused: {e}")),
         "sql" => codegen_sql::generate(program).map_err(|e| format!("SQL refused: {e}")),
+        "php" => codegen_php::generate(program).map_err(|e| format!("PHP refused: {e}")),
+        "pl" => codegen_pl::generate(program).map_err(|e| format!("Perl refused: {e}")),
+        "pas" => codegen_pas::generate(program).map_err(|e| format!("Pascal refused: {e}")),
+        "f90" => codegen_f90::generate(program).map_err(|e| format!("Fortran refused: {e}")),
+        "lisp" => codegen_lisp::generate(program).map_err(|e| format!("Lisp refused: {e}")),
+        "ml" => codegen_ml::generate(program).map_err(|e| format!("OCaml refused: {e}")),
+        "r" => codegen_r::generate(program).map_err(|e| format!("R refused: {e}")),
         _ => {
             let mut s = String::new();
             s.push_str(&format!(
@@ -187,6 +201,26 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
             ),
             compares_stdout: true,
         },
+        "php" => ExecPlan::std(("php".into(), vec![path])),
+        "pl" => ExecPlan::std(("perl".into(), vec![path])),
+        "f90" => {
+            let out = artifact.with_extension("");
+            ExecPlan {
+                compile: Some(("gfortran".into(), vec!["-o".into(), format!("{}", out.display()), path.clone()])),
+                run: ("./".to_string() + &out.display().to_string(), vec![]),
+                compares_stdout: true,
+            }
+        },
+        "pas" => {
+            let out = artifact.with_extension("");
+            ExecPlan {
+                compile: Some(("fpc".into(), vec![format!("-o{}", out.display()), path.clone()])),
+                run: ("./".to_string() + &out.display().to_string(), vec![]),
+                compares_stdout: true,
+            }
+        },
+        "lisp" => ExecPlan::std(("sbcl".into(), vec!["--script".into(), path])),
+        "ml" => ExecPlan::std(("ocaml".into(), vec![path])),
         "sol" => {
             // A contract has no stdout: solc compiling it IS the verification
             // (deployable). Excluded from the stdout comparison; the dice

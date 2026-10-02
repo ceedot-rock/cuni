@@ -4,6 +4,7 @@ mod bank;
 mod check;
 mod checks;
 mod codegen_c;
+mod codegen_core;
 mod codegen_cadence;
 mod codegen_cairo;
 mod codegen_clarity;
@@ -13,6 +14,13 @@ mod codegen_java;
 mod codegen_js;
 mod codegen_lua;
 mod codegen_move;
+mod codegen_php;
+mod codegen_pl;
+mod codegen_pas;
+mod codegen_f90;
+mod codegen_lisp;
+mod codegen_ml;
+mod codegen_r;
 mod codegen_py;
 mod codegen_rb;
 mod codegen_rs;
@@ -54,7 +62,7 @@ fn work_dir(prefix: &str) -> PathBuf {
 fn print_usage() {
     eprintln!(
         "\
-cuni — CuNi (Code:uNiTY) compiler. 144 languages. Exactness or refuse.
+cuni — CuNi (Code:uNiTY) compiler. 113 languages. Exactness or refuse.
 
 Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
@@ -72,7 +80,7 @@ Usage:
 Commands:
   check   Exactness gate: emit+run every catalog language (or --only).
           Native seats today: py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql.
-          Other ids: Python lowering so the 144-language gate still runs.
+          Other ids: Python lowering so the 113-language gate still runs.
           Prints:  exactness: PASS (N langs)
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
           Not a substitute for check.

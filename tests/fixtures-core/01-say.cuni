@@ -1,0 +1,6 @@
+say(42)
+say(-7)
+say("hello")
+say("")
+say(true)
+say(false)

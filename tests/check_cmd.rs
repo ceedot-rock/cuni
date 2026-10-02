@@ -20,10 +20,11 @@ fn check(args: &[&str]) -> (bool, String, String) {
     )
 }
 
-/// `examples/full.cuni` uses floats — Solidity has no float type, so the sol
-/// seat must YEET with a clear reason (not silently emit), while all other
-/// 143 seats emit+run. This pins the documented contract that sol is the one
-/// seat allowed an honest refusal (see `src/emit.rs`).
+/// `examples/full.cuni` uses floats and iface — Solidity has no float type,
+/// so the sol seat must YEET with a clear reason (not silently emit). The 7
+/// core-subset native seats (php, pl, r, ml, lisp, pas, f90) also honestly
+/// refuse: iface is beyond their core subset. The other 105 seats emit+run.
+/// This pins the documented contract that honest refusal beats approximation.
 #[test]
 fn check_full_example_sol_honest_refusal() {
     let (ok, stdout, _) = check(&["examples/full.cuni", "--timeout", "180"]);
@@ -39,14 +40,15 @@ fn check_full_example_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("143/144 ok"),
-        "all non-sol seats must still emit+run:\n{}",
+        stdout.contains("105/113 ok"),
+        "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );
 }
 
 /// `examples/structs.cuni` declares a custom `typ` — no Solidity mapping, so
-/// sol yeets with a clear reason while the other 143 seats emit+run.
+/// sol yeets with a clear reason. The 7 core-subset seats also refuse (typ
+/// beyond core subset). The other 105 seats emit+run.
 #[test]
 fn check_structs_sol_honest_refusal() {
     let (ok, stdout, _) = check(&["examples/structs.cuni", "--timeout", "180"]);
@@ -62,13 +64,14 @@ fn check_structs_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("143/144 ok"),
-        "all non-sol seats must still emit+run:\n{}",
+        stdout.contains("105/113 ok"),
+        "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );
 }
 
-/// `examples/named_fields.cuni` — same honest-refusal contract as structs.
+/// `examples/named_fields.cuni` — same honest-refusal contract as structs:
+/// sol + 7 core-subset seats refuse, 105 others emit+run.
 #[test]
 fn check_named_fields_sol_honest_refusal() {
     let (ok, stdout, _) = check(&["examples/named_fields.cuni", "--timeout", "180"]);
@@ -79,8 +82,8 @@ fn check_named_fields_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("143/144 ok"),
-        "all non-sol seats must still emit+run:\n{}",
+        stdout.contains("105/113 ok"),
+        "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );
 }

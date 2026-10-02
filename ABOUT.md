@@ -3,7 +3,7 @@
 ## What it is
 
 CuNi is a programming language with one law: **the same output on every
-target, or refuse.** Write once in `.cuni`. It runs exact on 144 languages
+target, or refuse.** Write once in `.cuni`. It runs exact on 113 languages
 across 12 native seats — Python, Rust, Go, JavaScript, TypeScript, C, C++,
 Ruby, Lua, Java, SQL, Solidity — or it refuses to run at all. No
 approximate mode. No silent rounding. No drift.

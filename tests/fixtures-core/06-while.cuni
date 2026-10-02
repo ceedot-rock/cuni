@@ -1,0 +1,6 @@
+mut i = 0
+whl i < 5 do
+    say(i)
+    i = i + 1
+end
+say("done")
