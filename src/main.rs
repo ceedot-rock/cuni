@@ -1,4 +1,5 @@
 mod ast;
+mod audit;
 mod bank;
 mod check;
 mod checks;
@@ -55,6 +56,8 @@ Usage:
   cuni ingest <file.ext> [-o out.cuni]
   cuni bank paste <file> --from py --to <id> [-o out]
   cuni prove <file.cuni> --against <impl>
+  cuni audit <law.cuni> --against <impl> [--signer <keyfile>] [--out <receipt.json>]
+  cuni audit --gen-key [name]
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
                [--emit <seat> <out>] [--emit-all <dir>] [--emit-top50 <dir>] [--list-langs]
   cuni --help
@@ -74,6 +77,12 @@ Commands:
           front-end or ingest refuses.
   bank    Paste N, get X. Ingest → emit → prove, or refuse. v1 --from py|cuni.
   prove   Run a foreign implementation; it must match CuNi gold stdout.
+  audit   Financial Division: prove a foreign implementation against a
+          money law (.cuni) and file a signed JSON receipt. The gold gate
+          runs the money seats (py, rs, go, java, sql) via check; the impl
+          runs by extension (.py/.go/.rs/.java/.sql/.js) and must print
+          byte-identical stdout. PASS or REFUSE is always filed.
+          `audit --gen-key [name]` mints an Ed25519 receipt-signing keypair.
 
 Emit:
   --emit-all DIR writes one artifact per catalog language.
@@ -114,6 +123,9 @@ fn main() -> ExitCode {
     }
     if args[0] == "prove" {
         return cmd_prove(&args[1..]);
+    }
+    if args[0] == "audit" {
+        return cmd_audit(&args[1..]);
     }
 
     cmd_compile(&args)
@@ -722,6 +734,140 @@ fn cmd_ingest(args: &[String]) -> ExitCode {
     }
 }
 
+/// The gold gate, shared by `prove` and `audit`: run `check` on the CuNi
+/// source restricted to `only` seats, and return the seats that ran plus the
+/// py seat's stdout as gold. Reuses `check::check_file_only` — no duplicate
+/// machinery.
+fn run_gold_gate(cuni_path: &Path, only: &[&str]) -> Result<audit::GoldGate, audit::GoldGateError> {
+    let work = work_dir("cuni_gold");
+    let _ = fs::create_dir_all(&work);
+    let only: Vec<String> = only.iter().map(|s| s.to_string()).collect();
+    let report = check::check_file_only(cuni_path, &work, Duration::from_secs(180), Some(&only));
+    let seats_run: Vec<String> = report
+        .targets
+        .iter()
+        .filter(|t| t.run_ok)
+        .map(|t| t.target.to_string())
+        .collect();
+    if !report.passed() {
+        return Err(audit::GoldGateError {
+            reason: format!("CuNi gold failed exactness\n{}", report.summary),
+            seats_run,
+        });
+    }
+    let gold = check::gold_stdout(&report)
+        .map(|s| s.as_bytes().to_vec())
+        .unwrap_or_default();
+    Ok(audit::GoldGate {
+        seats_run,
+        gold_stdout: gold,
+    })
+}
+
+fn cmd_audit(args: &[String]) -> ExitCode {
+    // Key generation mode: `cuni audit --gen-key [name]`.
+    if args.first().map(|s| s.as_str()) == Some("--gen-key") {
+        let name = args.get(1).cloned().unwrap_or_else(|| "auditor".to_string());
+        if name.starts_with('-') {
+            eprintln!("cuni audit: --gen-key takes an optional key name, got `{name}`");
+            return ExitCode::FAILURE;
+        }
+        let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        match audit::gen_keypair(&name, &cwd) {
+            Ok((key_path, pub_path)) => {
+                println!("audit: keypair written");
+                println!("  secret: {} (mode 600 — guard it)", key_path.display());
+                println!("  public: {}", pub_path.display());
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("cuni audit: keygen refused: {e}");
+                ExitCode::FAILURE
+            }
+        }
+    } else {
+        cmd_audit_law(args)
+    }
+}
+
+fn cmd_audit_law(args: &[String]) -> ExitCode {
+    let mut law_path = None;
+    let mut against = None;
+    let mut signer = None;
+    let mut out = None;
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--against" {
+            against = args.get(i + 1).cloned();
+            i += 2;
+        } else if args[i] == "--signer" {
+            signer = args.get(i + 1).cloned();
+            i += 2;
+        } else if args[i] == "--out" {
+            out = args.get(i + 1).cloned();
+            i += 2;
+        } else if args[i].starts_with('-') {
+            eprintln!("cuni audit: unknown flag `{}`", args[i]);
+            return ExitCode::FAILURE;
+        } else if law_path.is_none() {
+            law_path = Some(args[i].clone());
+            i += 1;
+        } else {
+            eprintln!("cuni audit: unexpected argument `{}`", args[i]);
+            return ExitCode::FAILURE;
+        }
+    }
+    let Some(law_path) = law_path else {
+        eprintln!("cuni audit: missing law.cuni (or use `cuni audit --gen-key [name]`)");
+        return ExitCode::FAILURE;
+    };
+    let Some(against) = against else {
+        eprintln!("cuni audit: --against <impl> required");
+        return ExitCode::FAILURE;
+    };
+
+    let signing = match signer {
+        Some(keyfile) => match audit::load_signing_key(Path::new(&keyfile)) {
+            Ok(k) => Some(k),
+            Err(e) => {
+                eprintln!("cuni audit: {e}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => None,
+    };
+
+    // The gold gate runs the money seats (audit::GOLD_SEATS); py is in the
+    // list because the gold stdout is defined as the py seat's stdout.
+    let receipt = match audit::audit_law(
+        Path::new(&law_path),
+        Path::new(&against),
+        signing.as_ref(),
+        |p| run_gold_gate(p, audit::GOLD_SEATS),
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("cuni audit: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let json = serde_json::to_string(&receipt).unwrap_or_else(|_| "{}".to_string());
+    if let Some(out) = out {
+        if let Err(e) = fs::write(&out, format!("{json}\n")) {
+            eprintln!("cuni audit: write {out}: {e}");
+            return ExitCode::FAILURE;
+        }
+        eprintln!("audit: {} — receipt filed at {out}", receipt.verdict);
+    } else {
+        println!("{json}");
+    }
+    if receipt.passed() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
 fn cmd_prove(args: &[String]) -> ExitCode {
     let mut cuni_path = None;
     let mut against = None;
@@ -746,58 +892,29 @@ fn cmd_prove(args: &[String]) -> ExitCode {
         eprintln!("cuni prove: --against <impl> required");
         return ExitCode::FAILURE;
     };
-    let work = work_dir("cuni_prove");
-    let _ = fs::create_dir_all(&work);
-    let report = check::check_file_only(
-        PathBuf::from(&cuni_path).as_path(),
-        &work,
-        Duration::from_secs(120),
-        Some(&["py".to_string(), "go".to_string(), "js".to_string()]),
-    );
-    if !report.passed() {
-        eprintln!("cuni prove: CuNi gold failed exactness\n{}", report.summary);
-        return ExitCode::FAILURE;
-    }
-    let Some(gold) = check::gold_stdout(&report).map(|s| s.to_string()) else {
-        eprintln!("cuni prove: no Python gold stdout");
-        return ExitCode::FAILURE;
-    };
-    let against_path = PathBuf::from(&against);
-    let ext = against_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("")
-        .to_string();
-    let (cmd, cmd_args): (String, Vec<String>) = match ext.as_str() {
-        "py" => ("python3".into(), vec![against.clone()]),
-        "js" | "mjs" => ("node".into(), vec![against.clone()]),
-        "go" => ("go".into(), vec!["run".into(), against.clone()]),
-        _ => {
-            eprintln!("cuni prove: refuse unknown impl seat `.{}`", ext);
+    // Same gold machinery as audit (prove keeps its lighter py/go/js seat
+    // set; audit uses the money seats).
+    let gate = match run_gold_gate(Path::new(&cuni_path), &["py", "go", "js"]) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("cuni prove: {}", e.reason);
             return ExitCode::FAILURE;
         }
     };
-    let output = std::process::Command::new(&cmd).args(&cmd_args).output();
-    match output {
-        Ok(o) if o.status.success() => {
-            let got = String::from_utf8_lossy(&o.stdout);
-            if got.as_ref() == gold {
+    let against_path = PathBuf::from(&against);
+    // Same foreign-impl runner as audit (py/go/js/rs/java/sql).
+    match audit::run_foreign_impl(&against_path, Duration::from_secs(120)) {
+        Ok(got) => {
+            if got == gate.gold_stdout {
                 println!("prove: PASS — {} matches CuNi gold", against);
                 ExitCode::SUCCESS
             } else {
+                let gold = String::from_utf8_lossy(&gate.gold_stdout);
+                let got_s = String::from_utf8_lossy(&got);
                 eprintln!("prove: FAIL — {} diverged from CuNi gold", against);
-                eprintln!("  --- gold ---\n{gold}  --- impl ---\n{got}");
+                eprintln!("  --- gold ---\n{gold}  --- impl ---\n{got_s}");
                 ExitCode::FAILURE
             }
-        }
-        Ok(o) => {
-            eprintln!(
-                "prove: FAIL — {} exited {}\n{}",
-                against,
-                o.status,
-                String::from_utf8_lossy(&o.stderr)
-            );
-            ExitCode::FAILURE
         }
         Err(e) => {
             eprintln!("prove: FAIL — {e}");

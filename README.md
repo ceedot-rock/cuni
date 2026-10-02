@@ -18,7 +18,7 @@ This is why Agent Rider runs on CuNi. In a world where AI agents write and execu
 
 CuNi's mission. Everywhere the industry *trusts* two implementations match, CuNi *proves* it — same stdout, or refuse. ("Replace trust with proof" was the 0.4.0-era line; the mission it named now leads the project.)
 
-The three divisions sit under it, in build order: **Code** (the compiler — emitters, seats, stdlib, ingest, tooling), **Financial** (audit proofs, compliance code, verification gates), **Onchain** (chain emitters, cross-chain proofs). This release is Code Division work.
+The three divisions sit under it, in build order: **Code** (the compiler — emitters, seats, stdlib, ingest, tooling), **Financial** (audit proofs, compliance code, verification gates), **Onchain** (chain emitters, cross-chain proofs). v0.4.0–v0.6.0 shipped the Code Division; **v0.7.0 ships the Financial Division** — `cuni audit`, below.
 
 That turns exactness into working infrastructure:
 
@@ -32,6 +32,7 @@ That turns exactness into working infrastructure:
 - **Exact money math** — the `dec` type: fixed-point decimals (scale 10⁴, truncation toward zero), same stdout on all 12 native seats plus solc-compiled Solidity. See `examples/proof-decimal/` and `docs/DECIMAL.md`.
 - **Exact timestamps** — the `time` type: int64 unix epochs, UTC only, strict ISO-8601 literals, `time ± int` / `time − time` arithmetic, `parse_time` / `add_seconds` / `days_between` — settlement, vesting, and expiries with byte-identical stdout on every seat. The money-types pair with `dec`. See `examples/proof-time/` and `docs/TIME.md`.
 - **Standard library, wave 1** — JSON parse/emit (canonical form), unix timestamps, string ops, SHA-256: same behavior on every seat, honest refusals where a seat can't be exact. See `docs/STDLIB.md`.
+- **Financial Division — `cuni audit`** — state a money law once as `.cuni`; prove a foreign implementation (the bank's Java, the auditor's Python, a SQL script) prints byte-identical stdout to the proven gold, and file a signed JSON receipt. Gold gate runs the money seats (py, rs, go, java, sql); impls run by extension (.py/.go/.rs/.java/.sql). PASS or REFUSE is always filed — a failed gate never passes, refusals are signed and fileable too. `cuni audit --gen-key` mints the auditor's Ed25519 receipt-signing key. Three worked laws: tiered fees, interest accrual (`dec` × `time`), marginal withholding — see `examples/finance/` and `docs/FINANCIAL.md`. Hosted verification $0.10/check.
 
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />

@@ -10,6 +10,8 @@ mod stdlib_use;
 mod token;
 mod typeck;
 
+pub mod audit;
+
 pub use interp::run;
 
 /// Parse and evaluate CuNi source in-process. No emit, no `use` modules.

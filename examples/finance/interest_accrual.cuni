@@ -1,0 +1,25 @@
+# interest_accrual.cuni — daily interest over a vesting window, `dec` x `time`.
+#
+# `dec` prices the world, `time` dates it: principal x APR x days/365, with
+# dec truncation at every step (docs/DECIMAL.md) and whole days from
+# `days_between` (docs/TIME.md — truncation toward zero, UTC only, no `now()`).
+#
+# The Financial Division's promise: the accrual formula is stated once; any
+# implementation that rounds differently, counts days differently, or reads a
+# clock prints different stdout and `cuni audit` files a REFUSE receipt.
+
+def accrue(principal: dec, apr: dec, start: time, finish: time) -> dec do
+    let days: int = days_between(finish, start)
+    ret principal * apr * dec_of_int(days) / dec_of_int(365)
+end
+
+let vest_start: time = "2026-01-01T00:00:00Z"t
+let vest_end: time = "2027-01-01T00:00:00Z"t
+
+# A full 365-day year at 5% on 10000.00: exactly 500.0.
+say(accrue(10000.00dec, 0.05dec, vest_start, vest_end))
+# 182 days (Jan 1 -> Jul 2): 10000 x 0.05 x 182 / 365 = 249.315068... -> 249.315.
+say(accrue(10000.00dec, 0.05dec, vest_start, "2026-07-02T00:00:00Z"t))
+# A leap-day window still counts whole days: 2024-02-28 -> 2024-03-01 is 2 days.
+say(days_between("2024-03-01T00:00:00Z"t, "2024-02-28T00:00:00Z"t))
+say(accrue(10000.00dec, 0.05dec, "2024-02-28T00:00:00Z"t, "2024-03-01T00:00:00Z"t))

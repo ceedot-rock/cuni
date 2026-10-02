@@ -1,0 +1,34 @@
+# withholding.cuni — marginal tax brackets, boundary-exact on `dec`.
+#
+# Brackets (marginal — each rate applies only inside its band):
+#   income <= 1000.00  ->  0%  on the whole amount
+#   income <= 5000.00  -> 10%  on (income - 1000.00)
+#   above              -> 20%  on (income - 5000.00), plus 400.00 for the
+#                          fully-taxed middle band (4000.00 x 10%)
+#
+# The Financial Division's promise: a regulator publishes this law once;
+# every filer proves against it. A boundary off by one cent, or a seat that
+# rounds instead of truncating, prints different stdout — REFUSE.
+
+def withholding(income: dec) -> dec do
+    if income <= 1000.00dec do
+        ret 0.0dec
+    end
+    if income <= 5000.00dec do
+        ret (income - 1000.00dec) * 0.10dec
+    end
+    ret 400.00dec + (income - 5000.00dec) * 0.20dec
+end
+
+# Zero income: nothing withheld.
+say(withholding(0.0dec))
+# The 1000.00 boundary: still 0%.
+say(withholding(1000.00dec))
+# One cent into the 10% band: 0.01 x 0.10 = 0.001.
+say(withholding(1000.01dec))
+# The 5000.00 boundary: the full middle band, 4000.00 x 0.10 = 400.0.
+say(withholding(5000.00dec))
+# One cent into the 20% band: 400.00 + 0.01 x 0.20 = 400.002.
+say(withholding(5000.01dec))
+# Deep in the top band: 400.00 + 1000.00 x 0.20 = 600.0.
+say(withholding(6000.00dec))

@@ -1,0 +1,36 @@
+# fee_schedule.cuni — a tiered fee law, stated once in CuNi.
+#
+# Tiered fees on exact `dec` (scale 10^4, truncation toward zero —
+# docs/DECIMAL.md): the boundary cent decides the tier, and the gate proves
+# every money seat agrees on every boundary below, byte-for-byte.
+#
+# Tiers:
+#   amount <= 100.00   -> 1.00% + 0.25
+#   amount <= 1000.00  -> 0.50% + 0.25
+#   above              -> 0.25% + 0.25
+#
+# The Financial Division's promise: an auditor states this law once; the
+# bank's Java and the auditor's Python must both print exactly what these
+# six driver lines print, or `cuni audit` files a REFUSE receipt.
+
+def fee(amount: dec) -> dec do
+    if amount <= 100.00dec do
+        ret amount * 0.01dec + 0.25dec
+    end
+    if amount <= 1000.00dec do
+        ret amount * 0.005dec + 0.25dec
+    end
+    ret amount * 0.0025dec + 0.25dec
+end
+
+# Boundary-exact: 99.9999 is tier 1, 100.0000 is tier 1, 1000.0000 is tier 2,
+# 1000.0001 is tier 3. Truncation (never rounding) decides 99.9999's fee:
+# 99.9999 x 0.01 = 0.999999 -> 0.9999, + 0.25 = 1.2499.
+say(fee(99.9999dec))
+say(fee(100.0000dec))
+say(fee(1000.0000dec))
+say(fee(1000.0001dec))
+# Zero still pays the flat component: 0.00 x 0.01 + 0.25 = 0.25.
+say(fee(0.0dec))
+# Large amounts stay exact: 1000000.00 x 0.0025 + 0.25 = 2500.25.
+say(fee(1000000.00dec))

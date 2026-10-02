@@ -1,6 +1,6 @@
 [package]
 name = "cuni"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "CuNi (Code:uNiTY) — one source, exact on every target or refuse; now with Solidity smart-contract seat"
 license = "AGPL-3.0-or-later"
@@ -32,3 +32,13 @@ one_liner = "CuNi Protocol https://cuni-studio.fly.dev/.well-known/cuni-protocol
 pkg-url = "{ repo }/releases/download/v{ version }/cuni-{ version }-{ target }.tar.gz"
 bin-dir = "{ bin }"
 pkg-fmt = "tgz"
+
+[dependencies]
+ed25519-dalek = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+getrandom = "0.2"
+
+[dev-dependencies]
+serde_json = "1"
