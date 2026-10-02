@@ -16,7 +16,7 @@ Cadence — plus Solana and Solidity.
 ## How to use it
 
 ```sh
-cargo install cuni          # 0.8.0 on crates.io
+cargo install cuni          # 0.9.0 on crates.io
 
 cuni check law.cuni         # prove it exact across the seats
 cuni run law.cuni            # run it
