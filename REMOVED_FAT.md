@@ -79,3 +79,90 @@ real, HDLs/shaders as compute targets, config languages with real interpreters).
   (real HDL/shader toolchains), `nix`/`jsonnet`/`dhall` (real interpreters),
   `qml` (Qt real), `openscad` (real), `datalog` (real implementations),
   `carbon` (Google toolchain exists), `vy` (Vyper — the onchain seat, not a duplicate).
+
+---
+
+# Second Cut: Focus Trim — 2026-10-02
+
+**This is a different kind of removal.** The 31 entries above were cut because
+they can *never* be natively supported. The 60 entries below are **real
+languages with real toolchains** — cut purely as a focus decision: the catalog
+is now the top 50 plus the onchain chain profiles. Nothing below reflects on
+the quality of these languages; they were cut for scope, not for cause.
+
+**Criteria**: every catalog entry beyond position 50, except the onchain
+chain profiles (`vy`, `move`, `cairo` — the shipped 0.8.0 Onchain Division).
+
+**Preserved**: `vy` (Vyper), `move` (Move), `cairo` (Cairo) — onchain profiles.
+
+## Removed: real languages, out of scope (60)
+
+| id | name | note |
+|----|------|------|
+| scm | Scheme | Real (Guile/Racket). Out of top-50 scope. |
+| rkt | Racket | Real. Out of top-50 scope. |
+| el | Emacs Lisp | Real. Out of top-50 scope. |
+| fnl | Fennel | Real (Lua-family). Out of top-50 scope. |
+| hy | Hy | Real (Python-family). Out of top-50 scope. |
+| raku | Raku | Real. Out of top-50 scope. |
+| mojo | Mojo | Real (Modular). Out of top-50 scope. |
+| coffee | CoffeeScript | Real. Out of top-50 scope. |
+| elm | Elm | Real. Out of top-50 scope. |
+| purs | PureScript | Real. Out of top-50 scope. |
+| idr | Idris | Real. Out of top-50 scope. |
+| lean | Lean | Real. Out of top-50 scope. |
+| re | Reason | Real. Out of top-50 scope. |
+| res | ReScript | Real. Out of top-50 scope. |
+| sml | Standard ML | Real. Out of top-50 scope. |
+| gleam | Gleam | Real. Out of top-50 scope. |
+| vala | Vala | Real. Out of top-50 scope. |
+| odin | Odin | Real. Out of top-50 scope. |
+| cu | CUDA | Real (nvcc). Out of top-50 scope. |
+| pde | Processing | Real. Out of top-50 scope. |
+| wat | WebAssembly | Real (text format). Out of top-50 scope. |
+| ll | LLVM IR | Real. Out of top-50 scope. |
+| zsh | Zsh | Real shell. Out of top-50 scope. |
+| fish | Fish | Real shell. Out of top-50 scope. |
+| bat | Batch | Real (Windows). Out of top-50 scope. |
+| octave | Octave | Real (MATLAB-compatible). Out of top-50 scope. |
+| bas | BASIC | Real. Out of top-50 scope. |
+| io | Io | Real. Out of top-50 scope. |
+| eiffel | Eiffel | Real. Out of top-50 scope. |
+| vhdl | VHDL | Real HDL. Out of top-50 scope. |
+| sv | SystemVerilog | Real HDL. Out of top-50 scope. |
+| glsl | GLSL | Real shader. Out of top-50 scope. |
+| wgsl | WGSL | Real shader. Out of top-50 scope. |
+| ahk | AutoHotkey | Real. Out of top-50 scope. |
+| rexx | Rexx | Real. Out of top-50 scope. |
+| forth | Forth | Real. Out of top-50 scope. |
+| nix | Nix | Real. Out of top-50 scope. |
+| st-iec | IEC Structured Text | Real (matiec). Out of top-50 scope. |
+| openscad | OpenSCAD | Real. Out of top-50 scope. |
+| pony | Pony | Real. Out of top-50 scope. |
+| qml | QML | Real (Qt). Out of top-50 scope. |
+| jsonnet | Jsonnet | Real. Out of top-50 scope. |
+| dhall | Dhall | Real. Out of top-50 scope. |
+| bal | Ballerina | Real. Out of top-50 scope. |
+| xtend | Xtend | Real. Out of top-50 scope. |
+| gosu | Gosu | Real. Out of top-50 scope. |
+| netrexx | NetRexx | Real. Out of top-50 scope. |
+| agda | Agda | Real. Out of top-50 scope. |
+| curry | Curry | Real. Out of top-50 scope. |
+| clean | Clean | Real. Out of top-50 scope. |
+| roc | Roc | Real. Out of top-50 scope. |
+| koka | Koka | Real. Out of top-50 scope. |
+| ats | ATS | Real. Out of top-50 scope. |
+| chapel | Chapel | Real. Out of top-50 scope. |
+| carbon | Carbon | Real (Google). Out of top-50 scope. |
+| pawn | Pawn | Real. Out of top-50 scope. |
+| slang | S-Lang | Real. Out of top-50 scope. |
+| datalog | Datalog | Real. Out of top-50 scope. |
+| mercury | Mercury | Real. Out of top-50 scope. |
+| oz | Oz | Real. Out of top-50 scope. |
+
+## Summary (both cuts)
+
+- **First cut**: 31 entries (never natively supportable) — 144 → 113
+- **Second cut**: 60 entries (real languages, out of top-50 scope) — 113 → 53
+- **Remaining**: 53 entries = top 50 + 3 onchain profiles (vy, move, cairo)
+- All 91 removals documented with per-entry reasons.

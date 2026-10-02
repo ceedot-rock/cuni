@@ -28,6 +28,33 @@ mod codegen_sol;
 mod codegen_solana;
 mod codegen_sql;
 mod codegen_vyper;
+mod codegen_v;
+mod codegen_d;
+mod codegen_cr;
+mod codegen_nim;
+mod codegen_zig;
+
+mod codegen_ada;
+mod codegen_asm;
+mod codegen_awk;
+mod codegen_clj;
+mod codegen_cob;
+mod codegen_cs;
+mod codegen_dart;
+mod codegen_erl;
+mod codegen_ex;
+mod codegen_fs;
+mod codegen_groovy;
+mod codegen_hs;
+mod codegen_hx;
+mod codegen_jl;
+mod codegen_kt;
+mod codegen_m_objc;
+mod codegen_pro;
+mod codegen_ps1;
+mod codegen_scala;
+mod codegen_sh;
+mod codegen_tcl;
 mod emit;
 mod ingest;
 mod interp;
@@ -62,7 +89,7 @@ fn work_dir(prefix: &str) -> PathBuf {
 fn print_usage() {
     eprintln!(
         "\
-cuni — CuNi (Code:uNiTY) compiler. 113 languages. Exactness or refuse.
+cuni — CuNi (Code:uNiTY) compiler. 53 catalog entries (top 50 + 3 onchain profiles). Exactness or refuse.
 
 Usage:
   cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
@@ -79,8 +106,12 @@ Usage:
 
 Commands:
   check   Exactness gate: emit+run every catalog language (or --only).
-          Native seats today: py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql.
-          Other ids: Python lowering so the 113-language gate still runs.
+          Native seats today: 45 of the top 50 — py, go, js, ts, c, cpp, cs, java,
+          kt, scala, rs, rb, php, lua, pl, r, jl, ex, erl, hs, ml, fs, lisp, clj,
+          dart, zig, nim, cr, d, v, ada, pas, f90, cob, pro, sql, asm, sol,
+          groovy, m-objc, sh, ps1, awk, tcl, hx.
+          Python-lowered: m, vb (no free toolchain — permanent), swift, hack, st
+          (no installable Linux toolchain — blocked). The 53-entry gate still runs.
           Prints:  exactness: PASS (N langs)
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
           Not a substitute for check.

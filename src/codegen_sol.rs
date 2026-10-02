@@ -792,6 +792,19 @@ impl Codegen {
                 if matches!(*op, BinOp::Add) && lk == SolKind::Str {
                     return Ok(format!("string(abi.encodePacked({}, {}))", l, r));
                 }
+                // Solidity has no == on strings; compare via keccak256 hash.
+                if matches!(*op, BinOp::Eq) && lk == SolKind::Str {
+                    return Ok(format!(
+                        "(keccak256(abi.encodePacked({})) == keccak256(abi.encodePacked({})))",
+                        l, r
+                    ));
+                }
+                if matches!(*op, BinOp::Ne) && lk == SolKind::Str {
+                    return Ok(format!(
+                        "(keccak256(abi.encodePacked({})) != keccak256(abi.encodePacked({})))",
+                        l, r
+                    ));
+                }
                 // `time` is a closed world (docs/TIME.md §3–5): the typeck
                 // proved the valid shapes. Solidity 0.8 checked arithmetic
                 // REVERTS on overflow — the loud refusal. `time` is uint256,
@@ -868,6 +881,11 @@ impl Codegen {
                     BinOp::And => "&&",
                     BinOp::Or => "||",
                 };
+                // Solidity treats `/` on integer literals as rational division;
+                // force int256 context so `7 / 2` is truncating integer division.
+                if matches!(op, BinOp::Div | BinOp::Mod) {
+                    return Ok(format!("(int256({}) {} int256({}))", l, o, r));
+                }
                 Ok(format!("({} {} {})", l, o, r))
             }
             ExprKind::Unary { op, expr } => {

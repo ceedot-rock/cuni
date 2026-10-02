@@ -197,6 +197,11 @@ impl Codegen {
         self.line(1, "end");
         self.line(1, "return a / b");
         self.line(0, "end");
+        self.line(0, "function _cuni_add(a, b)");
+        self.line(1, "-- CuNi `+` is string concat if both are strings, else int add.");
+        self.line(1, "if type(a) == \"string\" and type(b) == \"string\" then return a .. b end");
+        self.line(1, "return a + b");
+        self.line(0, "end");
         self.out.push('\n');
         // ---- CuNi `dec`: fixed-point decimal, scale 10^4, exact ----
         // int64 seat (docs/DECIMAL.md §7): dec values are boxed tables so
@@ -1448,6 +1453,8 @@ impl Codegen {
                 let r = self.gen_expr(rhs, scope);
                 if matches!(op, BinOp::Div) {
                     format!("_cuni_div({}, {})", l, r)
+                } else if matches!(op, BinOp::Add) {
+                    format!("_cuni_add({}, {})", l, r)
                 } else {
                     format!("({} {} {})", l, lua_binop(*op), r)
                 }

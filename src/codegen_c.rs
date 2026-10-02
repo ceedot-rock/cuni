@@ -930,7 +930,11 @@ static Val cuni_div(Val a, Val b) {
 static Val cuni_mod(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) cuni_dec_refuse("`%` is not defined on `dec`");
     if (a.k == K_TIME || b.k == K_TIME) cuni_time_refuse("`%` is not defined on `time` (docs/TIME.md §3)");
-    return V_int(b.i == 0 ? 0 : a.i % b.i);
+    if (b.i == 0) return V_int(0);
+    // Python-floored modulo (CuNi spec); C's % truncates.
+    long long r = a.i % b.i;
+    if (r != 0 && ((r < 0) != (b.i < 0))) r += b.i;
+    return V_int(r);
 }
 static Val cuni_neg(Val a) {
     if (a.k == K_DEC) return cuni_dec_neg(a);

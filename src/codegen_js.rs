@@ -313,6 +313,12 @@ impl Codegen {
         );
         self.line(1, "return a / b;");
         self.line(0, "}");
+        self.line(0, "function _cuni_mod(a, b) {");
+        self.line(1, "// Python-floored modulo (CuNi spec); JS % truncates.");
+        self.line(1, "let r = a % b;");
+        self.line(1, "if (r !== 0 && ((r < 0) !== (b < 0))) return r + b;");
+        self.line(1, "return r;");
+        self.line(0, "}");
         self.out.push('\n');
         self.line(0, "// CuNi `dec`: fixed-point decimal, scale 10^4, as BigInt (docs/DECIMAL.md).");
         self.line(0, "// A plain JS number is NOT exact (f64) — dec never touches Number.");
@@ -1323,6 +1329,8 @@ impl Codegen {
                 }
                 if matches!(op, BinOp::Div) {
                     format!("_cuni_div({}, {})", l, r)
+                } else if matches!(op, BinOp::Mod) {
+                    format!("_cuni_mod({}, {})", l, r)
                 } else {
                     format!("({} {} {})", l, js_binop(*op), r)
                 }

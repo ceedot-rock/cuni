@@ -646,7 +646,14 @@ fn v_mod(a: Val, b: Val) -> Val {
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         panic!("cuni: `%` is not defined on `dec` — refusing");
     }
-    match (a,b) { (Val::Int(x), Val::Int(y)) if y != 0 => Val::Int(x%y), _ => Val::Int(0) }
+    // Python-floored modulo (CuNi spec); Rust's % truncates.
+    match (a,b) {
+        (Val::Int(x), Val::Int(y)) if y != 0 => {
+            let r = x % y;
+            Val::Int(if r != 0 && ((r < 0) != (y < 0)) { r + y } else { r })
+        }
+        _ => Val::Int(0),
+    }
 }
 fn v_neg(a: Val) -> Val {
     match a {

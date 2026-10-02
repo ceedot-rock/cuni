@@ -765,7 +765,12 @@ fn bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
             _ => Err("/ type mismatch or div0".into()),
         },
         BinOp::Mod => match (l, r) {
-            (Val::Int(a), Val::Int(b)) if b != 0 => Ok(Val::Int(a % b)),
+            // CuNi `%` is Python-floored (not Rust-truncated).
+            (Val::Int(a), Val::Int(b)) if b != 0 => {
+                let r = a % b;
+                let floored = if r != 0 && ((r < 0) != (b < 0)) { r + b } else { r };
+                Ok(Val::Int(floored))
+            }
             _ => Err("% needs ints".into()),
         },
         BinOp::And | BinOp::Or => unreachable!(),
