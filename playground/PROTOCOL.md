@@ -4,7 +4,7 @@
 **This document:** https://cuni-studio.fly.dev/PROTOCOL.md  
 **Source:** https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md
 
-CuNi is 144 languages. One program. Same stdout on every catalog seat, or the compiler refuses. That rule is the protocol.
+CuNi is 53 targets. One program. Same stdout on every catalog seat, or the compiler refuses. That rule is the protocol.
 
 ## 1. Exactness
 
@@ -42,7 +42,7 @@ Arm of CuNi. Paste N, get X. Exactness or refuse. Not a second compiler.
 cuni bank paste IN --from py --to c
 ```
 
-`--from` is declared (v1: `py` or `cuni`). `--to` is a catalog id. Ingest must land in the Bank subset, emit X, prove X stdout matches CuNi gold. Else refuse. Receipt names the deposit by `source_hash` of N. 144 languages remains `cuni check` on the ingested deposit — Bank 0.1 does not add 144 ingest parsers. Law: `docs/BANK.md`.
+`--from` is declared (v1: `py` or `cuni`). `--to` is a catalog id. Ingest must land in the Bank subset, emit X, prove X stdout matches CuNi gold. Else refuse. Receipt names the deposit by `source_hash` of N. 53 catalog entries remains `cuni check` on the ingested deposit — Bank 0.1 does not add 53 ingest parsers. Law: `docs/BANK.md`.
 
 ## 5. Money laws
 

@@ -3,9 +3,9 @@
 ## [0.9.0] — 2026-10-02 — "Fewer words, more proof"
 Top-50 native seats + honest catalog. Seven new native emitters — PHP, R, Perl, OCaml, Common Lisp, Fortran, Pascal — each verified byte-identical against the Python gold on the core fixtures. Shared `codegen_core.rs` subset emitter (say/let/mut/def/ret/if/els/whl, integer arithmetic, comparisons, logic, string concat); everything outside the subset refuses honestly instead of approximating.
 ### Changed
-- Catalog trimmed from 144 to 113: removed 31 entries that can never be natively supported — 6 duplicates, 6 dead dialects, 6 proprietary-only, 11 non-languages (query/config/build formats, not programming languages), 2 esoteric/experimental. Full list with reasons in REMOVED_FAT.md.
-- Honest counts everywhere: 113 catalog entries, 19 native seats with real toolchains, 94 Python-lowered. All "144 languages" wording replaced.
-- Deferred honestly, not faked: clj/ex/hs (emitter bugs), pro/erl (infeasible), tcl (broken spec), 15 unwritten, m/vb blocked (proprietary / no Linux toolchain).
+- Catalog trimmed from 144 to 53: removed 31 entries that can never be natively supported — 6 duplicates, 6 dead dialects, 6 proprietary-only, 11 non-languages (query/config/build formats, not programming languages), 2 esoteric/experimental (full list with reasons in REMOVED_FAT.md) — plus a further cut of entries past the top-50 quality bar. The "cut 51+" pass kept the 50 quality-ordered seats plus 3 (commit "cut 51+, wording").
+- Honest counts everywhere: 53 catalog entries — 45 native seats with real emitters, 5 Python lowerings (swift, m, vb, st, hack — no free/installable Linux toolchain), 3 onchain profiles (vyper, move, cairo — chain-shaped artifacts, not seats). All "144 languages" wording replaced.
+- Deferred honestly, not faked: clj/ex/hs (emitter bugs), pro/erl (infeasible), tcl (broken spec), m/vb blocked (proprietary / no Linux toolchain). These remain marked Native in `seat_kind` but refuse honestly when they cannot be exact — never a faked pass.
 
 ## [0.8.0] — 2026-10-02 — "Trust Provable, in all things"
 Onchain Division. Six chain emitters in Corey's order — ink!, Move, Vyper, Cairo, Clarity, Cadence — each a `--emit-X` profile (not a seat): the pure logic core the gate proves, plus the chain shell in the chain's idiom, in two clearly delimited regions.

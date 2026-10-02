@@ -1,4 +1,4 @@
-# CuNi is 144 languages
+# CuNi is 53 targets
 
 Exactness applies to the whole catalog. A language in `src/langs.rs` is a seat: emit, run, identical stdout — or refuse.
 
@@ -20,7 +20,7 @@ Exactness applies to the whole catalog. A language in `src/langs.rs` is a seat: 
 
 `cuni check examples/full.cuni --only py,go,js,c,cpp,rs` is the native gate. It must PASS.
 
-## The rest of the 144
+## The rest of the 53
 
 Until a seat has a native backend, its artifact is a Python lowering so the language **still emit+runs** under `cuni check`. The receipt (`--receipt`) marks each id `native` or `lowering`. Lowering is a seat with a shared runtime, not a skip.
 

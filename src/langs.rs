@@ -1,6 +1,7 @@
 //! Catalog of coding languages. Exactness emit+runs every id in LANGS.
-//! py/go/js/ts/c/cpp/rs/rb/lua/sol use real toolchains (native seats);
-//! every other id is a Python lowering executed by python3
+//! 45 ids use real emitters (native seats, see seat_kind in emit.rs);
+//! 5 ids (swift, m, vb, st, hack) are Python lowerings executed by python3,
+//! and 3 onchain profiles (vy, move, cairo) emit chain-shaped artifacts,
 //! so stdout can actually be compared.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

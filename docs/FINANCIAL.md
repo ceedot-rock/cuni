@@ -146,5 +146,5 @@ foreign run → receipt), `gen_keypair`, `load_signing_key`,
 `sign_receipt`, `verify_receipt`, `run_foreign_impl`, `sha256_hex`,
 `utc_timestamp`. `cuni prove` shares the gold-gate helper and the
 foreign-impl runner with `cuni audit` — one runner, one behavior —
-and additionally accepts `.js`. Catalog unchanged: 144 languages, no new
+and additionally accepts `.js`. Catalog unchanged: 53 entries, no new
 seats in this phase; `audit` is a command, not a seat.

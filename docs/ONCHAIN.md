@@ -96,7 +96,7 @@ machine, the Financial Division's law, the Onchain Division's reach.
   `cuni audit` works against the references the same way it works against
   any seat implementation.
 - **Profiles, not seats.** The six emitters are compilation profiles, like
-  `--emit-solana`. The catalog is unchanged: 144 languages, 12 native
+  `--emit-solana`. The catalog is unchanged: 53 entries, 45 native
   seats, 132 lowerings.
 
 ## For the implementer
