@@ -1,0 +1,32 @@
+# demo.cuni — the onchain demo law: int + dec + bool + str, if/ret, say.
+#
+# One law, two chains: the Vyper (EVM) emitter and the Cairo (Starknet)
+# emitter both prove this exact program, and the gate asserts each
+# `--emit-*-ref` Python reference prints byte-identical stdout to
+# `cuni run` on this file.
+#
+# This file is intentionally shared verbatim with
+# examples/onchain/cairo/demo.cuni: everything in it sits inside the
+# intersection both seats prove (no negative literals — the Cairo seat
+# refuses those at emit).
+
+def fee(amount: dec) -> dec do
+    if amount <= 100.00dec do
+        ret amount * 0.01dec + 0.25dec
+    end
+    ret amount * 0.005dec + 0.25dec
+end
+
+def double(n: int) -> int do
+    ret n * 2
+end
+
+def ok(amount: dec) -> bool do
+    ret amount >= 0.00dec
+end
+
+say(fee(99.9999dec))
+say(fee(250.0dec))
+say(double(21))
+say(ok(10.0dec))
+say("onchain demo")

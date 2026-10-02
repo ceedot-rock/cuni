@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.8.0] — 2026-10-02 — "Trust Provable, in all things"
+Onchain Division. Six chain emitters in Corey's order — ink!, Move, Vyper, Cairo, Clarity, Cadence — each a `--emit-X` profile (not a seat): the pure logic core the gate proves, plus the chain shell in the chain's idiom, in two clearly delimited regions.
+### Added
+- `cuni compile <law.cuni> --emit-ink|--emit-move|--emit-vyper|--emit-cairo|--emit-clarity|--emit-cadence <out>` (src/codegen_ink.rs, codegen_move.rs, codegen_vyper.rs, codegen_cairo.rs, codegen_clarity.rs, codegen_cadence.rs): one `.cuni` source becomes a genuine contract-shaped artifact per chain — ink! `#[ink::contract]` with storage struct and messages; Move `module 0xCUNI::name` with `public entry fun`; Vyper `@external @pure` over `@internal @pure` helpers; Cairo `#[starknet::contract]` with `#[storage]` and `#[abi(embed_v0)]`; Clarity `define-private` helpers + `define-public` `(ok ...)` wrappers; Cadence `access(all) contract` with public fns. Shared CLI plumbing via `emit_profile_artifact` / `emit_profile_reference` helpers in src/main.rs.
+- `--emit-X-ref <out>`: the standalone runnable logic-core reference (real Rust via plain `rustc` for ink!; Python via `python3` for the other five) with a driver `main` printing the `say` outputs — the gate runs it and requires stdout byte-identical to CuNi gold.
+- Numeric decisions, documented per emitter: ink! `int`→i64 / `dec`→scaled i128 (checked); Move `int`→u64 / `dec`→scaled u128 (no signed ints on the VM — negatives refuse); Vyper `int`/`dec`→int256 scaled (deliberately NOT Vyper's native `decimal` at 10¹⁰); Cairo `int`/`dec`→u256 (negatives refuse); Clarity `int`→128-bit `int` / `dec`→scaled `int`; Cadence `int`/`dec`→Int256 (deliberately NOT native Fix64 at 10⁸). Truncation toward zero everywhere; canonical dec rendering per docs/DECIMAL.md §6.
+- The money bridge: `examples/finance/fee_schedule.cuni` (the Financial Division's tiered-fee law) compiles through all six emitters; every reference prints the same six driver lines byte-identical (`1.2499 / 1.25 / 5.25 / 2.75 / 0.25 / 2500.25`). The same law, stated once, proven exact, emittable for six chains.
+- `tests/proof_ink.rs`, `proof_move.rs`, `proof_vyper.rs`, `proof_cairo.rs`, `proof_clarity.rs`, `proof_cadence.rs`: shape assertions, golden snapshots, logic-core gates, money-bridge pins, refusal batteries, toolchain-honesty probes. `docs/ONCHAIN.md`: the division page with the per-target verification matrix.
+- Honest boundaries (in docs/ONCHAIN.md and every module header): logic cores proven with real local toolchains; contract shells shape-asserted + snapshot-pinned, NOT compiled here (no ink!/Move/Vyper/Cairo/Clarity/Cadence toolchain on the check machine — each absence probed by `which` in-test); nothing deployed — no mainnet, no testnet, no chain touched, no spend.
+- Catalog unchanged: 144 ids, 12 native seats. The six emitters are profiles, not seats.
+
 ## [0.7.0] — 2026-10-01 — "Trust Provable, in all things"
 Financial Division, first release. `cuni audit` turns exactness into audit infrastructure: a money law stated once as `.cuni`, a foreign implementation proven byte-identical against it, a signed JSON receipt filed either way.
 ### Added

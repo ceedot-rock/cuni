@@ -1,0 +1,79 @@
+# onchain demo law — stated once, proven on the ink! and Move seats.
+#
+# A small vault validator plus a tiered fee schedule, exercising CuNi
+# `int`, `dec`, `bool`, `str`, `def`/`if`/`ret`, comparisons, arithmetic,
+# `for`/`range`, `while`, and `say`.
+#
+# The same source proves on BOTH seats: ink! (`int` -> i64, `dec` ->
+# scaled i128) and Move (`int` -> u64, `dec` -> scaled u128). No negative
+# literals anywhere — the Move seat has no signed integers and refuses
+# them at emit, so this law is written to hold on the unsigned seat too.
+#
+# "Trust Provable, in all things."
+
+def transfer_fee(amount: int, fee_bps: int) -> int do
+    ret amount * fee_bps / 10000
+end
+
+def validate_transfer(balance: int, amount: int, fee_bps: int) -> int do
+    if amount <= 0 do
+        ret 2
+    end
+    if fee_bps > 10000 do
+        ret 3
+    end
+    let total: int = amount + transfer_fee(amount, fee_bps)
+    if total > balance do
+        ret 1
+    end
+    ret 0
+end
+
+def fee(amount: dec) -> dec do
+    if amount <= 100.00dec do
+        ret amount * 0.01dec + 0.25dec
+    end
+    if amount <= 1000.00dec do
+        ret amount * 0.005dec + 0.25dec
+    end
+    ret amount * 0.0025dec + 0.25dec
+end
+
+def label(code: int) -> str do
+    if code == 0 do
+        ret "ok"
+    end
+    ret "bad"
+end
+
+def sum_to(n: int) -> int do
+    mut total: int = 0
+    for i in range(n) do
+        total = total + i
+    end
+    ret total
+end
+
+def countdown(n: int) -> int do
+    mut c: int = n
+    whl c > 0 do
+        c = c - 1
+    end
+    ret c
+end
+
+say(transfer_fee(10000, 50))
+say(validate_transfer(10000, 5000, 50))
+say(validate_transfer(100, 5000, 50))
+say(validate_transfer(10000, 0, 50))
+say(fee(99.9999dec))
+say(fee(1000000.00dec))
+say(label(0))
+say(label(2))
+say(7 / 2)
+say(7 % 2)
+say(1 < 2)
+say(sum_to(10))
+say(countdown(3))
+say(dec_of_int(5))
+say(int_of_dec(5.9999dec))

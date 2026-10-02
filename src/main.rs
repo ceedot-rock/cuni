@@ -4,16 +4,22 @@ mod bank;
 mod check;
 mod checks;
 mod codegen_c;
+mod codegen_cadence;
+mod codegen_cairo;
+mod codegen_clarity;
 mod codegen_go;
+mod codegen_ink;
 mod codegen_java;
 mod codegen_js;
 mod codegen_lua;
+mod codegen_move;
 mod codegen_py;
 mod codegen_rb;
 mod codegen_rs;
 mod codegen_sol;
 mod codegen_solana;
 mod codegen_sql;
+mod codegen_vyper;
 mod emit;
 mod ingest;
 mod interp;
@@ -362,6 +368,78 @@ fn emit_seat_to(
     Ok(())
 }
 
+/// Shared `--emit-X` handler for the onchain profiles (0.8.0): derive the
+/// module name from the input file stem (`escrow` -> `cuni_escrow`), run the
+/// profile's `generate_program`, write the artifact. Returns `Some(code)` on
+/// failure, `None` on success.
+fn emit_profile_artifact(
+    out_path: &str,
+    input_path: &str,
+    program: &ast::Program,
+    label: &str,
+    gen: impl FnOnce(&ast::Program, &str) -> Result<String, String>,
+) -> Option<ExitCode> {
+    let stem = std::path::Path::new(input_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("program");
+    let snake: String = stem
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let snake = snake.trim_matches('_').to_string();
+    let mod_name = if snake.is_empty() {
+        "cuni_program".to_string()
+    } else {
+        format!("cuni_{}", snake)
+    };
+    match gen(program, &mod_name) {
+        Ok(source) => {
+            if let Err(e) = fs::write(out_path, source) {
+                eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                return Some(ExitCode::FAILURE);
+            }
+            eprintln!("cuni: wrote {}", out_path);
+            None
+        }
+        Err(e) => {
+            eprintln!("cuni: {} refused: {}", label, e);
+            Some(ExitCode::FAILURE)
+        }
+    }
+}
+
+/// Shared `--emit-X-ref` handler: write the profile's standalone runnable
+/// logic-core reference (`generate_reference`). Returns `Some(code)` on
+/// failure, `None` on success.
+fn emit_profile_reference(
+    out_path: &str,
+    program: &ast::Program,
+    label: &str,
+    gen: impl FnOnce(&ast::Program) -> Result<String, String>,
+) -> Option<ExitCode> {
+    match gen(program) {
+        Ok(source) => {
+            if let Err(e) = fs::write(out_path, source) {
+                eprintln!("cuni: couldn't write {}: {}", out_path, e);
+                return Some(ExitCode::FAILURE);
+            }
+            eprintln!("cuni: wrote {}", out_path);
+            None
+        }
+        Err(e) => {
+            eprintln!("cuni: {} reference refused: {}", label, e);
+            Some(ExitCode::FAILURE)
+        }
+    }
+}
+
 fn cmd_compile(args: &[String]) -> ExitCode {
     let mut path = None;
     let mut emit_py: Option<String> = None;
@@ -369,6 +447,18 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     let mut emit_lua: Option<String> = None;
     let mut emit_sol: Option<String> = None;
     let mut emit_solana: Option<String> = None;
+    let mut emit_ink: Option<String> = None;
+    let mut emit_ink_ref: Option<String> = None;
+    let mut emit_move_: Option<String> = None;
+    let mut emit_move_ref: Option<String> = None;
+    let mut emit_vyper: Option<String> = None;
+    let mut emit_vyper_ref: Option<String> = None;
+    let mut emit_cairo: Option<String> = None;
+    let mut emit_cairo_ref: Option<String> = None;
+    let mut emit_clarity: Option<String> = None;
+    let mut emit_clarity_ref: Option<String> = None;
+    let mut emit_cadence: Option<String> = None;
+    let mut emit_cadence_ref: Option<String> = None;
     let mut emit_go: Option<String> = None;
     let mut emit_js: Option<String> = None;
     let mut emit_all: Option<String> = None;
@@ -420,6 +510,78 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         } else if args[i] == "--emit-solana" {
             emit_solana = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-solana requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-ink" {
+            emit_ink = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-ink requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-ink-ref" {
+            emit_ink_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-ink-ref requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-move" {
+            emit_move_ = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-move requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-move-ref" {
+            emit_move_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-move-ref requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-vyper" {
+            emit_vyper = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-vyper requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-vyper-ref" {
+            emit_vyper_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-vyper-ref requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-cairo" {
+            emit_cairo = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-cairo requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-cairo-ref" {
+            emit_cairo_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-cairo-ref requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-clarity" {
+            emit_clarity = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-clarity requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-clarity-ref" {
+            emit_clarity_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-clarity-ref requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-cadence" {
+            emit_cadence = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-cadence requires an output path");
+                std::process::exit(1);
+            }));
+            i += 2;
+        } else if args[i] == "--emit-cadence-ref" {
+            emit_cadence_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                eprintln!("cuni: --emit-cadence-ref requires an output path");
                 std::process::exit(1);
             }));
             i += 2;
@@ -581,6 +743,119 @@ fn cmd_compile(args: &[String]) -> ExitCode {
                 return ExitCode::FAILURE;
             }
         }
+    }
+    // Onchain Division profiles (0.8.0). Each is a --emit-X / --emit-X-ref
+    // pair: the chain artifact plus the standalone runnable logic reference
+    // the gate proves byte-identical to CuNi gold.
+    if let Some(out_path) = emit_ink {
+        if let Some(code) =
+            emit_profile_artifact(&out_path, &path, &program, "ink!", codegen_ink::generate_program)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_ink_ref {
+        if let Some(code) =
+            emit_profile_reference(&out_path, &program, "ink!", codegen_ink::generate_reference)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_move_ {
+        if let Some(code) =
+            emit_profile_artifact(&out_path, &path, &program, "Move", codegen_move::generate_program)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_move_ref {
+        if let Some(code) =
+            emit_profile_reference(&out_path, &program, "Move", codegen_move::generate_reference)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_vyper {
+        if let Some(code) =
+            emit_profile_artifact(&out_path, &path, &program, "Vyper", codegen_vyper::generate_program)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_vyper_ref {
+        if let Some(code) =
+            emit_profile_reference(&out_path, &program, "Vyper", codegen_vyper::generate_reference)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_cairo {
+        if let Some(code) =
+            emit_profile_artifact(&out_path, &path, &program, "Cairo", codegen_cairo::generate_program)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_cairo_ref {
+        if let Some(code) =
+            emit_profile_reference(&out_path, &program, "Cairo", codegen_cairo::generate_reference)
+        {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_clarity {
+        if let Some(code) = emit_profile_artifact(
+            &out_path,
+            &path,
+            &program,
+            "Clarity",
+            codegen_clarity::generate_program,
+        ) {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_clarity_ref {
+        if let Some(code) = emit_profile_reference(
+            &out_path,
+            &program,
+            "Clarity",
+            codegen_clarity::generate_reference,
+        ) {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_cadence {
+        if let Some(code) = emit_profile_artifact(
+            &out_path,
+            &path,
+            &program,
+            "Cadence",
+            codegen_cadence::generate_program,
+        ) {
+            return code;
+        }
+        emitted_any = true;
+    }
+    if let Some(out_path) = emit_cadence_ref {
+        if let Some(code) = emit_profile_reference(
+            &out_path,
+            &program,
+            "Cadence",
+            codegen_cadence::generate_reference,
+        ) {
+            return code;
+        }
+        emitted_any = true;
     }
     if let Some(out_path) = emit_go {
         match codegen_go::generate(&program) {

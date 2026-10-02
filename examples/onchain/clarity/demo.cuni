@@ -1,0 +1,49 @@
+# demo.cuni — Onchain Division demo law: one law, two chains.
+#
+# "Trust Provable, in all things."
+#
+# Exercises the v1 onchain subset (int, dec, bool, str, def/if/ret,
+# comparisons, arithmetic, say) so the Clarity and Cadence emitters prove
+# the same stdout the interpreter prints. Truncation toward zero is the
+# interesting bit: `-7 / 3` is `-2` on every seat, never `-3`.
+def trunc_div(a: int, b: int) -> int do
+    ret a / b
+end
+
+def trunc_mod(a: int, b: int) -> int do
+    ret a % b
+end
+
+def fee(amount: dec) -> dec do
+    if amount <= 100.00dec do
+        ret amount * 0.01dec + 0.25dec
+    end
+    ret amount * 0.005dec + 0.25dec
+end
+
+def tier_name(amount: dec) -> str do
+    if amount <= 100.00dec do
+        ret "tier-" + "one"
+    end
+    ret "tier-two"
+end
+
+def approved(ok: bool, amount: int) -> bool do
+    if ok do
+        ret amount > 0
+    end
+    ret false
+end
+
+# Driver: the gate proves every emitter's reference prints exactly this.
+say(trunc_div(-7, 3))
+say(trunc_div(7, -3))
+say(trunc_mod(-7, 3))
+say(fee(99.9999dec))
+say(fee(250.00dec))
+say(tier_name(10.00dec))
+say(tier_name(500.00dec))
+say(approved(true, 5))
+say(approved(false, 5))
+say(int_of_dec(fee(99.9999dec)))
+say(dec_of_int(3) + 0.5dec)
