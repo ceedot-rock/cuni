@@ -77,5 +77,13 @@ Examples: `1.2300 → "1.23"`, `100.0000 → "100.0"`, `0.0001 → "0.0001"`, `-
 | py (+132 lowerings) | `CuniDec(int)` subclass — operators overridden, exact bigint | unlimited | n/a (bigint) |
 | rs | `Val::Dec(i128)` (tagged runtime) | ±1.7×10³⁴ | `checked_*` → panic `cuni: dec …` (loud refusal) |
 | js / ts | `BigInt`, literals `12300n` | unlimited | n/a (BigInt); `/` truncates toward zero natively |
-| c / cpp | `Val.d` as `__int128` (tagged runtime) | ±1.7×
-...[truncated 4798 chars]
+| c / cpp | `Val.d` as `__int128` (tagged runtime) | ±1.7×10³⁴ | checked ops → loud `cuni: dec …` refusal; targets without `__int128` refuse at emit |
+| go | `int64` scaled | ±$922T envelope | literals range-checked at emit; arithmetic overflow → panic `cuni: dec …` (loud refusal) |
+| rb | `Integer` (bignum, exact) | unlimited | n/a (bignum); trunc-toward-zero division handled explicitly (`Integer#div` floors) |
+| lua | `integer` (int64; `math.maxinteger`) | ±$922T envelope | literals range-checked at emit; out-of-range refuses |
+| java | `java.math.BigInteger` scaled | unlimited | n/a (BigInteger) |
+| sql | scaled `INTEGER` (never `REAL`) | ±$922T envelope | overflow and division-by-zero refused at emit time |
+| sol | scaled `int256` | ±1.7×10³⁴ | EVM checked arithmetic reverts on overflow; `%` is refused |
+| solana (profile) | — | — | `dec` refused in v1 (see `docs/SOLANA.md`) |
+
+"Wide" seats (`py`, `rs`, `js`/`ts`, `c`/`cpp`, `rb`, `java`, `sol`) compute the full scaled range natively. "Narrow" int64 seats (`go`, `lua`, `sql`) share the identical ±$922T envelope: literals outside it refuse at emit, and arithmetic that would overflow refuses loudly at run — so a narrow seat can never silently diverge from a wide one. That shared envelope is what makes the gate meaningful across all twelve.
