@@ -210,6 +210,12 @@ pub enum ExprKind {
     /// The parser validates and scales once via `parse_dec_scaled`, so every
     /// seat and the interpreter share one literal semantics.
     Dec(i128),
+    /// A `time` literal, stored as int64 unix epoch seconds, UTC
+    /// (docs/TIME.md §1–2). The parser validates the strict ISO-8601 form
+    /// and converts once via `parse_time_epoch`, so every seat and the
+    /// interpreter share one literal semantics. No timezones, no DST, no
+    /// wall-clock `now()` — anything ambiguous refuses at type-check.
+    Time(i64),
     Bool(bool),
     Str(String),
     InterpStr(Vec<StrPartExpr>),
@@ -459,6 +465,234 @@ pub fn check_dec_literals_in_range(
     }
 }
 
+/// `time` = int64 unix epoch seconds, UTC only (docs/TIME.md §1).
+/// No timezones, no wall-clock `now()`, no DST — anything ambiguous
+/// refuses at type-check.
+
+/// Days since the unix epoch for a proleptic-Gregorian civil date
+/// (Howard Hinnant's `days_from_civil`). Floor-correct for the full i64
+/// year range; every seat re-implements this exact algorithm.
+fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y0 = if m <= 2 { y - 1 } else { y };
+    let era = y0.div_euclid(400);
+    let yoe = y0 - era * 400; // [0, 399]
+    let mp = (m + 9) % 12; // [0, 11]
+    let doy = (153 * mp + 2) / 5 + d - 1; // [0, 365]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
+    era * 146097 + doe - 719468
+}
+
+/// Proleptic-Gregorian civil date for days since the unix epoch
+/// (Hinnant's `civil_from_days`). Floor-correct for negative inputs —
+/// pre-1970 times must round-trip exactly.
+fn civil_from_days(z: i64) -> (i64, i64, i64) {
+    let z = z + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365; // [0, 399]
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11]
+    let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+    let m = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+    (if m <= 2 { y + 1 } else { y }, m, d)
+}
+
+/// Parse a `time` literal's raw ISO-8601 text (e.g. `"2026-10-01T21:30:25Z"`)
+/// into int64 unix epoch seconds. This is the ONE place literal semantics
+/// live: the parser calls it, and codegens may reuse it. Strict
+/// `YYYY-MM-DDTHH:MM:SSZ` only — offsets, fractional seconds, missing `Z`,
+/// non-canonical forms, leap seconds, and years outside 0001..=9999 are
+/// all refused with a clear message, never silently normalized.
+pub fn parse_time_epoch(text: &str) -> Result<i64, String> {
+    let refuse = |why: &str| {
+        format!(
+            "invalid time literal `\"{text}\"t`: {why} — refusing (strict ISO-8601 UTC `YYYY-MM-DDTHH:MM:SSZ` only, docs/TIME.md §2)"
+        )
+    };
+    let b = text.as_bytes();
+    if b.len() != 20 {
+        return Err(refuse("must be exactly 20 characters"));
+    }
+    for (i, expect) in [
+        (4, b'-'),
+        (7, b'-'),
+        (10, b'T'),
+        (13, b':'),
+        (16, b':'),
+        (19, b'Z'),
+    ] {
+        if b[i] != expect {
+            return Err(refuse("bad separator"));
+        }
+    }
+    let digits = |lo: usize, hi: usize| -> Result<i64, String> {
+        let mut v: i64 = 0;
+        for i in lo..hi {
+            let c = b[i];
+            if !c.is_ascii_digit() {
+                return Err(refuse("non-digit in a numeric field"));
+            }
+            v = v * 10 + (c - b'0') as i64;
+        }
+        Ok(v)
+    };
+    let y = digits(0, 4)?;
+    let mo = digits(5, 7)?;
+    let d = digits(8, 10)?;
+    let h = digits(11, 13)?;
+    let mi = digits(14, 16)?;
+    let s = digits(17, 19)?;
+    if !(1..=9999).contains(&y) {
+        return Err(refuse("year out of range 0001..=9999"));
+    }
+    if !(1..=12).contains(&mo) {
+        return Err(refuse("month out of range 01..=12"));
+    }
+    let dim = match mo {
+        4 | 6 | 9 | 11 => 30,
+        2 if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) => 29,
+        2 => 28,
+        _ => 31,
+    };
+    if !(1..=dim).contains(&d) {
+        return Err(refuse("day out of range for month"));
+    }
+    if h > 23 {
+        return Err(refuse("hour out of range 00..=23"));
+    }
+    if mi > 59 {
+        return Err(refuse("minute out of range 00..=59"));
+    }
+    if s > 59 {
+        return Err(refuse("second out of range 00..=59 (no leap seconds)"));
+    }
+    days_from_civil(y, mo, d)
+        .checked_mul(86400)
+        .and_then(|e| e.checked_add(h * 3600 + mi * 60 + s))
+        .ok_or_else(|| refuse("epoch out of int64 range"))
+}
+
+/// Canonical `time` rendering of an int64 epoch (docs/TIME.md §4):
+/// `YYYY-MM-DDTHH:MM:SSZ`, byte-identical on every seat. The year prints
+/// with at least 4 digits (wider if needed, e.g. year 10000); negative
+/// years (only reachable via arithmetic underflow) print `-` + zero-padded
+/// magnitude. Every seat implements this exact rule.
+pub fn fmt_time_epoch(e: i64) -> String {
+    let days = e.div_euclid(86400);
+    let sod = e.rem_euclid(86400);
+    let (y, m, d) = civil_from_days(days);
+    let hh = sod / 3600;
+    let mi = (sod % 3600) / 60;
+    let ss = sod % 60;
+    let ys = if y < 0 {
+        format!("-{:04}", -y)
+    } else {
+        format!("{:04}", y)
+    };
+    format!("{ys}-{m:02}-{d:02}T{hh:02}:{mi:02}:{ss:02}Z")
+}
+
+/// All `time` literal epochs in a program, for per-seat range refusal
+/// pre-passes (docs/TIME.md §7). Epochs always fit int64 by construction;
+/// only the sol seat narrows the envelope (uint256: non-negative epochs).
+pub fn check_time_literals_in_range(program: &Program, seat: &str) -> Result<(), String> {
+    if seat != "sol" {
+        return Ok(());
+    }
+    let mut bad: Option<i64> = None;
+    fn expr(e: &Expr, bad: &mut Option<i64>) {
+        if bad.is_some() {
+            return;
+        }
+        match &e.kind {
+            ExprKind::Time(t) => {
+                if *t < 0 {
+                    *bad = Some(*t);
+                }
+            }
+            ExprKind::List(xs) => xs.iter().for_each(|x| expr(x, bad)),
+            ExprKind::Map(pairs) => pairs.iter().for_each(|(k, v)| {
+                expr(k, bad);
+                expr(v, bad);
+            }),
+            ExprKind::Call { callee, args } => {
+                expr(callee, bad);
+                args.iter().for_each(|a| expr(a.expr(), bad));
+            }
+            ExprKind::Index { base, index } => {
+                expr(base, bad);
+                expr(index, bad);
+            }
+            ExprKind::Field { base, .. } => expr(base, bad),
+            ExprKind::Binary { lhs, rhs, .. } => {
+                expr(lhs, bad);
+                expr(rhs, bad);
+            }
+            ExprKind::Unary { expr: x, .. } => expr(x, bad),
+            ExprKind::Unwrap { expr: x, handler } => {
+                expr(x, bad);
+                handler.iter().for_each(|s| stmt(s, bad));
+            }
+            ExprKind::InterpStr(parts) => parts.iter().for_each(|p| {
+                if let StrPartExpr::Expr(x) = p {
+                    expr(x, bad);
+                }
+            }),
+            _ => {}
+        }
+    }
+    fn stmt(s: &Stmt, bad: &mut Option<i64>) {
+        if bad.is_some() {
+            return;
+        }
+        match &s.kind {
+            StmtKind::Let { value, .. } | StmtKind::Mut { value, .. } => expr(value, bad),
+            StmtKind::Assign { target, value } => {
+                expr(target, bad);
+                expr(value, bad);
+            }
+            StmtKind::Ret(Some(x)) | StmtKind::Fail(x) | StmtKind::ExprStmt(x) => expr(x, bad),
+            StmtKind::If {
+                cond,
+                then_body,
+                else_body,
+            } => {
+                expr(cond, bad);
+                then_body.iter().for_each(|x| stmt(x, bad));
+                if let Some(eb) = else_body {
+                    eb.iter().for_each(|x| stmt(x, bad));
+                }
+            }
+            StmtKind::For { iter, body, .. } => {
+                expr(iter, bad);
+                body.iter().for_each(|x| stmt(x, bad));
+            }
+            StmtKind::Whl { cond, body } => {
+                expr(cond, bad);
+                body.iter().for_each(|x| stmt(x, bad));
+            }
+            _ => {}
+        }
+    }
+    for item in &program.items {
+        match item {
+            Item::Def(f) => f.body.iter().for_each(|s| stmt(s, &mut bad)),
+            Item::Stmt(s) => stmt(s, &mut bad),
+            _ => {}
+        }
+        if bad.is_some() {
+            break;
+        }
+    }
+    match bad {
+        Some(v) => Err(format!(
+            "{seat} seat: time literal with negative epoch {v} cannot be a uint256 — refusing (docs/TIME.md §7)"
+        )),
+        None => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -492,5 +726,54 @@ mod tests {
         assert_eq!(fmt_dec_scaled(0), "0.0");
         assert_eq!(fmt_dec_scaled(12300), "1.23");
         assert_eq!(fmt_dec_scaled(-12300), "-1.23");
+    }
+
+    #[test]
+    fn time_literal_parses_to_epoch() {
+        assert_eq!(parse_time_epoch("1970-01-01T00:00:00Z").unwrap(), 0);
+        assert_eq!(parse_time_epoch("2026-10-01T21:30:25Z").unwrap(), 1790890225);
+        assert_eq!(parse_time_epoch("1969-12-31T23:59:59Z").unwrap(), -1);
+        assert_eq!(parse_time_epoch("2000-02-29T12:00:00Z").unwrap(), 951825600);
+        assert_eq!(
+            parse_time_epoch("9999-12-31T23:59:59Z").unwrap(),
+            253402300799
+        );
+    }
+
+    #[test]
+    fn time_literal_refuses_non_canonical() {
+        // Offsets, fractional seconds, missing Z, bad separators, leap
+        // seconds, impossible dates, year 0000 — all refuse.
+        for bad in [
+            "2026-10-01T21:30:25+00:00",
+            "2026-10-01T21:30:25.000Z",
+            "2026-10-01T21:30:25",
+            "2026-10-01 21:30:25Z",
+            "2026-10-01T21:30:60Z",
+            "2026-02-29T00:00:00Z",
+            "2026-13-01T00:00:00Z",
+            "2026-10-01T24:00:00Z",
+            "0000-01-01T00:00:00Z",
+            "26-10-01T21:30:25Z",
+        ] {
+            assert!(parse_time_epoch(bad).is_err(), "accepted: {bad}");
+        }
+        // Leap years: 2000 and 2024 have Feb 29; 1900 does not.
+        assert!(parse_time_epoch("2000-02-29T00:00:00Z").is_ok());
+        assert!(parse_time_epoch("2024-02-29T00:00:00Z").is_ok());
+        assert!(parse_time_epoch("1900-02-29T00:00:00Z").is_err());
+    }
+
+    #[test]
+    fn time_formats_canonically_and_round_trips() {
+        assert_eq!(fmt_time_epoch(0), "1970-01-01T00:00:00Z");
+        assert_eq!(fmt_time_epoch(1790890225), "2026-10-01T21:30:25Z");
+        assert_eq!(fmt_time_epoch(-1), "1969-12-31T23:59:59Z");
+        assert_eq!(fmt_time_epoch(253402300799), "9999-12-31T23:59:59Z");
+        assert_eq!(fmt_time_epoch(-62167219200), "0000-01-01T00:00:00Z");
+        // Round-trip: parse(fmt(e)) == e, incl. pre-1970.
+        for e in [0, 1, -1, -86400, 1790890225, 951825600, -2208988800] {
+            assert_eq!(parse_time_epoch(&fmt_time_epoch(e)).unwrap(), e);
+        }
     }
 }

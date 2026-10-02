@@ -95,6 +95,11 @@ enum VKind {
     /// CuNi `dec`: scaled INTEGER, scale 10⁴ (docs/DECIMAL.md). Narrow
     /// seat: |scaled| ≤ i64::MAX; literals are range-checked at emit.
     Dec,
+    /// CuNi `time`: INTEGER unix epoch seconds, UTC (docs/TIME.md).
+    /// Narrow seat: |epoch| ≤ i64::MAX (always, by construction);
+    /// arithmetic overflow refuses on the folded (literal) path; dynamic
+    /// SQL expressions follow the seat's existing int posture.
+    Time,
     Float,
     Str,
     Bool,
@@ -503,6 +508,110 @@ impl<'a> Codegen<'a> {
                 Ok(Val::scalar(format!("(({}) {o} ({}))", l.sql, r.sql), VKind::Bool))
             }
             BinOp::And | BinOp::Or => Err("`and`/`or` need booleans; refusing".into()),
+        }
+    }
+
+    /// Canonical time rendering as a SQL text expression (docs/TIME.md §4):
+    /// SQLite's `strftime` with the unixepoch modifier, forced to the
+    /// `YYYY-MM-DDTHH:MM:SSZ` shape. `vsql` is a SQL expression evaluating
+    /// to the epoch INTEGER.
+    fn time_to_text_sql(vsql: &str) -> String {
+        format!(
+            "(strftime('%Y-%m-%dT%H:%M:%SZ', ({v}), 'unixepoch'))",
+            v = vsql
+        )
+    }
+
+    /// If `sql` is a single-quoted string literal with no escaped quotes and
+    /// no embedded SQL (e.g. a `'a' || 'b'` concatenation), return its exact
+    /// text (so `parse_time` can fold it at emit). Anything else is not a
+    /// plain literal — a misidentified literal would be a silent
+    /// wrong-epoch, so this check is deliberately strict.
+    fn str_literal_text(sql: &str) -> Option<String> {
+        let t = sql.trim();
+        if t.len() >= 2
+            && t.starts_with('\'')
+            && t.ends_with('\'')
+            && !t[1..t.len() - 1].contains('\'')
+        {
+            Some(t[1..t.len() - 1].to_string())
+        } else {
+            None
+        }
+    }
+
+
+    /// `time` binary ops (docs/TIME.md §3): a closed world — the typeck
+    /// proved the valid shapes (`time ± int`, `time − time`, `time`
+    /// comparisons). Literal operands are folded in Rust with checked
+    /// arithmetic — exact, and a loud refusal on overflow. Dynamic operands
+    /// emit plain SQL `+`/`-` (the seat's existing int posture: exact inside
+    /// the int64 envelope); values outside it are caught by the cross-seat
+    /// gate.
+    fn eval_time_binary(&mut self, op: BinOp, l: Val, r: Val) -> Result<Val, String> {
+        let lt = l.kind == VKind::Time;
+        let rt = r.kind == VKind::Time;
+        // The typeck proved: Add/Sub have exactly the valid shapes, and
+        // comparisons are (time, time). Anything else is defense in depth.
+        let valid = match op {
+            BinOp::Add => lt != rt && (l.kind == VKind::Int || r.kind == VKind::Int),
+            BinOp::Sub => lt && (r.kind == VKind::Int || rt),
+            BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => lt && rt,
+            _ => false,
+        };
+        if !valid {
+            return Err(match op {
+                BinOp::Mul | BinOp::Div | BinOp::Mod => {
+                    "`*`/`/`/`%` are not defined on `time`; refusing".into()
+                }
+                _ => "time binary op shape rejected by codegen; refusing".into(),
+            });
+        }
+        // Literal fast path: exact Rust arithmetic, loud refusal.
+        if let (Ok(a), Ok(b)) = (l.sql.trim().parse::<i64>(), r.sql.trim().parse::<i64>()) {
+            let v: Option<(i64, VKind)> = match op {
+                BinOp::Add => a.checked_add(b).map(|x| (x, VKind::Time)),
+                BinOp::Sub if rt => a.checked_sub(b).map(|x| (x, VKind::Int)),
+                BinOp::Sub => a.checked_sub(b).map(|x| (x, VKind::Time)),
+                BinOp::Eq => return Ok(Val::scalar(if a == b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Ne => return Ok(Val::scalar(if a != b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Lt => return Ok(Val::scalar(if a < b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Gt => return Ok(Val::scalar(if a > b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Le => return Ok(Val::scalar(if a <= b { "1" } else { "0" }.into(), VKind::Bool)),
+                BinOp::Ge => return Ok(Val::scalar(if a >= b { "1" } else { "0" }.into(), VKind::Bool)),
+                _ => None,
+            };
+            match v {
+                Some((x, k)) => return Ok(Val::scalar(x.to_string(), k)),
+                None => {
+                    return Err(
+                        "time arithmetic overflowed the SQL seat's int64 envelope; refusing".into(),
+                    )
+                }
+            }
+        }
+        match op {
+            BinOp::Add => Ok(Val::scalar(format!("(({}) + ({}))", l.sql, r.sql), VKind::Time)),
+            // time - int -> time; time - time -> int.
+            BinOp::Sub if rt => Ok(Val::scalar(
+                format!("(({}) - ({}))", l.sql, r.sql),
+                VKind::Int,
+            )),
+            BinOp::Sub => Ok(Val::scalar(format!("(({}) - ({}))", l.sql, r.sql), VKind::Time)),
+            BinOp::Eq | BinOp::Ne => {
+                let o = if matches!(op, BinOp::Eq) { "=" } else { "<>" };
+                Ok(Val::scalar(format!("(({}) {o} ({}))", l.sql, r.sql), VKind::Bool))
+            }
+            BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge => {
+                let o = match op {
+                    BinOp::Lt => "<",
+                    BinOp::Gt => ">",
+                    BinOp::Le => "<=",
+                    _ => ">=",
+                };
+                Ok(Val::scalar(format!("(({}) {o} ({}))", l.sql, r.sql), VKind::Bool))
+            }
+            _ => Err("time binary op shape rejected by codegen; refusing".into()),
         }
     }
 
@@ -1018,6 +1127,10 @@ impl<'a> Codegen<'a> {
                 Ok(n) => format!("'{}'", crate::ast::fmt_dec_scaled(n as i128)),
                 Err(_) => Self::dec_to_text_sql(&v.sql),
             },
+            VKind::Time => match v.sql.trim().parse::<i64>() {
+                Ok(n) => format!("'{}'", crate::ast::fmt_time_epoch(n)),
+                Err(_) => Self::time_to_text_sql(&v.sql),
+            },
             // Peephole: a statically-known bool prints its spelling
             // directly — no CASE.
             VKind::Bool if v.sql.trim() == "1" => "'True'".into(),
@@ -1081,6 +1194,7 @@ fn kind_of_type(ty: &Type) -> Result<VKind, String> {    match ty {
             // The SQL seat stores dec as a scaled INTEGER (docs/DECIMAL.md
             // §7) — a narrow (int64) seat.
             "dec" => Ok(VKind::Dec),
+            "time" => Ok(VKind::Time),
             "float" => Ok(VKind::Float),
             "str" => Ok(VKind::Str),
             "bool" => Ok(VKind::Bool),
@@ -1110,6 +1224,8 @@ impl<'a> Codegen<'a> {
                 Self::check_dec_literal(*s)?;
                 Ok(Val::scalar(s.to_string(), VKind::Dec))
             }
+            // Epoch seconds always fit int64 by construction (docs/TIME.md §2).
+            ExprKind::Time(e) => Ok(Val::scalar(e.to_string(), VKind::Time)),
             ExprKind::Float(f) => Ok(Val::scalar(format!("{f}"), VKind::Float)),
             ExprKind::Bool(b) => Ok(Val::scalar(
                 if *b { "1".into() } else { "0".into() },
@@ -1233,6 +1349,11 @@ impl<'a> Codegen<'a> {
                 Ok(n) => Ok(format!("'{}'", crate::ast::fmt_dec_scaled(n as i128))),
                 Err(_) => Ok(Self::dec_to_text_sql(&v.sql)),
             },
+            // A time renders as ISO-8601, never as its raw epoch INTEGER.
+            VKind::Time => match v.sql.trim().parse::<i64>() {
+                Ok(n) => Ok(format!("'{}'", crate::ast::fmt_time_epoch(n))),
+                Err(_) => Ok(Self::time_to_text_sql(&v.sql)),
+            },
             VKind::Str => Ok(v.sql.clone()),
             VKind::Bool => Ok(format!("CASE WHEN ({}) THEN 'True' ELSE 'False' END", v.sql)),
             VKind::Null => Ok("'None'".into()),
@@ -1247,6 +1368,11 @@ impl<'a> Codegen<'a> {
         // or a loud refusal. Routed before the int/float/str logic below.
         if matches!(l.kind, VKind::Dec) || matches!(r.kind, VKind::Dec) {
             return self.eval_dec_binary(op, l, r);
+        }
+        // `time` is a closed world too (docs/TIME.md §3): the typeck proved
+        // the valid shapes; anything else is a loud refusal.
+        if matches!(l.kind, VKind::Time) || matches!(r.kind, VKind::Time) {
+            return self.eval_time_binary(op, l, r);
         }
         let is_num = |k: &VKind| matches!(k, VKind::Int | VKind::Float | VKind::Any);
         let is_str = |k: &VKind| matches!(k, VKind::Str);
@@ -1533,6 +1659,80 @@ impl<'a> Codegen<'a> {
                     return Err(
                         "`sha256` has no SQL form (SQLite core has no SHA-256); refusing".into(),
                     )
+                }
+                // `time` builtins (docs/TIME.md §5).
+                "parse_time" => {
+                    if args.len() != 1 {
+                        return Err("`parse_time` takes exactly one argument; refusing".into());
+                    }
+                    let v = self.eval(args[0].expr())?;
+                    // The SQL seat folds string literals at emit with the
+                    // strict Rust parser — exact, loud refusal on bad input.
+                    // A non-literal string has no loud-refusal SQL form
+                    // (SQLite resolves names at prepare time and never
+                    // errors on bad values at runtime), so the seat refuses
+                    // the program instead of risking a silent value.
+                    match Self::str_literal_text(&v.sql) {
+                        Some(lit) => {
+                            let e = crate::ast::parse_time_epoch(&lit)
+                                .map_err(|m| format!("cuni: parse_time: {m}"))?;
+                            return Ok(Val::scalar(e.to_string(), VKind::Time));
+                        }
+                        None => {
+                            return Err("`parse_time` on the SQL seat needs a string literal (folded at emit); a dynamic string has no loud-refusal SQL form — refusing".into())
+                        }
+                    }
+                }
+                "add_seconds" => {
+                    if args.len() != 2 {
+                        return Err("`add_seconds` takes exactly two arguments; refusing".into());
+                    }
+                    let t = self.eval(args[0].expr())?;
+                    let s = self.eval(args[1].expr())?;
+                    if t.kind != VKind::Time {
+                        return Err("add_seconds needs (time, int); refusing".into());
+                    }
+                    // Literal: exact checked math, loud on overflow.
+                    if let (Ok(a), Ok(b)) =
+                        (t.sql.trim().parse::<i64>(), s.sql.trim().parse::<i64>())
+                    {
+                        let e = a.checked_add(b).ok_or_else(|| {
+                            "add_seconds overflowed the SQL seat's int64 envelope; refusing"
+                                .to_string()
+                        })?;
+                        return Ok(Val::scalar(e.to_string(), VKind::Time));
+                    }
+                    // Dynamic: the seat's existing int posture (exact inside
+                    // the int64 envelope).
+                    return Ok(Val::scalar(
+                        format!("(({}) + ({}))", t.sql, s.sql),
+                        VKind::Time,
+                    ));
+                }
+                "days_between" => {
+                    if args.len() != 2 {
+                        return Err("`days_between` takes exactly two arguments; refusing".into());
+                    }
+                    let a = self.eval(args[0].expr())?;
+                    let b = self.eval(args[1].expr())?;
+                    if a.kind != VKind::Time || b.kind != VKind::Time {
+                        return Err("days_between needs (time, time); refusing".into());
+                    }
+                    // Literal: exact, truncates toward zero.
+                    if let (Ok(x), Ok(y)) =
+                        (a.sql.trim().parse::<i64>(), b.sql.trim().parse::<i64>())
+                    {
+                        let d = x.checked_sub(y).ok_or_else(|| {
+                            "days_between overflowed the SQL seat's int64 envelope; refusing"
+                                .to_string()
+                        })?;
+                        return Ok(Val::scalar((d / 86400).to_string(), VKind::Int));
+                    }
+                    // Dynamic: SQLite integer `/` truncates toward zero.
+                    return Ok(Val::scalar(
+                        format!("((({}) - ({})) / 86400)", a.sql, b.sql),
+                        VKind::Int,
+                    ));
                 }
                 _ => {}
             }

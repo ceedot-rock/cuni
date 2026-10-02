@@ -1,0 +1,52 @@
+# time.cuni — the time exactness proof fixture.
+#
+# One time law, written once in CuNi, provable identical on every native
+# seat. `time` is an exact int64 unix epoch, UTC only, no timezones, no
+# `now()` (docs/TIME.md): settlement, vesting, expiries, and rate windows
+# that print byte-identical everywhere or CuNi refuses to emit them.
+
+# Settlement: a trade settles T+2 days (172800 s) after execution.
+let exec: time = "2026-10-01T21:30:25Z"t
+let settle = exec + 172800
+say(settle)
+
+# Addition commutes across the int/time boundary: int + time == time + int.
+say(3600 + exec)
+
+# Vesting: a 90-day cliff after the grant instant.
+let grant: time = "2026-01-01T00:00:00Z"t
+let cliff = grant + 90 * 86400
+say(cliff)
+
+# Expiry: an option expires at year end; whole days from execution to expiry.
+let expiry: time = "2026-12-31T23:59:59Z"t
+say(days_between(expiry, exec))
+
+# Rate window: the exact second-duration between two events.
+say(expiry - exec)
+
+# Backward windows truncate toward zero: (exec - expiry) is negative.
+say(days_between(exec, expiry))
+
+# Comparisons order instants, never their spellings.
+say(exec < settle)
+say(exec == exec)
+say(expiry > settle)
+
+# parse_time: strict ISO-8601 UTC in, exact instant out — leap day included.
+say(parse_time("2000-02-29T12:00:00Z"))
+
+# Pre-1970 instants are negative epochs and stay exact.
+say(parse_time("1969-12-31T23:59:59Z"))
+
+# add_seconds: shifting the far-future boundary by zero keeps it canonical.
+say(add_seconds("9999-12-31T23:59:59Z"t, 0))
+
+# Interpolation renders instants canonically too.
+say(`settles ${settle}`)
+
+# A function over time: seconds remaining until expiry from any instant.
+def seconds_left(now: time, deadline: time) -> int do
+    ret deadline - now
+end
+say(seconds_left(exec, expiry))

@@ -165,6 +165,8 @@ enum VarKind {
     Map,
     /// A `dec` value (`cuniDec`) — see docs/DECIMAL.md.
     Dec,
+    /// A `time` value (`cuniTime`) — see docs/TIME.md.
+    Time,
     Other,
 }
 
@@ -194,6 +196,8 @@ struct Codegen {
     typ_fields: HashMap<String, Vec<String>>,
     /// `def`s declared `-> dec`: calls to them are dec expressions.
     fn_dec_rets: std::collections::HashSet<String>,
+    /// `def`s declared `-> time`: calls to them are time expressions.
+    fn_time_rets: std::collections::HashSet<String>,
     cur_fn: Option<CurFn>,
     tmp_counter: usize,
     has_link: bool,
@@ -209,6 +213,7 @@ impl Codegen {
         let mut enum_names = std::collections::HashSet::new();
         let mut typ_fields = HashMap::new();
         let mut fn_dec_rets = std::collections::HashSet::new();
+        let mut fn_time_rets = std::collections::HashSet::new();
         let mut has_link = false;
         let mut has_link_int_param = false;
         for item in &program.items {
@@ -216,6 +221,9 @@ impl Codegen {
                 Item::Def(f) => {
                     if matches!(&f.ret_type, Type::Named(n) if n == "dec") {
                         fn_dec_rets.insert(f.name.clone());
+                    }
+                    if matches!(&f.ret_type, Type::Named(n) if n == "time") {
+                        fn_time_rets.insert(f.name.clone());
                     }
                     fn_info.insert(
                         f.name.clone(),
@@ -257,6 +265,7 @@ impl Codegen {
             enum_names,
             typ_fields,
             fn_dec_rets,
+            fn_time_rets,
             cur_fn: None,
             tmp_counter: 0,
             has_link,
@@ -347,6 +356,13 @@ impl Codegen {
         // has the cuniDec type, so this changes nothing else.
         self.line(1, "if d, ok := x.(cuniDec); ok {");
         self.line(2, "fmt.Println(cuniDecStr(d))");
+        self.line(2, "return");
+        self.line(1, "}");
+        // A `time` is an epoch int64 (docs/TIME.md) — it must render as
+        // ISO-8601, not as its raw epoch integer. No other CuNi value has
+        // the cuniTime type, so this changes nothing else.
+        self.line(1, "if t, ok := x.(cuniTime); ok {");
+        self.line(2, "fmt.Println(cuniTimeStr(t))");
         self.line(2, "return");
         self.line(1, "}");
         self.line(1, "fmt.Println(x)");
@@ -448,6 +464,107 @@ impl Codegen {
         // fmt's %v/%s route through String(): interpolated decs render
         // canonically too, not as raw scaled integers.
         self.line(0, "func (v cuniDec) String() string { return cuniDecStr(v) }");
+        self.out.push('\n');
+        // ---- CuNi `time`: unix epoch seconds, UTC, exact (docs/TIME.md) ----
+        // int64 seat: the distinct cuniTime type keeps time/int separate at
+        // compile time (a time/int mix won't compile); every op that would
+        // overflow int64 panics — a loud refusal, never a wrap.
+        self.line(0, "type cuniTime int64");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeRefuse(msg string) { panic(\"cuni: \" + msg + \" \\u2014 refused\") }");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeAdd(a, b cuniTime) cuniTime {");
+        self.line(1, "if (b > 0 && a > cuniTime(cuniMaxInt64-int64(b))) || (b < 0 && a < cuniTime(cuniMinInt64-int64(b))) {");
+        self.line(2, "cuniTimeRefuse(\"time addition overflow\")");
+        self.line(1, "}");
+        self.line(1, "return a + b");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeSub(a, b cuniTime) cuniTime {");
+        self.line(1, "if (b < 0 && a > cuniTime(cuniMaxInt64+int64(b))) || (b > 0 && a < cuniTime(cuniMinInt64+int64(b))) {");
+        self.line(2, "cuniTimeRefuse(\"time subtraction overflow\")");
+        self.line(1, "}");
+        self.line(1, "return a - b");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeDiff(a, b cuniTime) int64 {");
+        self.line(1, "// time - time -> int seconds (docs/TIME.md §3).");
+        self.line(1, "if (b < 0 && a > cuniTime(cuniMaxInt64+int64(b))) || (b > 0 && a < cuniTime(cuniMinInt64+int64(b))) {");
+        self.line(2, "cuniTimeRefuse(\"time difference overflow\")");
+        self.line(1, "}");
+        self.line(1, "return int64(a) - int64(b)");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeNeg(a cuniTime) cuniTime {");
+        self.line(1, "if a == cuniTime(cuniMinInt64) { cuniTimeRefuse(\"time negation overflow\") }");
+        self.line(1, "return -a");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniTimeStr(v cuniTime) string {");
+        self.line(1, "// Canonical ISO-8601 UTC rendering (docs/TIME.md §4).");
+        self.line(1, "e := int64(v)");
+        self.line(1, "days := e / 86400");
+        self.line(1, "sod := e % 86400");
+        self.line(1, "if sod < 0 { days--; sod += 86400 }");
+        self.line(1, "z := days + 719468");
+        self.line(1, "var era int64");
+        self.line(1, "if z >= 0 { era = z / 146097 } else { era = -((-z + 146096) / 146097) }");
+        self.line(1, "doe := z - era*146097");
+        self.line(1, "yoe := (doe - doe/1460 + doe/36524 - doe/146096) / 365");
+        self.line(1, "y := yoe + era*400");
+        self.line(1, "doy := doe - (365*yoe + yoe/4 - yoe/100)");
+        self.line(1, "mp := (5*doy + 2) / 153");
+        self.line(1, "d := doy - (153*mp+2)/5 + 1");
+        self.line(1, "m := mp + 3");
+        self.line(1, "if mp >= 10 { m = mp - 9 }");
+        self.line(1, "if m <= 2 { y++ }");
+        self.line(1, "hh := sod / 3600");
+        self.line(1, "mi := (sod % 3600) / 60");
+        self.line(1, "ss := sod % 60");
+        self.line(1, "ys := fmt.Sprintf(\"%04d\", y)");
+        self.line(1, "if y < 0 { ys = \"-\" + fmt.Sprintf(\"%04d\", -y) }");
+        self.line(1, "return ys + \"-\" + fmt.Sprintf(\"%02d\", m) + \"-\" + fmt.Sprintf(\"%02d\", d) + \"T\" + fmt.Sprintf(\"%02d\", hh) + \":\" + fmt.Sprintf(\"%02d\", mi) + \":\" + fmt.Sprintf(\"%02d\", ss) + \"Z\"");
+        self.line(0, "}");
+        self.out.push('\n');
+        // fmt's %v/%s route through String(): interpolated times render
+        // canonically too, not as raw epoch integers.
+        self.line(0, "func (v cuniTime) String() string { return cuniTimeStr(v) }");
+        self.out.push('\n');
+        self.line(0, "func cuniParseTime(s string) cuniTime {");
+        self.line(1, "// Strict ISO-8601 UTC -> time (docs/TIME.md §2, §5): bad input panics loudly.");
+        self.line(1, "bad := func() { cuniTimeRefuse(\"parse_time: bad ISO-8601 UTC timestamp\") }");
+        self.line(1, "if len(s) != 20 { bad() }");
+        self.line(1, "if s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':' || s[16] != ':' || s[19] != 'Z' { bad() }");
+        self.line(1, "dig := func(i int) int64 { c := s[i]; if c < '0' || c > '9' { bad() }; return int64(c - '0') }");
+        self.line(1, "y := dig(0)*1000 + dig(1)*100 + dig(2)*10 + dig(3)");
+        self.line(1, "mo := dig(5)*10 + dig(6)");
+        self.line(1, "d := dig(8)*10 + dig(9)");
+        self.line(1, "h := dig(11)*10 + dig(12)");
+        self.line(1, "mi := dig(14)*10 + dig(15)");
+        self.line(1, "sec := dig(17)*10 + dig(18)");
+        self.line(1, "if y < 1 || y > 9999 || mo < 1 || mo > 12 { bad() }");
+        self.line(1, "dim := int64(31)");
+        self.line(1, "switch mo { case 4, 6, 9, 11: dim = 30; case 2: dim = 28; if y%4 == 0 && (y%100 != 0 || y%400 == 0) { dim = 29 } }");
+        self.line(1, "if d < 1 || d > dim || h > 23 || mi > 59 || sec > 59 { bad() }");
+        self.line(1, "y0 := y");
+        self.line(1, "if mo <= 2 { y0 = y - 1 }");
+        self.line(1, "era := y0 / 400");
+        self.line(1, "yoe := y0 - era*400");
+        self.line(1, "mp := (mo + 9) % 12");
+        self.line(1, "doy := (153*mp+2)/5 + d - 1");
+        self.line(1, "doe := yoe*365 + yoe/4 - yoe/100 + doy");
+        self.line(1, "days := era*146097 + doe - 719468");
+        self.line(1, "return cuniTime(days*86400 + h*3600 + mi*60 + sec)");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniAddSeconds(t cuniTime, s int) cuniTime {");
+        self.line(1, "return cuniTimeAdd(t, cuniTime(int64(s)))");
+        self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "func cuniDaysBetween(a, b cuniTime) int {");
+        self.line(1, "// Truncation toward zero (docs/TIME.md §5); Go's / already truncates.");
+        self.line(1, "return int(cuniTimeDiff(a, b) / 86400)");
+        self.line(0, "}");
         self.out.push('\n');
         self.line(0, "func cuni_as_int(x any) int {");
         self.line(1, "switch v := x.(type) {");
@@ -1006,6 +1123,9 @@ impl Codegen {
                 if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
                     kind = VarKind::Dec;
                 }
+                if kind == VarKind::Other && is_time_expr(value, scope, &self.fn_time_rets) {
+                    kind = VarKind::Time;
+                }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, name, ty, value, scope);
             }
@@ -1526,6 +1646,7 @@ impl Codegen {
             // Scaled int64 constant; emit-time range refusal happened in
             // generate(), so this always fits (docs/DECIMAL.md §7).
             ExprKind::Dec(s) => format!("cuniDec({s})"),
+            ExprKind::Time(e) => format!("cuniTime({e})"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => {
                 if *b {
@@ -1566,6 +1687,10 @@ impl Codegen {
                         "max" => "cuni_max",
                         "dec_of_int" => "cuniDecOfInt",
                         "int_of_dec" => "cuniIntOfDec",
+                        // `time` builtins (docs/TIME.md §5).
+                        "parse_time" => "cuniParseTime",
+                        "add_seconds" => "cuniAddSeconds",
+                        "days_between" => "cuniDaysBetween",
                         "sha256" => "cuni_sha256",                        _ => "",
                     };
                     if !mapped.is_empty() {
@@ -1715,6 +1840,52 @@ impl Codegen {
                         _ => {}
                     }
                 }
+                // `time` arithmetic goes through the checked helpers
+                // (docs/TIME.md §7); comparisons are natively exact on
+                // cuniTime. The typeck proved the valid shapes
+                // (time±int, time−time, time comparisons); the int
+                // (duration) side is lifted with cuniTime().
+                if is_time_expr(lhs, scope, &self.fn_time_rets)
+                    || is_time_expr(rhs, scope, &self.fn_time_rets)
+                {
+                    let lt = is_time_expr(lhs, scope, &self.fn_time_rets);
+                    let rt = is_time_expr(rhs, scope, &self.fn_time_rets);
+                    let l = self.gen_expr(lhs, scope);
+                    let r = self.gen_expr(rhs, scope);
+                    match op {
+                        BinOp::Add => {
+                            // Exactly one side is time (typeck proved it).
+                            if lt && !rt {
+                                return format!("cuniTimeAdd({l}, cuniTime({r}))");
+                            } else if rt && !lt {
+                                return format!("cuniTimeAdd(cuniTime({l}), {r})");
+                            }
+                        }
+                        BinOp::Sub => {
+                            if lt && rt {
+                                // time - time -> int.
+                                return format!("int(cuniTimeDiff({l}, {r}))");
+                            } else if lt {
+                                return format!("cuniTimeSub({l}, cuniTime({r}))");
+                            }
+                        }
+                        BinOp::Eq
+                        | BinOp::Ne
+                        | BinOp::Lt
+                        | BinOp::Gt
+                        | BinOp::Le
+                        | BinOp::Ge => {
+                            if lt && rt {
+                                return format!("({} {} {})", l, go_binop(*op), r);
+                            }
+                        }
+                        _ => {}
+                    }
+                    // Defense in depth only (the typeck proved the valid
+                    // shapes): a runtime panic, never a silent value.
+                    return "(func() cuniTime { cuniTimeRefuse(\"time binary op shape rejected by codegen; refusing\"); return 0 })()"
+                        .to_string();
+                }
                 format!(
                     "({} {} {})",
                     self.gen_expr(lhs, scope),
@@ -1728,6 +1899,8 @@ impl Codegen {
                     let inner = self.gen_expr(expr, scope);
                     if is_dec_expr(expr, scope, &self.fn_dec_rets) {
                         format!("cuniDecNeg({inner})")
+                    } else if is_time_expr(expr, scope, &self.fn_time_rets) {
+                        format!("cuniTimeNeg({inner})")
                     } else {
                         format!("(-{inner})")
                     }
@@ -1754,6 +1927,7 @@ fn go_type(ty: &Type) -> String {
         Type::Named(name) => match name.as_str() {
             "int" => "int".to_string(),
             "dec" => "cuniDec".to_string(),
+            "time" => "cuniTime".to_string(),
             "float" => "float64".to_string(),
             "str" => "string".to_string(),
             "bool" => "bool".to_string(),
@@ -1780,6 +1954,7 @@ fn zero_value(ty: &Type) -> String {
         Type::Named(name) => match name.as_str() {
             "int" => "0".to_string(),
             "dec" => "cuniDec(0)".to_string(),
+            "time" => "cuniTime(0)".to_string(),
             "float" => "0.0".to_string(),
             "str" => "\"\"".to_string(),
             "bool" => "false".to_string(),
@@ -1797,6 +1972,7 @@ fn zero_value(ty: &Type) -> String {
 fn kind_of_type(ty: &Type) -> VarKind {
     match ty {
         Type::Named(n) if n == "dec" => VarKind::Dec,
+        Type::Named(n) if n == "time" => VarKind::Time,
         Type::Generic(name, _) if name == "list" => VarKind::List,
         Type::Generic(name, _) if name == "map" => VarKind::Map,
         _ => VarKind::Other,
@@ -1808,6 +1984,7 @@ fn kind_of_literal(e: &Expr) -> Option<VarKind> {
         ExprKind::List(_) => Some(VarKind::List),
         ExprKind::Map(_) => Some(VarKind::Map),
         ExprKind::Dec(_) => Some(VarKind::Dec),
+        ExprKind::Time(_) => Some(VarKind::Time),
         _ => None,
     }
 }
@@ -1843,6 +2020,44 @@ fn is_dec_expr(
     }
 }
 
+/// Best-effort `time` tracking: `cuniTime` arithmetic must go through the
+/// checked helpers (`cuniTimeAdd`/...), the int side must be lifted with
+/// `cuniTime()`, and `time − time` must be wrapped back to `int`. The
+/// typeck already proved time-ness; this just re-derives it from literals,
+/// annotations, the `time` builtins, `-> time` returns, and time binops.
+/// Comparisons need no routing (Go's `<`/`==` are exact on cuniTime).
+fn is_time_expr(
+    expr: &Expr,
+    scope: &HashMap<String, VarKind>,
+    fn_time_rets: &std::collections::HashSet<String>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::Time(_) => true,
+        ExprKind::Ident(n) => scope.get(n) == Some(&VarKind::Time),
+        ExprKind::Call { callee, .. } => match &callee.kind {
+            ExprKind::Ident(n) => {
+                n == "parse_time" || n == "add_seconds" || fn_time_rets.contains(n)
+            }
+            _ => false,
+        },
+        ExprKind::Binary { op, lhs, rhs } => match op {
+            // time + int -> time (exactly one side time; typeck proved it).
+            BinOp::Add => {
+                is_time_expr(lhs, scope, fn_time_rets) != is_time_expr(rhs, scope, fn_time_rets)
+            }
+            // time - int -> time; time - time -> int (not time).
+            BinOp::Sub => {
+                is_time_expr(lhs, scope, fn_time_rets) && !is_time_expr(rhs, scope, fn_time_rets)
+            }
+            _ => false,
+        },
+        ExprKind::Unary { op, expr } => {
+            matches!(op, UnOp::Neg) && is_time_expr(expr, scope, fn_time_rets)
+        }
+        _ => false,
+    }
+}
+
 /// Best-effort element-type guess for an untyped list literal, from its first
 /// element. A lightweight heuristic, not real type inference — good enough
 /// for the current examples, in the same spirit as codegen_py.rs's disclosed
@@ -1852,6 +2067,7 @@ fn infer_list_elem_type(items: &[Expr]) -> Option<String> {
     Some(match &first.kind {
         ExprKind::Int(_) => "int".to_string(),
         ExprKind::Dec(_) => "cuniDec".to_string(),
+        ExprKind::Time(_) => "cuniTime".to_string(),
         ExprKind::Float(_) => "float64".to_string(),
         ExprKind::Bool(_) => "bool".to_string(),
         ExprKind::Str(_) | ExprKind::InterpStr(_) => "string".to_string(),

@@ -111,6 +111,10 @@ enum VarKind {
     Map,
     /// A `dec` value (BigInt, scaled 10⁴) — see docs/DECIMAL.md.
     Dec,
+    /// A `time` value (BigInt, unix epoch seconds, UTC) — see docs/TIME.md.
+    /// A distinct tag from `Dec`: both are BigInt at runtime, so `say` and
+    /// interpolation must be routed by the codegen, never by `typeof`.
+    Time,
     Other,
 }
 
@@ -133,6 +137,8 @@ struct Codegen {
     typ_fields: HashMap<String, Vec<String>>,
     /// `def`s declared `-> dec`: calls to them are dec expressions.
     fn_dec_rets: std::collections::HashSet<String>,
+    /// `def`s declared `-> time`: calls to them are time expressions.
+    fn_time_rets: std::collections::HashSet<String>,
     out: String,
     unwrap_counter: usize,
 }
@@ -143,11 +149,15 @@ impl Codegen {
         let mut typ_names = std::collections::HashSet::new();
         let mut typ_fields = HashMap::new();
         let mut fn_dec_rets = std::collections::HashSet::new();
+        let mut fn_time_rets = std::collections::HashSet::new();
         for item in &program.items {
             match item {
                 Item::Def(f) => {
                     if matches!(&f.ret_type, Type::Named(n) if n == "dec") {
                         fn_dec_rets.insert(f.name.clone());
+                    }
+                    if matches!(&f.ret_type, Type::Named(n) if n == "time") {
+                        fn_time_rets.insert(f.name.clone());
                     }
                     fn_info.insert(
                         f.name.clone(),
@@ -184,6 +194,7 @@ impl Codegen {
             typ_names,
             typ_fields,
             fn_dec_rets,
+            fn_time_rets,
             out: String::new(),
             unwrap_counter: 0,
         }
@@ -326,6 +337,61 @@ impl Codegen {
         self.line(0, "function _cuni_int_of_dec(d) {");
         self.line(1, "return Number(d / 10000n);  // truncates toward zero, like every seat");
         self.line(0, "}");
+        self.out.push('\n');
+        self.line(0, "// CuNi `time`: unix epoch seconds as BigInt, UTC (docs/TIME.md).");
+        self.line(0, "// A plain JS number is NOT exact past 2^53 — time never touches Number,");
+        self.line(0, "// following dec's BigInt precedent (docs/DECIMAL.md §7).");
+        self.line(0, "function _cuni_time_str(v) {");
+        self.line(1, "// Canonical ISO-8601 UTC rendering (docs/TIME.md §4), BigInt math.");
+        self.line(1, "let days = v / 86400n, sod = v % 86400n;");
+        self.line(1, "if (sod < 0n) { days -= 1n; sod += 86400n; }  // floor division");
+        self.line(1, "const z = days + 719468n;");
+        self.line(1, "const era = z >= 0n ? z / 146097n : -((-z + 146096n) / 146097n);");
+        self.line(1, "const doe = z - era * 146097n;");
+        self.line(1, "const yoe = (doe - doe / 1460n + doe / 36524n - doe / 146096n) / 365n;");
+        self.line(1, "const y = yoe + era * 400n;");
+        self.line(1, "const doy = doe - (365n * yoe + yoe / 4n - yoe / 100n);");
+        self.line(1, "const mp = (5n * doy + 2n) / 153n;");
+        self.line(1, "const d = doy - (153n * mp + 2n) / 5n + 1n;");
+        self.line(1, "const m = mp < 10n ? mp + 3n : mp - 9n;");
+        self.line(1, "const yy = m <= 2n ? y + 1n : y;");
+        self.line(1, "const hh = sod / 3600n, mi = (sod % 3600n) / 60n, ss = sod % 60n;");
+        self.line(1, "const ay = yy < 0n ? -yy : yy;");
+        self.line(1, "let ys = ay.toString().padStart(4, \"0\");");
+        self.line(1, "if (yy < 0n) ys = \"-\" + ys;");
+        self.line(1, "const p2 = (n) => n.toString().padStart(2, \"0\");");
+        self.line(1, "return ys + \"-\" + p2(m) + \"-\" + p2(d) + \"T\" + p2(hh) + \":\" + p2(mi) + \":\" + p2(ss) + \"Z\";");
+        self.line(0, "}");
+        self.line(0, "function _cuni_parse_time(s) {");
+        self.line(1, "// Strict ISO-8601 UTC -> BigInt epoch (docs/TIME.md §2, §5).");
+        self.line(1, "// Bad input throws loudly — never a silent value.");
+        self.line(1, "const bad = () => { throw new Error(\"cuni: parse_time: bad ISO-8601 UTC timestamp — refused\"); };");
+        self.line(1, "if (typeof s !== \"string\" || s.length !== 20) bad();");
+        self.line(1, "if (s[4] !== \"-\" || s[7] !== \"-\" || s[10] !== \"T\" || s[13] !== \":\" || s[16] !== \":\" || s[19] !== \"Z\") bad();");
+        self.line(1, "const dig = (i) => { const c = s.charCodeAt(i); if (c < 48 || c > 57) bad(); return BigInt(c - 48); };");
+        self.line(1, "const y = dig(0)*1000n + dig(1)*100n + dig(2)*10n + dig(3);");
+        self.line(1, "const mo = dig(5)*10n + dig(6), d = dig(8)*10n + dig(9);");
+        self.line(1, "const h = dig(11)*10n + dig(12), mi = dig(14)*10n + dig(15), sec = dig(17)*10n + dig(18);");
+        self.line(1, "if (y < 1n || y > 9999n || mo < 1n || mo > 12n) bad();");
+        self.line(1, "let dim = 31n;");
+        self.line(1, "if (mo === 4n || mo === 6n || mo === 9n || mo === 11n) dim = 30n;");
+        self.line(1, "else if (mo === 2n) dim = (y % 4n === 0n && (y % 100n !== 0n || y % 400n === 0n)) ? 29n : 28n;");
+        self.line(1, "if (d < 1n || d > dim || h > 23n || mi > 59n || sec > 59n) bad();");
+        self.line(1, "const y0 = mo <= 2n ? y - 1n : y;");
+        self.line(1, "const era = y0 / 400n, yoe = y0 - era * 400n;");
+        self.line(1, "const mp = (mo + 9n) % 12n;");
+        self.line(1, "const doy = (153n * mp + 2n) / 5n + d - 1n;");
+        self.line(1, "const doe = yoe * 365n + yoe / 4n - yoe / 100n + doy;");
+        self.line(1, "const days = era * 146097n + doe - 719468n;");
+        self.line(1, "return days * 86400n + h * 3600n + mi * 60n + sec;");
+        self.line(0, "}");
+        self.line(0, "function _cuni_add_seconds(t, s) {");
+        self.line(1, "return t + BigInt(s);  // BigInt: no overflow possible on this seat");
+        self.line(0, "}");
+        self.line(0, "function _cuni_days_between(a, b) {");
+        self.line(1, "return Number((a - b) / 86400n);  // BigInt / truncates toward zero");
+        self.line(0, "}");
+        self.out.push('\n');
         self.out.push('\n');
         // ---- Wave-1 stdlib (docs/STDLIB.md). ----
         self.line(
@@ -810,6 +876,9 @@ impl Codegen {
                 if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
                     kind = VarKind::Dec;
                 }
+                if kind == VarKind::Other && is_time_expr(value, scope, &self.fn_time_rets) {
+                    kind = VarKind::Time;
+                }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "const", name, value, scope);
             }
@@ -821,6 +890,9 @@ impl Codegen {
                     .unwrap_or(VarKind::Other);
                 if kind == VarKind::Other && is_dec_expr(value, scope, &self.fn_dec_rets) {
                     kind = VarKind::Dec;
+                }
+                if kind == VarKind::Other && is_time_expr(value, scope, &self.fn_time_rets) {
+                    kind = VarKind::Time;
                 }
                 scope.insert(name.clone(), kind);
                 self.gen_binding(indent, "let", name, value, scope);
@@ -977,6 +1049,9 @@ impl Codegen {
             // Scaled BigInt literal — the `n` suffix IS the dec tag, so no
             // f64 `Number` ever touches a dec (docs/DECIMAL.md §7).
             ExprKind::Dec(s) => format!("{s}n"),
+            // Epoch BigInt literal — the `n` suffix keeps it off f64 too
+            // (docs/TIME.md §7); `say`/interpolation route via _cuni_time_str.
+            ExprKind::Time(e) => format!("{e}n"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => b.to_string(),
             ExprKind::Str(s) => format!("{:?}", s),
@@ -992,6 +1067,10 @@ impl Codegen {
                             // its raw scaled integer (docs/DECIMAL.md §6).
                             if is_dec_expr(e, scope, &self.fn_dec_rets) {
                                 s.push_str(&format!("_cuni_dec_str({inner})"));
+                            } else if is_time_expr(e, scope, &self.fn_time_rets) {
+                                // A time BigInt renders as ISO-8601, not as
+                                // its raw epoch (docs/TIME.md §4).
+                                s.push_str(&format!("_cuni_time_str({inner})"));
                             } else {
                                 s.push_str(&inner);
                             }
@@ -1025,6 +1104,20 @@ impl Codegen {
                     .join(", ")
             ),
             ExprKind::Call { callee, args } => {
+                // A `time` must render canonically via `_cuni_time_str` —
+                // never as its raw epoch BigInt, and never through `say`'s
+                // BigInt→dec branch (docs/TIME.md §4).
+                if let ExprKind::Ident(n) = &callee.kind {
+                    if n == "say"
+                        && args.len() == 1
+                        && is_time_expr(args[0].expr(), scope, &self.fn_time_rets)
+                    {
+                        return format!(
+                            "say(_cuni_time_str({}))",
+                            self.gen_expr(args[0].expr(), scope)
+                        );
+                    }
+                }
                 // `dec` explicit conversions (docs/DECIMAL.md §5).
                 if let ExprKind::Ident(n) = &callee.kind {
                     let one = || {
@@ -1032,9 +1125,24 @@ impl Codegen {
                             .map(|a| self.gen_expr(a.expr(), scope))
                             .unwrap_or_else(|| "null".to_string())
                     };
+                    let two = || {
+                        let a = args
+                            .first()
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .unwrap_or_else(|| "null".to_string());
+                        let b = args
+                            .get(1)
+                            .map(|a| self.gen_expr(a.expr(), scope))
+                            .unwrap_or_else(|| "null".to_string());
+                        format!("{a}, {b}")
+                    };
                     match n.as_str() {
                         "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
                         "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        // `time` builtins (docs/TIME.md §5).
+                        "parse_time" => return format!("_cuni_parse_time({})", one()),
+                        "add_seconds" => return format!("_cuni_add_seconds({})", two()),
+                        "days_between" => return format!("_cuni_days_between({})", two()),
                         _ => {}
                     }
                 }
@@ -1171,6 +1279,48 @@ impl Codegen {
                         _ => {}
                     }
                 }
+                // `time` arithmetic (docs/TIME.md §3): epoch BigInts; the int
+                // (duration) side is lifted with BigInt() — a raw Number would
+                // throw on mixed BigInt/Number ops. The typeck proved the
+                // valid shapes (time±int, time−time, time comparisons).
+                if is_time_expr(lhs, scope, &self.fn_time_rets)
+                    || is_time_expr(rhs, scope, &self.fn_time_rets)
+                {
+                    let lt = is_time_expr(lhs, scope, &self.fn_time_rets);
+                    let rt = is_time_expr(rhs, scope, &self.fn_time_rets);
+                    match op {
+                        BinOp::Add => {
+                            // Exactly one side is time (typeck proved it).
+                            if lt && !rt {
+                                return format!("({l} + BigInt({r}))");
+                            } else if rt && !lt {
+                                return format!("(BigInt({l}) + {r})");
+                            }
+                        }
+                        BinOp::Sub => {
+                            if lt && rt {
+                                // time - time -> int (Number, like int_of_dec).
+                                return format!("Number({l} - {r})");
+                            } else if lt {
+                                return format!("({l} - BigInt({r}))");
+                            }
+                        }
+                        BinOp::Eq
+                        | BinOp::Ne
+                        | BinOp::Lt
+                        | BinOp::Gt
+                        | BinOp::Le
+                        | BinOp::Ge => {
+                            if lt && rt {
+                                return format!("({} {} {})", l, js_binop(*op), r);
+                            }
+                        }
+                        _ => {}
+                    }
+                    // Defense in depth only (the typeck proved the valid
+                    // shapes): a runtime throw, never a silent value.
+                    return "(function(){ throw new CuNiError(\"time binary op shape rejected by codegen; refusing\"); })()".to_string();
+                }
                 if matches!(op, BinOp::Div) {
                     format!("_cuni_div({}, {})", l, r)
                 } else {
@@ -1200,6 +1350,7 @@ fn params_sig(params: &[Param]) -> String {
 fn kind_of_type(ty: &Type) -> VarKind {
     match ty {
         Type::Named(n) if n == "dec" => VarKind::Dec,
+        Type::Named(n) if n == "time" => VarKind::Time,
         Type::Generic(name, _) if name == "list" => VarKind::List,
         Type::Generic(name, _) if name == "map" => VarKind::Map,
         _ => VarKind::Other,
@@ -1211,6 +1362,7 @@ fn kind_of_literal(e: &Expr) -> Option<VarKind> {
         ExprKind::List(_) => Some(VarKind::List),
         ExprKind::Map(_) => Some(VarKind::Map),
         ExprKind::Dec(_) => Some(VarKind::Dec),
+        ExprKind::Time(_) => Some(VarKind::Time),
         _ => None,
     }
 }
@@ -1240,6 +1392,45 @@ fn is_dec_expr(
         }
         ExprKind::Unary { op, expr } => {
             matches!(op, UnOp::Neg) && is_dec_expr(expr, scope, fn_dec_rets)
+        }
+        _ => false,
+    }
+}
+
+/// Best-effort `time` tracking for the JS backend: the int (duration) side
+/// of `time ± int` must be lifted with `BigInt()` (a raw Number would throw
+/// on mixed BigInt/Number ops), `time − time` must be wrapped in `Number()`
+/// to come back as a CuNi int, and `say`/interpolation must route through
+/// `_cuni_time_str` (the prelude's `typeof bigint` branch is dec's). The
+/// typeck already proved time-ness; this just re-derives it from literals,
+/// annotations, the `time` builtins, `-> time` returns, and time binops.
+fn is_time_expr(
+    expr: &Expr,
+    scope: &HashMap<String, VarKind>,
+    fn_time_rets: &std::collections::HashSet<String>,
+) -> bool {
+    match &expr.kind {
+        ExprKind::Time(_) => true,
+        ExprKind::Ident(n) => scope.get(n) == Some(&VarKind::Time),
+        ExprKind::Call { callee, .. } => match &callee.kind {
+            ExprKind::Ident(n) => {
+                n == "parse_time" || n == "add_seconds" || fn_time_rets.contains(n)
+            }
+            _ => false,
+        },
+        ExprKind::Binary { op, lhs, rhs } => match op {
+            // time + int -> time (exactly one side time; typeck proved it).
+            BinOp::Add => {
+                is_time_expr(lhs, scope, fn_time_rets) != is_time_expr(rhs, scope, fn_time_rets)
+            }
+            // time - int -> time; time - time -> int (not time).
+            BinOp::Sub => {
+                is_time_expr(lhs, scope, fn_time_rets) && !is_time_expr(rhs, scope, fn_time_rets)
+            }
+            _ => false,
+        },
+        ExprKind::Unary { op, expr } => {
+            matches!(op, UnOp::Neg) && is_time_expr(expr, scope, fn_time_rets)
         }
         _ => false,
     }

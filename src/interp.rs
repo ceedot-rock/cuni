@@ -11,6 +11,9 @@ enum Val {
     /// `dec`: scaled integer, scale 10⁴ (docs/DECIMAL.md). i128 — the
     /// interpreter is a wide seat; checked ops refuse on true overflow.
     Dec(i128),
+    /// `time`: int64 unix epoch seconds, UTC (docs/TIME.md). The
+    /// interpreter is a wide seat; checked ops refuse on true overflow.
+    Time(i64),
     Bool(bool),
     Str(String),
     None,
@@ -240,6 +243,7 @@ impl<'a> Vm<'a> {
             ExprKind::Int(n) => Val::Int(*n),
             ExprKind::Float(f) => Val::Float(*f),
             ExprKind::Dec(s) => Val::Dec(*s),
+            ExprKind::Time(e) => Val::Time(*e),
             ExprKind::Bool(b) => Val::Bool(*b),
             ExprKind::Str(s) => Val::Str(s.clone()),
             ExprKind::NoneLit => Val::None,
@@ -284,6 +288,10 @@ impl<'a> Vm<'a> {
                         Val::Dec(d) => Val::Dec(
                             d.checked_neg()
                                 .ok_or("cuni: dec negation overflow — refused")?,
+                        ),
+                        Val::Time(t) => Val::Time(
+                            t.checked_neg()
+                                .ok_or("cuni: time negation overflow — refused")?,
                         ),
                         _ => return Err("negation needs a number".into()),
                     },
@@ -414,6 +422,41 @@ impl<'a> Vm<'a> {
                     })?;
                     return Ok(Ok(Val::Int(n)));
                 }
+                // `time` builtins (docs/TIME.md §5).
+                "parse_time" => {
+                    let s = match av.first().ok_or("parse_time needs s")? {
+                        Val::Str(s) => s.clone(),
+                        _ => return Err("parse_time needs a string".into()),
+                    };
+                    // Strict ISO-8601 UTC only: bad input is a loud
+                    // refusal, never a silent value.
+                    return match crate::ast::parse_time_epoch(&s) {
+                        Ok(e) => Ok(Ok(Val::Time(e))),
+                        Err(msg) => Err(format!("cuni: parse_time: {msg}")),
+                    };
+                }
+                "add_seconds" => {
+                    let (t, s) = match (av.first(), av.get(1)) {
+                        (Some(Val::Time(t)), Some(Val::Int(s))) => (*t, *s),
+                        _ => return Err("add_seconds needs (time, int)".into()),
+                    };
+                    return match t.checked_add(s) {
+                        Some(e) => Ok(Ok(Val::Time(e))),
+                        None => Err("cuni: add_seconds overflow — refused".into()),
+                    };
+                }
+                "days_between" => {
+                    let (a, b) = match (av.first(), av.get(1)) {
+                        (Some(Val::Time(a)), Some(Val::Time(b))) => (*a, *b),
+                        _ => return Err("days_between needs (time, time)".into()),
+                    };
+                    // Truncation toward zero (docs/TIME.md §5); i64 `/`
+                    // truncates natively.
+                    return match a.checked_sub(b) {
+                        Some(d) => Ok(Ok(Val::Int(d / 86400))),
+                        None => Err("cuni: days_between overflow — refused".into()),
+                    };
+                }
                 // Wave-1 stdlib (docs/STDLIB.md §4).
                 "sha256" => {
                     let s = av.first().ok_or("sha256 needs a string")?;
@@ -478,6 +521,7 @@ impl<'a> Vm<'a> {
         match v {
             Val::Int(n) => n.to_string(),
             Val::Dec(d) => crate::ast::fmt_dec_scaled(*d),
+            Val::Time(e) => crate::ast::fmt_time_epoch(*e),
             Val::Float(f) => {
                 let s = format!("{f}");
                 if s.contains('.') || s.contains('e') || s.contains('E') {
@@ -520,6 +564,7 @@ impl Val {
             Val::Bool(b) => *b,
             Val::Int(0) => false,
             Val::Dec(d) if *d == 0 => false,
+            Val::Time(t) if *t == 0 => false,
             Val::Float(f) if *f == 0.0 => false,
             Val::Str(s) if s.is_empty() => false,
             Val::List(xs) if xs.is_empty() => false,
@@ -690,6 +735,11 @@ fn bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
     if matches!(l, Val::Dec(_)) || matches!(r, Val::Dec(_)) {
         return dec_bin(op, l, r);
     }
+    // `time` is a closed world too (docs/TIME.md §3): the typeck proved the
+    // valid shapes; anything else is a loud refusal, never a silent value.
+    if matches!(l, Val::Time(_)) || matches!(r, Val::Time(_)) {
+        return time_bin(op, l, r);
+    }
     match op {
         BinOp::Eq => Ok(Val::Bool(eq(&l, &r))),
         BinOp::Ne => Ok(Val::Bool(!eq(&l, &r))),
@@ -764,6 +814,66 @@ fn dec_bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
         BinOp::Gt => Ok(Val::Bool(a > b)),
         BinOp::Le => Ok(Val::Bool(a <= b)),
         BinOp::Ge => Ok(Val::Bool(a >= b)),
+        BinOp::And | BinOp::Or => unreachable!(),
+    }
+}
+
+/// Exact `time` arithmetic on int64 epoch seconds (docs/TIME.md §3).
+/// `time` is a closed world like `dec`: the typeck proved the valid
+/// shapes (`time ± int`, `time - time`, `time` comparisons); anything else
+/// is a loud refusal. `duration` is plain `int` seconds — there is no
+/// implicit time<->int conversion.
+fn time_bin(op: BinOp, l: Val, r: Val) -> Result<Val, String> {
+    let mix_err = || {
+        "cannot mix `time` with a non-`time`/`int` value — durations are plain `int` seconds; `parse_time(s)` turns an ISO-8601 string into a time (docs/TIME.md §5)"
+            .to_string()
+    };
+    match op {
+        BinOp::Add => match (l, r) {
+            (Val::Time(t), Val::Int(s)) | (Val::Int(s), Val::Time(t)) => Ok(Val::Time(
+                t.checked_add(s)
+                    .ok_or("cuni: time addition overflow — refused")?,
+            )),
+            _ => Err(mix_err()),
+        },
+        BinOp::Sub => match (l, r) {
+            (Val::Time(t), Val::Int(s)) => Ok(Val::Time(
+                t.checked_sub(s)
+                    .ok_or("cuni: time subtraction overflow — refused")?,
+            )),
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Int(
+                a.checked_sub(b)
+                    .ok_or("cuni: time difference overflow — refused")?,
+            )),
+            _ => Err(mix_err()),
+        },
+        BinOp::Mul | BinOp::Div | BinOp::Mod => {
+            Err("arithmetic `*`/`/`/`%` is not defined on `time` — refusing (docs/TIME.md §3)".into())
+        }
+        BinOp::Eq => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a == b)),
+            _ => Err(mix_err()),
+        },
+        BinOp::Ne => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a != b)),
+            _ => Err(mix_err()),
+        },
+        BinOp::Lt => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a < b)),
+            _ => Err(mix_err()),
+        },
+        BinOp::Gt => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a > b)),
+            _ => Err(mix_err()),
+        },
+        BinOp::Le => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a <= b)),
+            _ => Err(mix_err()),
+        },
+        BinOp::Ge => match (l, r) {
+            (Val::Time(a), Val::Time(b)) => Ok(Val::Bool(a >= b)),
+            _ => Err(mix_err()),
+        },
         BinOp::And | BinOp::Or => unreachable!(),
     }
 }

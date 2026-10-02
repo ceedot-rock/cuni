@@ -608,6 +608,9 @@ impl Codegen {
             // `dec` literals (docs/DECIMAL.md): v1 has no scaled-decimal form in
             // the logic core — refuse rather than fake exactness.
             ExprKind::Dec(_) => Err("dec literals have no Solana-logic form (v1); refusing".into()),
+            // `time` literals (docs/TIME.md): v1 has no time form in the
+            // logic core — refuse rather than fake exactness.
+            ExprKind::Time(_) => Err("time literals have no Solana-logic form (v1); refusing".into()),
             ExprKind::Bool(b) => Ok(b.to_string()),
             ExprKind::Str(s) => Ok(format!("\"{}\"", Self::esc(s))),
             ExprKind::InterpStr(parts) => {

@@ -25,6 +25,9 @@ enum SolKind {
     Int,
     /// CuNi `dec`: scaled int256 (docs/DECIMAL.md).
     Dec,
+    /// CuNi `time`: uint256 unix epoch seconds, UTC (docs/TIME.md).
+    /// Non-negative only — negative times refuse at emit (docs/TIME.md §7).
+    Time,
     Str,
     Bool,
     Other,
@@ -41,6 +44,10 @@ pub struct Codegen {
     needs_itoa: bool,
     /// Is `_cuni_dec_str` needed (dec say / interpolation)?
     needs_dec_str: bool,
+    /// Is `_cuni_time_str` needed (time say / interpolation)?
+    needs_time_str: bool,
+    /// Are the time arithmetic/parse helpers needed?
+    needs_time_helpers: bool,
     out: String,
 }
 
@@ -73,6 +80,8 @@ impl Codegen {
             uses_emit: false,
             needs_itoa: false,
             needs_dec_str: false,
+            needs_time_str: false,
+            needs_time_helpers: false,
             out: String::new(),
         }
     }
@@ -105,6 +114,8 @@ fn sol_type(ty: &Type) -> Result<String, String> {
             "int" => Ok("int256".into()),
             // `dec` is a scaled int256 — the natural fit (docs/DECIMAL.md §7).
             "dec" => Ok("int256".into()),
+            // `time` is a uint256 epoch — non-negative only (docs/TIME.md §7).
+            "time" => Ok("uint256".into()),
             "str" => Ok("string".into()),
             "bool" => Ok("bool".into()),
             "float" => Err("Solidity has no float type; refusing float".into()),
@@ -125,6 +136,7 @@ fn kind_of_type(ty: &Type) -> SolKind {
         Type::Named(n) => match n.as_str() {
             "int" => SolKind::Int,
             "dec" => SolKind::Dec,
+            "time" => SolKind::Time,
             "str" => SolKind::Str,
             "bool" => SolKind::Bool,
             _ => SolKind::Other,
@@ -137,6 +149,7 @@ fn kind_of_literal(e: &Expr) -> Option<SolKind> {
     match &e.kind {
         ExprKind::Int(_) => Some(SolKind::Int),
         ExprKind::Dec(_) => Some(SolKind::Dec),
+        ExprKind::Time(_) => Some(SolKind::Time),
         ExprKind::Str(_) | ExprKind::InterpStr(_) => Some(SolKind::Str),
         ExprKind::Bool(_) => Some(SolKind::Bool),
         _ => None,
@@ -148,6 +161,9 @@ pub fn generate(program: &Program) -> Result<String, String> {
 }
 
 pub fn generate_named(program: &Program, contract: &str) -> Result<String, String> {
+    // The sol seat is uint256: negative time literals refuse at emit
+    // (docs/TIME.md §7) — before emitting anything.
+    crate::ast::check_time_literals_in_range(program, "sol")?;
     let mut g = Codegen::new(program);
     g.gen_program(program, contract)?;
     Ok(g.out)
@@ -182,6 +198,7 @@ impl Codegen {
         self.line(0, &format!("contract {} {{", contract));
         self.line(1, "event LogInt(int256 value);");
         self.line(1, "event LogDec(string value);");
+        self.line(1, "event LogTime(string value);");
         self.line(1, "event LogString(string value);");
         self.line(1, "event LogBool(bool value);");
         self.out.push('\n');
@@ -291,6 +308,151 @@ impl Codegen {
                 self.line(1, "}");
                 self.out.push('\n');
             }
+            // _cuni_time_str (+ _cuni_time_padded) when a time is said or
+            // interpolated. Canonical ISO-8601 UTC (docs/TIME.md §4); the
+            // sol seat's uint256 epochs are non-negative by construction.
+            if self.needs_time_str {
+                self.line(
+                    1,
+                    "/// @notice zero-pad a component to at least `width` digits.",
+                );
+                self.line(
+                    1,
+                    "function _cuni_time_padded(uint256 x, uint256 width) internal pure returns (string memory) {",
+                );
+                self.line(2, "bytes memory b = new bytes(78);");
+                self.line(2, "uint256 i = 78;");
+                self.line(2, "if (x == 0) { i--; b[i] = \"0\"; }");
+                self.line(
+                    2,
+                    "else { while (x > 0) { i--; b[i] = bytes1(uint8(48 + x % 10)); x /= 10; } }",
+                );
+                self.line(2, "uint256 len = 78 - i;");
+                self.line(2, "uint256 pad = len < width ? width - len : 0;");
+                self.line(2, "bytes memory s = new bytes(len + pad);");
+                self.line(2, "for (uint256 j = 0; j < pad; j++) s[j] = \"0\";");
+                self.line(2, "for (uint256 j = 0; j < len; j++) s[pad + j] = b[i + j];");
+                self.line(2, "return string(s);");
+                self.line(1, "}");
+                self.out.push('\n');
+                self.line(
+                    1,
+                    "/// @notice uint256 epoch -> canonical ISO-8601 UTC string (docs/TIME.md §4).",
+                );
+                self.line(
+                    1,
+                    "function _cuni_time_str(uint256 v) internal pure returns (string memory) {",
+                );
+                self.line(2, "uint256 ddays = v / 86400;  // `days` is a Solidity keyword");
+                self.line(2, "uint256 sod = v % 86400;");
+                self.line(2, "uint256 z = ddays + 719468;");
+                self.line(2, "uint256 era = z / 146097;");
+                self.line(2, "uint256 doe = z - era * 146097;");
+                self.line(2, "uint256 yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;");
+                self.line(2, "uint256 y = yoe + era * 400;");
+                self.line(2, "uint256 doy = doe - (365 * yoe + yoe / 4 - yoe / 100);");
+                self.line(2, "uint256 mp = (5 * doy + 2) / 153;");
+                self.line(2, "uint256 d = doy - (153 * mp + 2) / 5 + 1;");
+                self.line(2, "uint256 m = mp < 10 ? mp + 3 : mp - 9;");
+                self.line(2, "if (m <= 2) y += 1;");
+                self.line(2, "uint256 hh = sod / 3600;");
+                self.line(2, "uint256 mi = (sod % 3600) / 60;");
+                self.line(2, "uint256 ss = sod % 60;");
+                self.line(
+                    2,
+                    "return string(abi.encodePacked(_cuni_time_padded(y, 4), \"-\", _cuni_time_padded(m, 2), \"-\", _cuni_time_padded(d, 2), \"T\", _cuni_time_padded(hh, 2), \":\", _cuni_time_padded(mi, 2), \":\", _cuni_time_padded(ss, 2), \"Z\"));",
+                );
+                self.line(1, "}");
+                self.out.push('\n');
+            }
+            // Time arithmetic/parse helpers (docs/TIME.md §3, §5). Solidity
+            // 0.8 checked arithmetic REVERTS on overflow — the loud refusal.
+            if self.needs_time_helpers {
+                self.line(
+                    1,
+                    "/// @notice strict ISO-8601 UTC -> uint256 epoch (docs/TIME.md §2, §5); reverts loudly on bad input.",
+                );
+                self.line(
+                    1,
+                    "function _cuni_time_num(bytes memory b, uint256 lo, uint256 n) internal pure returns (uint256) {",
+                );
+                self.line(2, "uint256 v = 0;");
+                self.line(2, "for (uint256 i = 0; i < n; i++) {");
+                self.line(3, "uint8 c = uint8(b[lo + i]);");
+                self.line(3, "if (c < 48 || c > 57) revert(\"cuni: parse_time: bad ISO-8601 UTC timestamp\");");
+                self.line(3, "v = v * 10 + (c - 48);");
+                self.line(2, "}");
+                self.line(2, "return v;");
+                self.line(1, "}");
+                self.out.push('\n');
+                self.line(
+                    1,
+                    "function _cuni_parse_time(string memory s) internal pure returns (uint256) {",
+                );
+                self.line(2, "bytes memory b = bytes(s);");
+                self.line(2, "if (b.length != 20) revert(\"cuni: parse_time: bad ISO-8601 UTC timestamp\");");
+                self.line(2, "if (uint8(b[4]) != 45 || uint8(b[7]) != 45 || uint8(b[10]) != 84 || uint8(b[13]) != 58 || uint8(b[16]) != 58 || uint8(b[19]) != 90)");
+                self.line(3, "revert(\"cuni: parse_time: bad ISO-8601 UTC timestamp\");");
+                self.line(2, "uint256 y = _cuni_time_num(b, 0, 4);");
+                self.line(2, "uint256 mo = _cuni_time_num(b, 5, 2);");
+                self.line(2, "uint256 d = _cuni_time_num(b, 8, 2);");
+                self.line(2, "uint256 h = _cuni_time_num(b, 11, 2);");
+                self.line(2, "uint256 mi = _cuni_time_num(b, 14, 2);");
+                self.line(2, "uint256 sec = _cuni_time_num(b, 17, 2);");
+                self.line(2, "if (y < 1 || y > 9999 || mo < 1 || mo > 12) revert(\"cuni: parse_time: bad ISO-8601 UTC timestamp\");");
+                self.line(2, "uint256 dim = 31;");
+                self.line(2, "if (mo == 4 || mo == 6 || mo == 9 || mo == 11) dim = 30;");
+                self.line(2, "else if (mo == 2) dim = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 29 : 28;");
+                self.line(2, "if (d < 1 || d > dim || h > 23 || mi > 59 || sec > 59) revert(\"cuni: parse_time: bad ISO-8601 UTC timestamp\");");
+                self.line(2, "uint256 y0 = mo <= 2 ? y - 1 : y;");
+                self.line(2, "uint256 era = y0 / 400;");
+                self.line(2, "uint256 yoe = y0 - era * 400;");
+                self.line(2, "uint256 mp = (mo + 9) % 12;");
+                self.line(2, "uint256 doy = (153 * mp + 2) / 5 + d - 1;");
+                self.line(2, "uint256 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;");
+                self.line(2, "uint256 ddays = era * 146097 + doe - 719468;  // `days` is a Solidity keyword");
+                self.line(2, "return ddays * 86400 + h * 3600 + mi * 60 + sec;");
+                self.line(1, "}");
+                self.out.push('\n');
+                self.line(
+                    1,
+                    "/// @notice checked time + int seconds (docs/TIME.md §3); reverts on overflow.",
+                );
+                self.line(
+                    1,
+                    "function _cuni_add_seconds(uint256 t, int256 s) internal pure returns (uint256) {",
+                );
+                self.line(2, "if (s >= 0) return t + uint256(s);");
+                self.line(2, "uint256 u = uint256(-(s + 1)) + 1;");
+                self.line(2, "return t - u;");
+                self.line(1, "}");
+                self.out.push('\n');
+                self.line(
+                    1,
+                    "/// @notice checked time - int seconds (docs/TIME.md §3); reverts on underflow.",
+                );
+                self.line(
+                    1,
+                    "function _cuni_sub_seconds(uint256 t, int256 s) internal pure returns (uint256) {",
+                );
+                self.line(2, "if (s >= 0) return t - uint256(s);");
+                self.line(2, "uint256 u = uint256(-(s + 1)) + 1;");
+                self.line(2, "return t + u;");
+                self.line(1, "}");
+                self.out.push('\n');
+                self.line(
+                    1,
+                    "/// @notice whole days between two times, trunc toward zero (docs/TIME.md §5).",
+                );
+                self.line(
+                    1,
+                    "function _cuni_days_between(uint256 a, uint256 b) internal pure returns (int256) {",
+                );
+                self.line(2, "if (a >= b) return int256((a - b) / 86400);");
+                self.line(2, "return -int256((b - a) / 86400);");
+                self.line(1, "}");
+                self.out.push('\n');
+            }
     }
 
     fn gen_struct(&mut self, t: &TypDecl) -> Result<(), String> {
@@ -376,6 +538,7 @@ impl Codegen {
                     Some(t) => sol_type(t)?,
                     None => match kind {
                         SolKind::Int | SolKind::Dec => "int256".into(),
+                        SolKind::Time => "uint256".into(),
                         SolKind::Str => "string".into(),
                         SolKind::Bool => "bool".into(),
                         SolKind::Other => {
@@ -530,6 +693,13 @@ impl Codegen {
                             &format!("emit LogDec(_cuni_dec_str({}));", text),
                         )
                     }
+                    SolKind::Time => {
+                        self.needs_time_str = true;
+                        self.line(
+                            indent,
+                            &format!("emit LogTime(_cuni_time_str({}));", text),
+                        )
+                    }
                     SolKind::Str => self.line(indent, &format!("emit LogString({});", text)),
                     SolKind::Bool => self.line(indent, &format!("emit LogBool({});", text)),
                     SolKind::Other => {
@@ -551,6 +721,16 @@ impl Codegen {
             // Scaled int256 literal (docs/DECIMAL.md §2); the parser
             // validated i128 range, so int256 holds it exactly.
             ExprKind::Dec(s) => Ok(format!("int256({})", s)),
+            // Epoch seconds (docs/TIME.md §2): non-negative (checked
+            // above); uint256 literal.
+            ExprKind::Time(e) => {
+                if *e < 0 {
+                    return Err(format!(
+                        "sol seat: negative time epoch {e} cannot be a uint256 — refusing (docs/TIME.md §7)"
+                    ));
+                }
+                Ok(format!("uint256({e})"))
+            }
             ExprKind::Float(_) => Err("float literals have no Solidity form; refusing".into()),
             ExprKind::Bool(b) => Ok(b.to_string()),
             ExprKind::Str(s) => Ok(format!("\"{}\"", Self::esc(s))),
@@ -570,6 +750,10 @@ impl Codegen {
                                 SolKind::Dec => {
                                     self.needs_dec_str = true;
                                     format!("_cuni_dec_str({})", t)
+                                }
+                                SolKind::Time => {
+                                    self.needs_time_str = true;
+                                    format!("_cuni_time_str({})", t)
                                 }
                                 SolKind::Bool => {
                                     format!("({} ? \"true\" : \"false\")", t)
@@ -603,9 +787,45 @@ impl Codegen {
                 let l = self.gen_expr(lhs, scope)?;
                 let r = self.gen_expr(rhs, scope)?;
                 let lk = self.expr_kind(lhs, scope);
+                let rk = self.expr_kind(rhs, scope);
                 // String + is concatenation.
                 if matches!(*op, BinOp::Add) && lk == SolKind::Str {
                     return Ok(format!("string(abi.encodePacked({}, {}))", l, r));
+                }
+                // `time` is a closed world (docs/TIME.md §3–5): the typeck
+                // proved the valid shapes. Solidity 0.8 checked arithmetic
+                // REVERTS on overflow — the loud refusal. `time` is uint256,
+                // CuNi `int` is int256, so the int side is converted
+                // explicitly via the checked helpers.
+                if lk == SolKind::Time || rk == SolKind::Time {
+                    let code = match op {
+                        BinOp::Add if lk == SolKind::Time => {
+                            self.needs_time_helpers = true;
+                            format!("_cuni_add_seconds({l}, {r})")
+                        }
+                        BinOp::Add => {
+                            self.needs_time_helpers = true;
+                            format!("_cuni_add_seconds({r}, {l})")
+                        }
+                        BinOp::Sub if lk == SolKind::Time && rk == SolKind::Time => {
+                            // time - time -> int256 seconds.
+                            format!("(int256({l}) - int256({r}))")
+                        }
+                        BinOp::Sub if lk == SolKind::Time => {
+                            self.needs_time_helpers = true;
+                            format!("_cuni_sub_seconds({l}, {r})")
+                        }
+                        BinOp::Eq => format!("({l} == {r})"),
+                        BinOp::Ne => format!("({l} != {r})"),
+                        BinOp::Lt => format!("({l} < {r})"),
+                        BinOp::Gt => format!("({l} > {r})"),
+                        BinOp::Le => format!("({l} <= {r})"),
+                        BinOp::Ge => format!("({l} >= {r})"),
+                        _ => {
+                            return Err("this operator is not defined on `time`; refusing".into())
+                        }
+                    };
+                    return Ok(code);
                 }
                 // `dec` is a closed world (docs/DECIMAL.md §3–5): both
                 // operands dec, or a loud refusal. The typeck already
@@ -723,6 +943,41 @@ impl Codegen {
                 // `/` truncates toward zero natively.
                 return Ok(format!("(({} / 10000))", vals[0]));
             }
+            // `time` builtins (docs/TIME.md §5). Checked arithmetic reverts
+            // on overflow — the loud refusal.
+            "parse_time" => {
+                let vals: Vec<String> = args
+                    .iter()
+                    .map(|a| self.gen_expr(a.expr(), scope))
+                    .collect::<Result<_, _>>()?;
+                if vals.len() != 1 {
+                    return Err("parse_time takes one argument".into());
+                }
+                self.needs_time_helpers = true;
+                return Ok(format!("(_cuni_parse_time({}))", vals[0]));
+            }
+            "add_seconds" => {
+                let vals: Vec<String> = args
+                    .iter()
+                    .map(|a| self.gen_expr(a.expr(), scope))
+                    .collect::<Result<_, _>>()?;
+                if vals.len() != 2 {
+                    return Err("add_seconds takes two arguments".into());
+                }
+                self.needs_time_helpers = true;
+                return Ok(format!("(_cuni_add_seconds({}, {}))", vals[0], vals[1]));
+            }
+            "days_between" => {
+                let vals: Vec<String> = args
+                    .iter()
+                    .map(|a| self.gen_expr(a.expr(), scope))
+                    .collect::<Result<_, _>>()?;
+                if vals.len() != 2 {
+                    return Err("days_between takes two arguments".into());
+                }
+                self.needs_time_helpers = true;
+                return Ok(format!("(_cuni_days_between({}, {}))", vals[0], vals[1]));
+            }
             "len" => {
                 let vals: Vec<String> = args
                     .iter()
@@ -779,10 +1034,13 @@ impl Codegen {
                 ExprKind::Ident(n) if n == "len" => SolKind::Int,
                 ExprKind::Ident(n) if n == "dec_of_int" => SolKind::Dec,
                 ExprKind::Ident(n) if n == "int_of_dec" => SolKind::Int,
+                ExprKind::Ident(n) if n == "parse_time" => SolKind::Time,
+                ExprKind::Ident(n) if n == "add_seconds" => SolKind::Time,
+                ExprKind::Ident(n) if n == "days_between" => SolKind::Int,
                 ExprKind::Ident(n) => self.fn_ret.get(n).copied().unwrap_or(SolKind::Other),
                 _ => SolKind::Other,
             },
-            ExprKind::Binary { op, lhs, .. } => match op {
+            ExprKind::Binary { op, lhs, rhs } => match op {
                 BinOp::Eq
                 | BinOp::Ne
                 | BinOp::Lt
@@ -792,9 +1050,20 @@ impl Codegen {
                 | BinOp::And
                 | BinOp::Or => SolKind::Bool,
                 BinOp::Add if self.expr_kind(lhs, scope) == SolKind::Str => SolKind::Str,
+                // time - time -> int (seconds); every other time shape -> time.
+                BinOp::Sub
+                    if self.expr_kind(lhs, scope) == SolKind::Time
+                        && self.expr_kind(rhs, scope) == SolKind::Time =>
+                {
+                    SolKind::Int
+                }
                 _ => match self.expr_kind(lhs, scope) {
                     SolKind::Dec => SolKind::Dec,
-                    _ => SolKind::Int,
+                    SolKind::Time => SolKind::Time,
+                    _ => match self.expr_kind(rhs, scope) {
+                        SolKind::Time => SolKind::Time,
+                        _ => SolKind::Int,
+                    },
                 },
             },
             ExprKind::Unary { op, expr } => match op {

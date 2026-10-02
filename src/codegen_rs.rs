@@ -262,6 +262,7 @@ impl Gen {
         match &e.kind {
             ExprKind::Int(n) => format!("Val::Int({n})"),
             ExprKind::Dec(s) => format!("Val::Dec({s})"),
+            ExprKind::Time(e) => format!("Val::Time({e})"),
             ExprKind::Float(f) => format!("Val::Float({f:?})"),
             ExprKind::Bool(b) => format!("Val::Bool({b})"),
             ExprKind::Str(s) => format!("Val::Str({:?}.into())", s),
@@ -365,6 +366,9 @@ impl Gen {
                         "max" => "v_max",
                         "dec_of_int" => "v_dec_of_int",
                         "int_of_dec" => "v_int_of_dec",
+                        "parse_time" => "v_parse_time",
+                        "add_seconds" => "v_add_seconds",
+                        "days_between" => "v_days_between",
                         // Wave-1 stdlib (docs/STDLIB.md §4).
                         "sha256" => "v_sha256",                        _ => n.as_str(),
                     };
@@ -429,6 +433,9 @@ enum Val {
     /// CuNi `dec`: fixed-point decimal, scale 10^4, exact (docs/DECIMAL.md).
     /// Wide seat: i128; checked ops panic (loud refusal) on true overflow.
     Dec(i128),
+    /// CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md).
+    /// Wide seat: i64; checked ops panic (loud refusal) on true overflow.
+    Time(i64),
     Float(f64),
     Str(String),
     Bool(bool),
@@ -506,6 +513,7 @@ fn fail_with(e: Val) -> Val { FAILING.store(true, Relaxed); let _ = e; Val::None
 fn v_eq(a: Val, b: Val) -> bool {
     match (&a,&b) {
         (Val::Dec(x), Val::Dec(y)) => x==y,
+        (Val::Time(x), Val::Time(y)) => x==y,
         (Val::Int(x), Val::Int(y)) => x==y,
         (Val::Float(x), Val::Float(y)) => x==y,
         (Val::Bool(x), Val::Bool(y)) => x==y,
@@ -521,6 +529,7 @@ fn truthy(a: Val) -> bool {
         Val::Bool(b) => b,
         Val::Int(i) => i != 0,
         Val::Dec(d) => d != 0,
+        Val::Time(t) => t != 0,
         Val::Float(f) => f != 0.0,
         Val::Str(s) => !s.is_empty(),
         _ => true,
@@ -528,6 +537,13 @@ fn truthy(a: Val) -> bool {
 }
 fn as_f(a: &Val) -> f64 { match a { Val::Float(f) => *f, Val::Int(i) => *i as f64, _ => 0.0 } }
 fn v_cmp(a: Val, b: Val) -> i32 {
+    // `time` compares epoch integers directly (docs/TIME.md §3).
+    if let (Val::Time(x), Val::Time(y)) = (&a, &b) {
+        return if x < y { -1 } else if x > y { 1 } else { 0 };
+    }
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        panic!("cuni: cannot mix time and non-time — durations are plain int seconds (docs/TIME.md §3)");
+    }
     // `dec` compares scaled integers directly — never via f64.
     if let (Val::Dec(x), Val::Dec(y)) = (&a, &b) {
         return if x < y { -1 } else if x > y { 1 } else { 0 };
@@ -545,6 +561,16 @@ fn cuni_dec_pair(a: &Val, b: &Val) -> (i128, i128) {
 }
 const DEC_SCALE: i128 = 10_000;
 fn v_add(a: Val, b: Val) -> Val {
+    // `time` is a closed world (docs/TIME.md §3): (time,int)/(int,time) ->
+    // time. The typeck proved the shape; this is defense in depth.
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        match (&a, &b) {
+            (Val::Time(t), Val::Int(s)) | (Val::Int(s), Val::Time(t)) => {
+                return Val::Time(t.checked_add(*s).expect("cuni: time addition overflow — refused"))
+            }
+            _ => panic!("cuni: cannot mix time with this operand — durations are plain int seconds (docs/TIME.md §3)"),
+        }
+    }
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         let (x, y) = cuni_dec_pair(&a, &b);
         return Val::Dec(x.checked_add(y).expect("cuni: dec addition overflow — refused"));
@@ -556,6 +582,18 @@ fn v_add(a: Val, b: Val) -> Val {
     }
 }
 fn v_sub(a: Val, b: Val) -> Val {
+    // `time - int -> time`, `time - time -> int` (docs/TIME.md §3).
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        match (&a, &b) {
+            (Val::Time(t), Val::Int(s)) => {
+                return Val::Time(t.checked_sub(*s).expect("cuni: time subtraction overflow — refused"))
+            }
+            (Val::Time(x), Val::Time(y)) => {
+                return Val::Int(x.checked_sub(*y).expect("cuni: time difference overflow — refused"))
+            }
+            _ => panic!("cuni: cannot mix time with this operand (docs/TIME.md §3)"),
+        }
+    }
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         let (x, y) = cuni_dec_pair(&a, &b);
         return Val::Dec(x.checked_sub(y).expect("cuni: dec subtraction overflow — refused"));
@@ -567,6 +605,9 @@ fn v_sub(a: Val, b: Val) -> Val {
     }
 }
 fn v_mul(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        panic!("cuni: `*` is not defined on `time` (docs/TIME.md §3)");
+    }
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         // trunc(x*y/10000) toward zero; i128 `/` truncates natively.
         let (x, y) = cuni_dec_pair(&a, &b);
@@ -580,6 +621,9 @@ fn v_mul(a: Val, b: Val) -> Val {
     }
 }
 fn v_div(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        panic!("cuni: `/` is not defined on `time` (docs/TIME.md §3)");
+    }
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         // trunc(x*10000/y) toward zero; division by zero panics loudly.
         let (x, y) = cuni_dec_pair(&a, &b);
@@ -596,6 +640,9 @@ fn v_div(a: Val, b: Val) -> Val {
     }
 }
 fn v_mod(a: Val, b: Val) -> Val {
+    if matches!(a, Val::Time(_)) || matches!(b, Val::Time(_)) {
+        panic!("cuni: `%` is not defined on `time` (docs/TIME.md §3)");
+    }
     if matches!(a, Val::Dec(_)) || matches!(b, Val::Dec(_)) {
         panic!("cuni: `%` is not defined on `dec` — refusing");
     }
@@ -604,6 +651,7 @@ fn v_mod(a: Val, b: Val) -> Val {
 fn v_neg(a: Val) -> Val {
     match a {
         Val::Dec(d) => Val::Dec(d.checked_neg().expect("cuni: dec negation overflow — refused")),
+        Val::Time(t) => Val::Time(t.checked_neg().expect("cuni: time negation overflow — refused")),
         Val::Float(f) => Val::Float(-f),
         Val::Int(i) => Val::Int(-i),
         x => x,
@@ -613,6 +661,7 @@ fn v_to_str(a: Val) -> Val {
     Val::Str(match a {
         Val::Int(i) => i.to_string(),
         Val::Dec(d) => cuni_dec_str(d),
+        Val::Time(t) => cuni_time_str(t),
         Val::Float(f) => format!("{:.15}", f).trim_end_matches('0').trim_end_matches('.').to_string(),
         Val::Str(s) => s,
         Val::Bool(b) => b.to_string(),
@@ -639,6 +688,99 @@ fn cuni_dec_str(v: i128) -> String {
     }
     format!("{}{}.{}", if neg { "-" } else { "" }, ip, fp)
 }
+/// Canonical ISO-8601 UTC rendering of an int64 epoch (docs/TIME.md §4).
+fn cuni_time_str(e: i64) -> String {
+    let days = e.div_euclid(86400);
+    let sod = e.rem_euclid(86400);
+    let z = days + 719468;
+    let era = z.div_euclid(146097);
+    let doe = z - era * 146097;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    let hh = sod / 3600;
+    let mi = (sod % 3600) / 60;
+    let ss = sod % 60;
+    let ys = if y < 0 {
+        format!("-{:04}", -y)
+    } else {
+        format!("{:04}", y)
+    };
+    format!("{ys}-{m:02}-{d:02}T{hh:02}:{mi:02}:{ss:02}Z")
+}
+fn cuni_time_days_from_civil(y: i64, m: i64, d: i64) -> i64 {
+    let y0 = if m <= 2 { y - 1 } else { y };
+    let era = y0.div_euclid(400);
+    let yoe = y0 - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    era * 146097 + doe - 719468
+}
+/// Strict ISO-8601 UTC -> time (docs/TIME.md §2, §5): bad input panics loudly.
+fn v_parse_time(s: Val) -> Val {
+    let t = match s {
+        Val::Str(t) => t,
+        _ => panic!("cuni: parse_time needs a string"),
+    };
+    let bad = || panic!("cuni: parse_time: bad ISO-8601 UTC timestamp — refused");
+    let b = t.as_bytes();
+    if b.len() != 20 {
+        bad();
+    }
+    for (i, expect) in [(4, b'-'), (7, b'-'), (10, b'T'), (13, b':'), (16, b':'), (19, b'Z')] {
+        if b[i] != expect {
+            bad();
+        }
+    }
+    let digits = |lo: usize, hi: usize| -> i64 {
+        let mut v: i64 = 0;
+        for i in lo..hi {
+            let c = b[i];
+            if !c.is_ascii_digit() {
+                bad();
+            }
+            v = v * 10 + (c - b'0') as i64;
+        }
+        v
+    };
+    let (y, mo, d) = (digits(0, 4), digits(5, 7), digits(8, 10));
+    let (h, mi, sec) = (digits(11, 13), digits(14, 16), digits(17, 19));
+    if !(1..=9999).contains(&y) || !(1..=12).contains(&mo) {
+        bad();
+    }
+    let dim = match mo {
+        4 | 6 | 9 | 11 => 30,
+        2 if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) => 29,
+        2 => 28,
+        _ => 31,
+    };
+    if !(1..=dim).contains(&d) || h > 23 || mi > 59 || sec > 59 {
+        bad();
+    }
+    Val::Time(cuni_time_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + sec)
+}
+fn v_add_seconds(t: Val, s: Val) -> Val {
+    match (t, s) {
+        (Val::Time(t), Val::Int(s)) => {
+            Val::Time(t.checked_add(s).expect("cuni: add_seconds overflow — refused"))
+        }
+        _ => panic!("cuni: add_seconds needs (time, int)"),
+    }
+}
+fn v_days_between(a: Val, b: Val) -> Val {
+    match (a, b) {
+        (Val::Time(a), Val::Time(b)) => {
+            // Truncation toward zero (docs/TIME.md §5); i64 `/` truncates natively.
+            Val::Int(a.checked_sub(b).expect("cuni: days_between overflow — refused") / 86400)
+        }
+        _ => panic!("cuni: days_between needs (time, time)"),
+    }
+}
 fn v_dec_of_int(n: Val) -> Val {
     match n {
         Val::Int(i) => Val::Dec(i as i128 * DEC_SCALE),
@@ -658,6 +800,7 @@ fn cuni_say(v: Val) {
     match v {
         Val::Int(i) => println!("{i}"),
         Val::Dec(d) => println!("{}", cuni_dec_str(d)),
+        Val::Time(t) => println!("{}", cuni_time_str(t)),
         Val::Float(f) => {
             let s = format!("{:.15}", f);
             let s = s.trim_end_matches('0').trim_end_matches('.');

@@ -382,6 +382,17 @@ impl<'a> Lexer<'a> {
                 None => return Err(self.err("unterminated string literal")),
             }
         }
+        // A trailing `t` (not followed by an identifier char) makes this a
+        // `time` literal: `"2026-10-01T21:30:25Z"t`. The raw ISO-8601 text is
+        // kept; the parser validates/converts it once (docs/TIME.md §2).
+        if self.peek() == Some(b't')
+            && !self
+                .peek_at(1)
+                .map_or(false, |c| c.is_ascii_alphanumeric() || c == b'_')
+        {
+            self.pos += 1;
+            return Ok(Token::Time(s));
+        }
         Ok(Token::Str(s))
     }
 

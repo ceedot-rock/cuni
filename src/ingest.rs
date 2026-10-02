@@ -1048,6 +1048,19 @@ const GO_PRELUDE: &[&str] = &[
     "cuniDecOfInt",
     "cuniIntOfDec",
     "cuniDecStr",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code. (The `(v cuniTime) String()` method extracts with an empty
+    // name and is harmlessly ignored downstream.)
+    "cuniTime",
+    "cuniTimeRefuse",
+    "cuniTimeAdd",
+    "cuniTimeSub",
+    "cuniTimeDiff",
+    "cuniTimeNeg",
+    "cuniTimeStr",
+    "cuniParseTime",
+    "cuniAddSeconds",
+    "cuniDaysBetween",
     "cuni_json_int",
     "cuni_json_parse",
     "cuni_json_norm",
@@ -1238,6 +1251,10 @@ const JAVA_PRELUDE: &[&str] = &[
     // CuNi `dec` helpers (docs/DECIMAL.md): exactness machinery, not user
     // code — BigInteger params are outside the ingest subset.
     "cuni_dec_str", "cuni_dec_div",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code.
+    "cuni_time_str", "cuni_time_days_from_civil", "cuni_time_civil_from_days",
+    "cuni_parse_time", "cuni_add_seconds", "cuni_days_between",
     "cuniErr", "cuniJsonNum", "cuniJws", "cuniJhex4", "cuniJstr", "cuniJval", "cuniJobj", "cuniJarr",
     "cuniJsonParse", "cuniJesc", "cuniJwrite", "cuniJsonEmit", "cuniDaysFromCivil", "cuniCivilFromDays",
     "cuniTimeEpoch", "cuniTimeParts", "cuniSplit", "cuniJoin", "cuniIsTrim", "cuniTrim",
@@ -2124,6 +2141,12 @@ const JS_PRELUDE: &[&str] = &[
     "_cuni_dec_div",
     "_cuni_dec_of_int",
     "_cuni_int_of_dec",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code — and uninferrable (BigInt params), so they must be skipped.
+    "_cuni_time_str",
+    "_cuni_parse_time",
+    "_cuni_add_seconds",
+    "_cuni_days_between",
     "_cuni_json_int_value",
     "_cuni_json_parse",
     "_cuni_json_walk",
@@ -3159,7 +3182,15 @@ const PY_PRELUDE_SKIP: &[&str] = &[
     "_cuni_tdiv",
     "_cuni_dec_str",
     "_cuni_dec_of_int",
-    "_cuni_int_of_dec",    // Wave-1 stdlib (docs/STDLIB.md). split/join/trim/contains lower to
+    "_cuni_int_of_dec",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code — the class body is skipped by the `class` arm above.
+    "CuniTime",
+    "_cuni_time_str",
+    "_cuni_parse_time",
+    "_cuni_add_seconds",
+    "_cuni_days_between",
+    // split/join/trim/contains lower to
     // native str methods, so they need no prelude entries.
     "_cuni_json_int_value",
     "_cuni_json_parse",
@@ -3466,6 +3497,13 @@ const RB_PRELUDE: &[&str] = &[
     "_cuni_tdiv",
     "_cuni_dec_of_int",
     "_cuni_int_of_dec",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code — and uninferrable, so they must be skipped.
+    "CuniTime",
+    "_cuni_time_str",
+    "_cuni_parse_time",
+    "_cuni_add_seconds",
+    "_cuni_days_between",
     "_cuni_json_num",
     "_cuni_json_walk",
     "_cuni_json_parse",
@@ -3511,6 +3549,21 @@ const LUA_PRELUDE: &[&str] = &[
     "_cuni_dec_str",
     "_cuni_dec_of_int",
     "_cuni_int_of_dec",    // Wave-1 stdlib (docs/STDLIB.md).
+    // CuNi `time` helpers (docs/TIME.md): exactness machinery, not user
+    // code — and uninferrable, so they must be skipped.
+    "CuniTime",
+    "_cuni_time_refuse",
+    "_cuni_time_add",
+    "_cuni_time_sub",
+    "_cuni_time_diff",
+    "_cuni_time_neg",
+    "_cuni_time_tdiv",
+    "_cuni_time_days_from_civil",
+    "_cuni_time_unbox",
+    "_cuni_time_str",
+    "_cuni_parse_time",
+    "_cuni_add_seconds",
+    "_cuni_days_between",
     "_cuni_panic",
     "_cuni_json_num",
     "_cuni_json_parse",
@@ -3658,8 +3711,13 @@ fn extract_end_funcs(el: EndLang, lines: &[&str]) -> Result<(Vec<Func>, Vec<Stri
         let stripped = raw.trim();
         // The Lua backend's `CuniDec` dec-metatable constructor
         // (`function CuniDec.new(v) ... end`) is runtime, not user code
-        // (docs/DECIMAL.md): skip the whole def.
-        if el == EndLang::Lua && indent_of(raw) == 0 && stripped.starts_with("function CuniDec.") {
+        // (docs/DECIMAL.md): skip the whole def. Same for the `time`
+        // metatable constructor `CuniTime.new` (docs/TIME.md).
+        if el == EndLang::Lua
+            && indent_of(raw) == 0
+            && (stripped.starts_with("function CuniDec.")
+                || stripped.starts_with("function CuniTime."))
+        {
             i += 1;
             while i < lines.len() {
                 let r2 = lines[i];
@@ -3674,12 +3732,17 @@ fn extract_end_funcs(el: EndLang, lines: &[&str]) -> Result<(Vec<Func>, Vec<Stri
         // The rest of the Lua `CuniDec` metatable prelude (`local CuniDec
         // = {}`, `CuniDec.__index = ...`, `CuniDec.__add = function...`)
         // is runtime too: skip those top-level lines. Same for the
-        // `local DEC_MAXI/MINI` int64-envelope constants.
+        // `local DEC_MAXI/MINI` and `local TIME_MAXI/MINI` int64-envelope
+        // constants. The `CuniTime` metatable prelude (docs/TIME.md) gets
+        // the same treatment.
         if el == EndLang::Lua
             && indent_of(raw) == 0
             && (stripped.starts_with("CuniDec")
                 || stripped.starts_with("local CuniDec")
-                || stripped.starts_with("local DEC_"))
+                || stripped.starts_with("local DEC_")
+                || stripped.starts_with("local TIME_")
+                || stripped.starts_with("CuniTime")
+                || stripped.starts_with("local CuniTime"))
         {
             i += 1;
             continue;

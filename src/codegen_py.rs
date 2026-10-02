@@ -207,6 +207,94 @@ impl Codegen {
         self.line(1, "def __neg__(self):");
         self.line(2, "return CuniDec(-int(self))");
         self.out.push('\n');
+        // ---- CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md) ----
+        self.line(0, "def _cuni_time_str(v):");
+        self.line(1, "# Canonical ISO-8601 UTC rendering of an epoch (docs/TIME.md §4).");
+        self.line(1, "# Pure integer civil-from-days; divmod floors, so negatives work.");
+        self.line(1, "days, sod = divmod(v, 86400)");
+        self.line(1, "z = days + 719468");
+        self.line(1, "era = z // 146097");
+        self.line(1, "doe = z - era * 146097");
+        self.line(1, "yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365");
+        self.line(1, "y = yoe + era * 400");
+        self.line(1, "doy = doe - (365 * yoe + yoe // 4 - yoe // 100)");
+        self.line(1, "mp = (5 * doy + 2) // 153");
+        self.line(1, "d = doy - (153 * mp + 2) // 5 + 1");
+        self.line(1, "m = mp + 3 if mp < 10 else mp - 9");
+        self.line(1, "if m <= 2: y += 1");
+        self.line(1, "hh, rem = divmod(sod, 3600)");
+        self.line(1, "mi, ss = divmod(rem, 60)");
+        self.line(1, "ys = (\"-\" if y < 0 else \"\") + str(abs(y)).zfill(4)");
+        self.line(1, "return f\"{ys}-{m:02d}-{d:02d}T{hh:02d}:{mi:02d}:{ss:02d}Z\"");
+        self.out.push('\n');
+        self.line(0, "def _cuni_parse_time(s):");
+        self.line(1, "# Strict ISO-8601 UTC -> CuniTime (docs/TIME.md §2, §5). Bad input");
+        self.line(1, "# raises loudly — never a silent value.");
+        self.line(1, "def _bad(): raise ValueError(\"cuni: parse_time: bad ISO-8601 UTC timestamp — refused\")");
+        self.line(1, "if not isinstance(s, str) or len(s) != 20: _bad()");
+        self.line(1, "if s[4] != \"-\" or s[7] != \"-\" or s[10] != \"T\" or s[13] != \":\" or s[16] != \":\" or s[19] != \"Z\": _bad()");
+        self.line(1, "for i in (0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18):");
+        self.line(2, "if not (\"0\" <= s[i] <= \"9\"): _bad()");
+        self.line(1, "y, mo, d = int(s[0:4]), int(s[5:7]), int(s[8:10])");
+        self.line(1, "h, mi, sec = int(s[11:13]), int(s[14:16]), int(s[17:19])");
+        self.line(1, "if not (1 <= y <= 9999): _bad()");
+        self.line(1, "if not (1 <= mo <= 12): _bad()");
+        self.line(1, "dim = 31");
+        self.line(1, "if mo in (4, 6, 9, 11): dim = 30");
+        self.line(1, "elif mo == 2: dim = 29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28");
+        self.line(1, "if not (1 <= d <= dim): _bad()");
+        self.line(1, "if not (0 <= h <= 23 and 0 <= mi <= 59 and 0 <= sec <= 59): _bad()");
+        self.line(1, "y0 = y - 1 if mo <= 2 else y");
+        self.line(1, "era = y0 // 400");
+        self.line(1, "yoe = y0 - era * 400");
+        self.line(1, "mp = (mo + 9) % 12");
+        self.line(1, "doy = (153 * mp + 2) // 5 + d - 1");
+        self.line(1, "doe = yoe * 365 + yoe // 4 - yoe // 100 + doy");
+        self.line(1, "days = era * 146097 + doe - 719468");
+        self.line(1, "return CuniTime(days * 86400 + h * 3600 + mi * 60 + sec)");
+        self.out.push('\n');
+        self.line(0, "def _cuni_add_seconds(t, s):");
+        self.line(1, "return t + s  # CuniTime.__add__: time + int -> time, loud on misuse");
+        self.out.push('\n');
+        self.line(0, "def _cuni_days_between(a, b):");
+        self.line(1, "# (a - b) is int seconds (CuniTime.__sub__); trunc toward zero.");
+        self.line(1, "return _cuni_tdiv(a - b, 86400)");
+        self.out.push('\n');
+        self.line(0, "class CuniTime(int):");
+        self.line(1, "# CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md).");
+        self.line(1, "# Stored as a plain int (the epoch); every operator keeps the tag,");
+        self.line(1, "# so plain `+`/`-` in emitted code stay exact with no codegen");
+        self.line(1, "# type inference. `int + time` works via __radd__ (CuniTime is an");
+        self.line(1, "# int subclass, so Python tries the reflected op first). Mixing");
+        self.line(1, "# with anything but a plain int duration is refused (TypeError) —");
+        self.line(1, "# the typeck already rejected it; this is defense in depth.");
+        self.line(1, "__slots__ = ()");
+        self.line(1, "def __str__(self):");
+        self.line(2, "return _cuni_time_str(int(self))");
+        self.line(1, "def __repr__(self):");
+        self.line(2, "return _cuni_time_str(int(self))");
+        self.line(1, "def __format__(self, spec):");
+        self.line(2, "s = _cuni_time_str(int(self))");
+        self.line(2, "return s if not spec else format(s, spec)");
+        self.line(1, "def __add__(self, o):");
+        self.line(2, "if isinstance(o, CuniTime):");
+        self.line(3, "raise TypeError(\"cuni: cannot add time + time — refusing\")");
+        self.line(2, "if not isinstance(o, int):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix time and non-int — refusing\")");
+        self.line(2, "return CuniTime(int(self) + int(o))");
+        self.line(1, "def __radd__(self, o):");
+        self.line(2, "if isinstance(o, CuniTime) or not isinstance(o, int):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix time and non-int — refusing\")");
+        self.line(2, "return CuniTime(int(o) + int(self))");
+        self.line(1, "def __sub__(self, o):");
+        self.line(2, "if isinstance(o, CuniTime):");
+        self.line(3, "return int(self) - int(o)  # time - time -> int seconds");
+        self.line(2, "if not isinstance(o, int):");
+        self.line(3, "raise TypeError(\"cuni: cannot mix time and non-int — refusing\")");
+        self.line(2, "return CuniTime(int(self) - int(o))");
+        self.line(1, "def __neg__(self):");
+        self.line(2, "return CuniTime(-int(self))");
+        self.out.push('\n');
         // ---- Wave-1 stdlib (docs/STDLIB.md). Module imports are lazy
         // (inside the helpers) so programs that don't use the stdlib pay
         // nothing and emit no extra imports.
@@ -694,6 +782,7 @@ impl Codegen {
         match &expr.kind {
             ExprKind::Int(n) => n.to_string(),
             ExprKind::Dec(s) => format!("CuniDec({s})"),
+            ExprKind::Time(e) => format!("CuniTime({e})"),
             ExprKind::Float(f) => f.to_string(),
             ExprKind::Bool(b) => {
                 if *b {
@@ -758,6 +847,18 @@ impl Codegen {
                     match n.as_str() {
                         "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
                         "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        // `time` builtins (docs/TIME.md §5).
+                        "parse_time" => return format!("_cuni_parse_time({})", one()),
+                        "add_seconds" => {
+                            let a = args.first().map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "None".to_string());
+                            let b = args.get(1).map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "None".to_string());
+                            return format!("_cuni_add_seconds({a}, {b})");
+                        }
+                        "days_between" => {
+                            let a = args.first().map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "None".to_string());
+                            let b = args.get(1).map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "None".to_string());
+                            return format!("_cuni_days_between({a}, {b})");
+                        }
                         _ => {}
                     }
                 }
@@ -905,6 +1006,7 @@ fn py_type(ty: &Type) -> String {
         Type::Named(name) => match name.as_str() {
             "int" => "int".to_string(),
             "dec" => "CuniDec".to_string(),
+            "time" => "CuniTime".to_string(),
             "float" => "float".to_string(),
             "str" => "str".to_string(),
             "bool" => "bool".to_string(),

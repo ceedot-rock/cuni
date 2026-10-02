@@ -185,6 +185,40 @@ impl<'a> Checker<'a> {
                 name_span: Span::dummy(),
             },
         );
+        // `time` builtins (docs/TIME.md §5). Like dec, time never converts
+        // implicitly: `parse_time` is the only str->time path, and
+        // `add_seconds`/`days_between` are the named arithmetic helpers.
+        let time_t = Type::Named("time".to_string());
+        functions.insert(
+            "parse_time".to_string(),
+            FnSig {
+                params: vec![Type::Named("str".to_string())],
+                ret: time_t.clone(),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "add_seconds".to_string(),
+            FnSig {
+                params: vec![time_t.clone(), Type::Named("int".to_string())],
+                ret: time_t.clone(),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
+        functions.insert(
+            "days_between".to_string(),
+            FnSig {
+                params: vec![time_t.clone(), time_t.clone()],
+                ret: Type::Named("int".to_string()),
+                fallible: false,
+                generics: vec![],
+                name_span: Span::dummy(),
+            },
+        );
         // Wave-1 stdlib: SHA-256 hex digest of the UTF-8 bytes (docs/STDLIB.md §4).
         functions.insert(
             "sha256".to_string(),
@@ -291,7 +325,7 @@ impl<'a> Checker<'a> {
     }
 
     fn is_known_type_name(&self, name: &str) -> bool {
-        matches!(name, "int" | "float" | "str" | "bool" | "dec")
+        matches!(name, "int" | "float" | "str" | "bool" | "dec" | "time")
             || self.typs.contains_key(name)
             || self.enums.contains_key(name)
     }
@@ -702,6 +736,7 @@ impl<'a> Checker<'a> {
             ExprKind::Int(_)
             | ExprKind::Float(_)
             | ExprKind::Dec(_)
+            | ExprKind::Time(_)
             | ExprKind::Bool(_)
             | ExprKind::Str(_)
             | ExprKind::NoneLit => {}
@@ -934,6 +969,7 @@ impl<'a> Checker<'a> {
                 self.check_expr(lhs, scope, generics, false)?;
                 self.check_expr(rhs, scope, generics, false)?;
                 self.check_dec_binary(*op, lhs, rhs, scope, generics, expr.span)?;
+                self.check_time_binary(*op, lhs, rhs, scope, generics, expr.span)?;
             }
             ExprKind::Unary { expr: inner, .. } => {
                 self.check_expr(inner, scope, generics, false)?;
@@ -1015,6 +1051,103 @@ impl<'a> Checker<'a> {
                 span,
                 format!(
                     "cannot mix `dec` and `{other_s}` with `{op_s}` — fix-it: convert explicitly: `dec_of_int(n)` turns an int into a dec, `int_of_dec(d)` turns a dec into an int (truncates toward zero) (docs/DECIMAL.md §5)"
+                ),
+            );
+        }
+        Ok(())
+    }
+
+    /// `time` operand rules (docs/TIME.md §3). `time` is an int64 unix
+    /// epoch, UTC — `duration` is plain `int` seconds, and there is no
+    /// implicit time<->int conversion. Valid shapes:
+    /// `time + int -> time`, `int + time -> time`, `time - int -> time`,
+    /// `time - time -> int` (seconds, trunc toward zero); comparisons need
+    /// `(time, time)`. Everything else involving a `time` operand is
+    /// refused with a fix-it. Operand pairs with no `time` involved keep
+    /// the checker's existing leniency — this only ADDS rejections for
+    /// time-involved cases, never new ones for old programs.
+    fn check_time_binary(
+        &self,
+        op: BinOp,
+        lhs: &Expr,
+        rhs: &Expr,
+        scope: &HashMap<String, VarInfo>,
+        generics: &HashSet<String>,
+        span: Span,
+    ) -> Result<(), TypeError> {
+        let is_time =
+            |t: &Option<Type>| matches!(t, Some(Type::Named(n)) if n == "time");
+        let lt = self.infer_expr(lhs, scope, generics);
+        let rt = self.infer_expr(rhs, scope, generics);
+        let (ltr, rtr) = (is_time(&lt), is_time(&rt));
+        if !ltr && !rtr {
+            return Ok(());
+        }
+        let op_s = match op {
+            BinOp::Add => "+",
+            BinOp::Sub => "-",
+            BinOp::Mul => "*",
+            BinOp::Div => "/",
+            BinOp::Mod => "%",
+            BinOp::Eq => "==",
+            BinOp::Ne => "!=",
+            BinOp::Lt => "<",
+            BinOp::Gt => ">",
+            BinOp::Le => "<=",
+            BinOp::Ge => ">=",
+            BinOp::And => "and",
+            BinOp::Or => "or",
+        };
+        let is_cmp = matches!(
+            op,
+            BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Gt | BinOp::Le | BinOp::Ge
+        );
+        // Arithmetic shape check first.
+        let shape_ok = match op {
+            BinOp::Add => ltr != rtr, // exactly one side time
+            BinOp::Sub => ltr,        // time - int, or time - time
+            _ if is_cmp => ltr && rtr,
+            _ => false,
+        };
+        if !shape_ok {
+            let why: String = match op {
+                BinOp::Add => {
+                    "only `time + int` / `int + time` are defined — fix-it: a duration is a plain `int` of seconds; `time + time` has no meaning (docs/TIME.md §3)".to_string()
+                }
+                BinOp::Sub => {
+                    "only `time - int -> time` and `time - time -> int` are defined — fix-it: `int - time` has no meaning; use `add_seconds(t, -s)` for a negative shift (docs/TIME.md §3)".to_string()
+                }
+                _ if is_cmp => {
+                    "time comparisons need `(time, time)` — fix-it: there is no implicit time<->int conversion; compare two times (docs/TIME.md §3)".to_string()
+                }
+                _ => {
+                    format!("`{op_s}` is not defined on `time` — fix-it: scale the `int` seconds first, then `time + s` / `time - s` (docs/TIME.md §3)")
+                }
+            };
+            return err_at(
+                span,
+                format!("cannot use `{op_s}` here with a `time` operand — {why}"),
+            );
+        }
+        // Mixed with a non-int other side (e.g. time + str): refuse.
+        let other_is_int = |t: &Option<Type>| matches!(t, Some(Type::Named(n)) if n == "int");
+        let bad_mix = match op {
+            BinOp::Add => !(other_is_int(&lt) || other_is_int(&rt)),
+            BinOp::Sub if !rtr => !other_is_int(&rt),
+            _ => false,
+        };
+        if bad_mix {
+            let other_s = if ltr && !rtr {
+                rt.as_ref().map(type_str).unwrap_or_else(|| "?".to_string())
+            } else if rtr && !ltr {
+                lt.as_ref().map(type_str).unwrap_or_else(|| "?".to_string())
+            } else {
+                "?".to_string()
+            };
+            return err_at(
+                span,
+                format!(
+                    "cannot mix `time` and `{other_s}` with `{op_s}` — fix-it: durations are plain `int` seconds; `parse_time(s)` turns an ISO-8601 string into a time (docs/TIME.md §5)"
                 ),
             );
         }
@@ -1193,6 +1326,7 @@ impl<'a> Checker<'a> {
             ExprKind::Int(_) => Some(Type::Named("int".to_string())),
             ExprKind::Float(_) => Some(Type::Named("float".to_string())),
             ExprKind::Dec(_) => Some(Type::Named("dec".to_string())),
+            ExprKind::Time(_) => Some(Type::Named("time".to_string())),
             ExprKind::Bool(_) => Some(Type::Named("bool".to_string())),
             ExprKind::Str(_) | ExprKind::InterpStr(_) => Some(Type::Named("str".to_string())),
             ExprKind::NoneLit => None,
@@ -1279,6 +1413,14 @@ impl<'a> Checker<'a> {
                 | BinOp::Ge
                 | BinOp::And
                 | BinOp::Or => Some(Type::Named("bool".to_string())),
+                // `time - time -> int` (seconds); every other time shape
+                // keeps the time side's type.
+                BinOp::Sub
+                    if matches!(self.infer_expr(lhs, scope, generics), Some(Type::Named(n)) if n == "time")
+                        && matches!(self.infer_expr(rhs, scope, generics), Some(Type::Named(n)) if n == "time") =>
+                {
+                    Some(Type::Named("int".to_string()))
+                }
                 _ => self
                     .infer_expr(lhs, scope, generics)
                     .or_else(|| self.infer_expr(rhs, scope, generics)),

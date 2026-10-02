@@ -289,6 +289,8 @@ impl Gen {
                     format!("V_dec(cuni_dec_parse(\"{s}\"))")
                 }
             }
+            // Epoch seconds always fit int64 by construction (docs/TIME.md §2).
+            ExprKind::Time(e) => format!("V_time({e}LL)"),
             ExprKind::Float(f) => format!("V_float({f:?})"),
             ExprKind::Bool(true) => "V_bool(1)".into(),
             ExprKind::Bool(false) => "V_bool(0)".into(),
@@ -397,6 +399,10 @@ impl Gen {
                         "max" => "cuni_max",
                         "dec_of_int" => "cuni_dec_of_int",
                         "int_of_dec" => "cuni_int_of_dec",
+                        // `time` builtins (docs/TIME.md §5).
+                        "parse_time" => "cuni_parse_time",
+                        "add_seconds" => "cuni_add_seconds",
+                        "days_between" => "cuni_days_between",
                         // Wave-1 stdlib (docs/STDLIB.md §4).
                         "sha256" => "cuni_sha256",                        _ => "",
                     };
@@ -498,11 +504,14 @@ const CUNI_RT: &str = r#"
 
 typedef enum { K_INT, K_DEC, K_FLOAT, K_STR, K_BOOL, K_NONE, K_LIST, K_STRUCT, K_ENUM,
                /* Wave-1 stdlib: real maps (docs/STDLIB.md). Reuses keys/items/n. */
-               K_MAP } K;typedef struct Val Val;
+               K_MAP,
+               /* CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md). */
+               K_TIME } K;typedef struct Val Val;
 struct Val {
     K k;
     long long i;
     __int128 d;
+    long long t;
     double f;
     char *s;
     int b;
@@ -580,6 +589,120 @@ static Val cuni_dec_div(Val a, Val b) {
 static Val cuni_dec_neg(Val a) {
     if (a.d == CUNI_I128_MIN) cuni_dec_refuse("dec negation overflow");
     return V_dec(-a.d);
+}
+/* CuNi `time`: int64 unix epoch seconds, UTC, exact (docs/TIME.md). */
+#define CUNI_I64_MAX 9223372036854775807LL
+#define CUNI_I64_MIN (-CUNI_I64_MAX - 1)
+static Val V_time(long long x) { Val v = V_none(); v.k = K_TIME; v.t = x; return v; }
+static void cuni_time_refuse(const char *msg) {
+    fprintf(stderr, "cuni: %s — refused\n", msg);
+    exit(1);
+}
+/* a is K_TIME, b is K_INT (the caller checked the shape). */
+static Val cuni_time_add(Val a, Val b) {
+    long long x = a.t, y = b.i;
+    if ((y > 0 && x > CUNI_I64_MAX - y) || (y < 0 && x < CUNI_I64_MIN - y))
+        cuni_time_refuse("time addition overflow");
+    return V_time(x + y);
+}
+/* a is K_TIME, b is K_INT (the caller checked the shape). */
+static Val cuni_time_sub(Val a, Val b) {
+    long long x = a.t, y = b.i;
+    if ((y < 0 && x > CUNI_I64_MAX + y) || (y > 0 && x < CUNI_I64_MIN + y))
+        cuni_time_refuse("time subtraction overflow");
+    return V_time(x - y);
+}
+/* time - time -> int seconds (docs/TIME.md §3); both K_TIME. */
+static Val cuni_time_diff(Val a, Val b) {
+    long long x = a.t, y = b.t;
+    if ((y < 0 && x > CUNI_I64_MAX + y) || (y > 0 && x < CUNI_I64_MIN + y))
+        cuni_time_refuse("time difference overflow");
+    return V_int(x - y);
+}
+static Val cuni_time_neg(Val a) {
+    if (a.t == CUNI_I64_MIN) cuni_time_refuse("time negation overflow");
+    return V_time(-a.t);
+}
+/* Canonical ISO-8601 UTC rendering (docs/TIME.md §4) into `out` (>= 32 bytes). */
+static void cuni_time_str_buf(long long e, char *out) {
+    long long days = e / 86400, sod = e % 86400;
+    if (sod < 0) { days--; sod += 86400; }
+    long long z = days + 719468;
+    long long era = z >= 0 ? z / 146097 : -((-z + 146096) / 146097);
+    long long doe = z - era * 146097;
+    long long yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+    long long y = yoe + era * 400;
+    long long doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    long long mp = (5 * doy + 2) / 153;
+    long long d = doy - (153 * mp + 2) / 5 + 1;
+    long long m = mp < 10 ? mp + 3 : mp - 9;
+    if (m <= 2) y++;
+    long long hh = sod / 3600, mi = (sod % 3600) / 60, ss = sod % 60;
+    char *p = out;
+    if (y < 0) { *p++ = '-'; y = -y; }
+    char yb[24]; int yn = 0;
+    if (y == 0) yb[yn++] = '0';
+    else while (y > 0) { yb[yn++] = (char)('0' + y % 10); y /= 10; }
+    while (yn < 4) yb[yn++] = '0';
+    for (int i = yn - 1; i >= 0; i--) *p++ = yb[i];
+    *p++ = '-';
+    long long parts[5] = {m, d, hh, mi, ss};
+    const char seps[5] = {'-', 'T', ':', ':', 'Z'};
+    for (int k = 0; k < 5; k++) {
+        *p++ = (char)('0' + parts[k] / 10);
+        *p++ = (char)('0' + parts[k] % 10);
+        *p++ = seps[k];
+    }
+    *p = 0;
+}
+static long long cuni_time_days_from_civil(long long y, long long m, long long d) {
+    long long y0 = m <= 2 ? y - 1 : y;
+    long long era = y0 >= 0 ? y0 / 400 : -((-y0 + 399) / 400);
+    long long yoe = y0 - era * 400;
+    long long mp = (m + 9) % 12;
+    long long doy = (153 * mp + 2) / 5 + d - 1;
+    long long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    return era * 146097 + doe - 719468;
+}
+/* Strict ISO-8601 UTC -> time (docs/TIME.md §2, §5): bad input refuses loudly. */
+static Val cuni_parse_time(Val s) {
+    if (s.k != K_STR || !s.s) cuni_time_refuse("parse_time needs a string");
+    const char *t = s.s;
+    if (strlen(t) != 20) cuni_time_refuse("parse_time: bad ISO-8601 UTC timestamp");
+    if (t[4] != '-' || t[7] != '-' || t[10] != 'T' || t[13] != ':' || t[16] != ':' || t[19] != 'Z')
+        cuni_time_refuse("parse_time: bad ISO-8601 UTC timestamp");
+    long long dg[6];
+    const int pos[6][2] = {{0,4},{5,7},{8,10},{11,13},{14,16},{17,19}};
+    for (int k = 0; k < 6; k++) {
+        long long v = 0;
+        for (int i = pos[k][0]; i < pos[k][1]; i++) {
+            if (t[i] < '0' || t[i] > '9')
+                cuni_time_refuse("parse_time: bad ISO-8601 UTC timestamp");
+            v = v * 10 + (t[i] - '0');
+        }
+        dg[k] = v;
+    }
+    long long y = dg[0], mo = dg[1], d = dg[2], h = dg[3], mi = dg[4], sec = dg[5];
+    if (y < 1 || y > 9999 || mo < 1 || mo > 12)
+        cuni_time_refuse("parse_time: bad ISO-8601 UTC timestamp");
+    long long dim = 31;
+    if (mo == 4 || mo == 6 || mo == 9 || mo == 11) dim = 30;
+    else if (mo == 2) dim = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 29 : 28;
+    if (d < 1 || d > dim || h > 23 || mi > 59 || sec > 59)
+        cuni_time_refuse("parse_time: bad ISO-8601 UTC timestamp");
+    return V_time(cuni_time_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + sec);
+}
+static Val cuni_add_seconds(Val t, Val s) {
+    if (t.k != K_TIME || s.k != K_INT) cuni_time_refuse("add_seconds needs (time, int)");
+    return cuni_time_add(t, s);
+}
+static Val cuni_days_between(Val a, Val b) {
+    if (a.k != K_TIME || b.k != K_TIME) cuni_time_refuse("days_between needs (time, time)");
+    /* Truncation toward zero (docs/TIME.md §5); C's / truncates natively. */
+    long long x = a.t, y = b.t;
+    if ((y < 0 && x > CUNI_I64_MAX + y) || (y > 0 && x < CUNI_I64_MIN + y))
+        cuni_time_refuse("days_between overflow");
+    return V_int((x - y) / 86400);
 }
 /* Canonical dec rendering (docs/DECIMAL.md §6) into `out` (>= 64 bytes). */
 static void cuni_dec_str_buf(__int128 v, char *out) {
@@ -715,6 +838,7 @@ static int cuni_eq(Val a, Val b) {
     switch (a.k) {
         case K_INT: return a.i == b.i;
         case K_DEC: return a.d == b.d;
+        case K_TIME: return a.t == b.t;
         case K_FLOAT: return a.f == b.f;
         case K_BOOL: return a.b == b.b;
         case K_STR: return a.s && b.s && strcmp(a.s, b.s) == 0;
@@ -729,6 +853,7 @@ static int cuni_truthy(Val a) {
         case K_BOOL: return a.b;
         case K_INT: return a.i != 0;
         case K_DEC: return a.d != 0;
+        case K_TIME: return a.t != 0;
         case K_FLOAT: return a.f != 0;
         case K_STR: return a.s && a.s[0];
         default: return 1;
@@ -743,6 +868,14 @@ static int cuni_cmp(Val a, Val b) {
     }
     if (a.k == K_DEC || b.k == K_DEC)
         cuni_dec_refuse("cannot mix dec and non-dec — convert explicitly");
+    /* `time` compares epoch integers directly (docs/TIME.md §3). */
+    if (a.k == K_TIME && b.k == K_TIME) {
+        if (a.t < b.t) return -1;
+        if (a.t > b.t) return 1;
+        return 0;
+    }
+    if (a.k == K_TIME || b.k == K_TIME)
+        cuni_time_refuse("cannot mix time and non-time — durations are plain int seconds (docs/TIME.md §3)");
     double x = (a.k == K_FLOAT) ? a.f : (double)a.i;
     double y = (b.k == K_FLOAT) ? b.f : (double)b.i;
     if (x < y) return -1;
@@ -758,6 +891,13 @@ static void cuni_dec_check_pair(Val a, Val b) {
 }
 static Val cuni_add(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_add(a, b); }
+    /* `time` is a closed world (docs/TIME.md §3): (time,int)/(int,time) ->
+       time. The typeck proved the shape; this is defense in depth. */
+    if (a.k == K_TIME || b.k == K_TIME) {
+        if (a.k == K_TIME && b.k == K_INT) return cuni_time_add(a, b);
+        if (a.k == K_INT && b.k == K_TIME) return cuni_time_add(b, a);
+        cuni_time_refuse("cannot add time to this operand — durations are plain int seconds (docs/TIME.md §3)");
+    }
     if (a.k == K_STR || b.k == K_STR) {
         /* handled by concat path for strings of numbers too */
     }
@@ -766,25 +906,35 @@ static Val cuni_add(Val a, Val b) {
 }
 static Val cuni_sub(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_sub(a, b); }
+    /* `time - int -> time`, `time - time -> int` (docs/TIME.md §3). */
+    if (a.k == K_TIME || b.k == K_TIME) {
+        if (a.k == K_TIME && b.k == K_INT) return cuni_time_sub(a, b);
+        if (a.k == K_TIME && b.k == K_TIME) return cuni_time_diff(a, b);
+        cuni_time_refuse("cannot subtract this from/to a time — `time - int -> time`, `time - time -> int` (docs/TIME.md §3)");
+    }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) - as_f(b));
     return V_int(a.i - b.i);
 }
 static Val cuni_mul(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_mul(a, b); }
+    if (a.k == K_TIME || b.k == K_TIME) cuni_time_refuse("`*` is not defined on `time` (docs/TIME.md §3)");
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) * as_f(b));
     return V_int(a.i * b.i);
 }
 static Val cuni_div(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_div(a, b); }
+    if (a.k == K_TIME || b.k == K_TIME) cuni_time_refuse("`/` is not defined on `time` (docs/TIME.md §3)");
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) / as_f(b));
     return V_int(b.i == 0 ? 0 : a.i / b.i);
 }
 static Val cuni_mod(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) cuni_dec_refuse("`%` is not defined on `dec`");
+    if (a.k == K_TIME || b.k == K_TIME) cuni_time_refuse("`%` is not defined on `time` (docs/TIME.md §3)");
     return V_int(b.i == 0 ? 0 : a.i % b.i);
 }
 static Val cuni_neg(Val a) {
     if (a.k == K_DEC) return cuni_dec_neg(a);
+    if (a.k == K_TIME) return cuni_time_neg(a);
     if (a.k == K_FLOAT) return V_float(-a.f);
     return V_int(-a.i);
 }
@@ -793,6 +943,7 @@ static Val cuni_to_str(Val a) {
     switch (a.k) {
         case K_INT: snprintf(buf, sizeof buf, "%lld", a.i); return V_str(buf);
         case K_DEC: cuni_dec_str_buf(a.d, buf); return V_str(buf);
+        case K_TIME: cuni_time_str_buf(a.t, buf); return V_str(buf);
         case K_FLOAT: snprintf(buf, sizeof buf, "%.15g", a.f); return V_str(buf);
         case K_STR: return a;
         case K_BOOL: return V_str(a.b ? "true" : "false");
@@ -811,6 +962,7 @@ static void cuni_say(Val v) {
     switch (v.k) {
         case K_INT: printf("%lld\n", v.i); break;
         case K_DEC: { char buf[128]; cuni_dec_str_buf(v.d, buf); printf("%s\n", buf); break; }
+        case K_TIME: { char buf[64]; cuni_time_str_buf(v.t, buf); printf("%s\n", buf); break; }
         case K_FLOAT: printf("%.15g\n", v.f); break;
         case K_STR: printf("%s\n", v.s ? v.s : ""); break;
         case K_BOOL: printf("%s\n", v.b ? "True" : "False"); break;

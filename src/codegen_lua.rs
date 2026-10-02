@@ -109,6 +109,8 @@ impl Codegen {
         self.line(3, "return \"{\" .. table.concat(parts, \", \") .. \"}\"");
         self.line(2, "elseif x._cuni_kind == \"dec\" then");
         self.line(3, "return _cuni_dec_str(x.v)");
+        self.line(2, "elseif x._cuni_kind == \"time\" then");
+        self.line(3, "return _cuni_time_str(x.v)");
         self.line(2, "elseif x._cuni_kind == \"typ\" then");
         self.line(3, "return x._cuni_repr_s");
         self.line(2, "end");
@@ -287,6 +289,132 @@ impl Codegen {
         self.line(0, "CuniDec.__le = function(a, b) return a.v <= b.v end");
         self.line(0, "CuniDec.__concat = function(a, b) return tostring(a) .. tostring(b) end");
         self.line(0, "CuniDec.__tostring = function(a) return _cuni_dec_str(a.v) end");
+        self.out.push('\n');
+        // ---- CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md) ----
+        // int64 seat (docs/TIME.md §7): time values are boxed tables so
+        // `say`/comparisons stay exact and a time can never silently mix with
+        // a plain integer. Every op that would overflow int64 raises instead
+        // of wrapping (narrow-seat envelope).
+        self.line(0, "local CuniTime = {}");
+        self.line(0, "CuniTime.__index = CuniTime");
+        self.line(0, "local TIME_MAXI = math.maxinteger");
+        self.line(0, "local TIME_MINI = math.mininteger");
+        self.line(0, "local function _cuni_time_refuse(msg) error(\"cuni: \" .. msg .. \" — refused\", 0) end");
+        self.line(0, "local function _cuni_time_add(a, b)");
+        self.line(1, "if (b > 0 and a > TIME_MAXI - b) or (b < 0 and a < TIME_MINI - b) then");
+        self.line(2, "_cuni_time_refuse(\"time addition overflow\")");
+        self.line(1, "end");
+        self.line(1, "return a + b");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_sub(a, b)");
+        self.line(1, "if (b < 0 and a > TIME_MAXI + b) or (b > 0 and a < TIME_MINI + b) then");
+        self.line(2, "_cuni_time_refuse(\"time subtraction overflow\")");
+        self.line(1, "end");
+        self.line(1, "return a - b");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_diff(a, b)");
+        self.line(1, "-- time - time -> int seconds (docs/TIME.md §3).");
+        self.line(1, "if (b < 0 and a > TIME_MAXI + b) or (b > 0 and a < TIME_MINI + b) then");
+        self.line(2, "_cuni_time_refuse(\"time difference overflow\")");
+        self.line(1, "end");
+        self.line(1, "return a - b");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_neg(a)");
+        self.line(1, "if a == TIME_MINI then _cuni_time_refuse(\"time negation overflow\") end");
+        self.line(1, "return -a");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_tdiv(a, b)");
+        self.line(1, "-- Truncation toward zero (docs/TIME.md §5); Lua's // floors. b ~= 0.");
+        self.line(1, "if b == -1 and a == TIME_MINI then _cuni_time_refuse(\"time division overflow\") end");
+        self.line(1, "local q = a // b");
+        self.line(1, "local r = a - q * b");
+        self.line(1, "if r ~= 0 and ((a < 0) ~= (b < 0)) then q = q + 1 end");
+        self.line(1, "return q");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_days_from_civil(y, m, d)");
+        self.line(1, "local y0 = y");
+        self.line(1, "if m <= 2 then y0 = y - 1 end");
+        self.line(1, "local era = y0 // 400");
+        self.line(1, "local yoe = y0 - era * 400");
+        self.line(1, "local mp = (m + 9) % 12");
+        self.line(1, "local doy = (153 * mp + 2) // 5 + d - 1");
+        self.line(1, "local doe = yoe * 365 + yoe // 4 - yoe // 100 + doy");
+        self.line(1, "return era * 146097 + doe - 719468");
+        self.line(0, "end");
+        self.line(0, "function _cuni_time_str(v)");
+        self.line(1, "-- Canonical ISO-8601 UTC rendering (docs/TIME.md §4).");
+        self.line(1, "local days = v // 86400  -- floors: correct for negatives");
+        self.line(1, "local sod = v - days * 86400");
+        self.line(1, "local z = days + 719468");
+        self.line(1, "local era = z // 146097");
+        self.line(1, "local doe = z - era * 146097");
+        self.line(1, "local yoe = (doe - doe // 1460 + doe // 36524 - doe // 146096) // 365");
+        self.line(1, "local y = yoe + era * 400");
+        self.line(1, "local doy = doe - (365 * yoe + yoe // 4 - yoe // 100)");
+        self.line(1, "local mp = (5 * doy + 2) // 153");
+        self.line(1, "local d = doy - (153 * mp + 2) // 5 + 1");
+        self.line(1, "local m = mp + 3");
+        self.line(1, "if mp >= 10 then m = mp - 9 end");
+        self.line(1, "if m <= 2 then y = y + 1 end");
+        self.line(1, "local hh = sod // 3600");
+        self.line(1, "local mi = (sod % 3600) // 60");
+        self.line(1, "local ss = sod % 60");
+        self.line(1, "local ys");
+        self.line(1, "if y < 0 then ys = \"-\" .. string.format(\"%04d\", -y) else ys = string.format(\"%04d\", y) end");
+        self.line(1, "return ys .. \"-\" .. string.format(\"%02d\", m) .. \"-\" .. string.format(\"%02d\", d) .. \"T\" .. string.format(\"%02d\", hh) .. \":\" .. string.format(\"%02d\", mi) .. \":\" .. string.format(\"%02d\", ss) .. \"Z\"");
+        self.line(0, "end");
+        self.line(0, "function CuniTime.new(v)");
+        self.line(1, "return setmetatable({_cuni_kind = \"time\", v = v}, CuniTime)");
+        self.line(0, "end");
+        self.line(0, "local function _cuni_time_unbox(x)");
+        self.line(1, "if type(x) == \"table\" and x._cuni_kind == \"time\" then return x.v, true end");
+        self.line(1, "return x, false");
+        self.line(0, "end");
+        self.line(0, "function _cuni_parse_time(s)");
+        self.line(1, "-- Strict ISO-8601 UTC -> CuniTime (docs/TIME.md §2, §5): bad input");
+        self.line(1, "-- raises loudly, never a silent value.");
+        self.line(1, "if type(s) ~= \"string\" or #s ~= 20 then _cuni_time_refuse(\"parse_time: bad ISO-8601 UTC timestamp\") end");
+        self.line(1, "if s:sub(5, 5) ~= \"-\" or s:sub(8, 8) ~= \"-\" or s:sub(11, 11) ~= \"T\" or s:sub(14, 14) ~= \":\" or s:sub(17, 17) ~= \":\" or s:sub(20, 20) ~= \"Z\" then");
+        self.line(2, "_cuni_time_refuse(\"parse_time: bad ISO-8601 UTC timestamp\")");
+        self.line(1, "end");
+        self.line(1, "local function dg(lo, hi)");
+        self.line(2, "local t = s:sub(lo, hi)");
+        self.line(2, "if not t:match(\"^[0-9]+$\") then _cuni_time_refuse(\"parse_time: bad ISO-8601 UTC timestamp\") end");
+        self.line(2, "return tonumber(t)");
+        self.line(1, "end");
+        self.line(1, "local y, mo, d = dg(1, 4), dg(6, 7), dg(9, 10)");
+        self.line(1, "local h, mi, sec = dg(12, 13), dg(15, 16), dg(18, 19)");
+        self.line(1, "if y < 1 or y > 9999 or mo < 1 or mo > 12 then _cuni_time_refuse(\"parse_time: bad ISO-8601 UTC timestamp\") end");
+        self.line(1, "local dim = 31");
+        self.line(1, "if mo == 4 or mo == 6 or mo == 9 or mo == 11 then dim = 30");
+        self.line(1, "elseif mo == 2 then dim = (y % 4 == 0 and (y % 100 ~= 0 or y % 400 == 0)) and 29 or 28 end");
+        self.line(1, "if d < 1 or d > dim or h > 23 or mi > 59 or sec > 59 then");
+        self.line(2, "_cuni_time_refuse(\"parse_time: bad ISO-8601 UTC timestamp\")");
+        self.line(1, "end");
+        self.line(1, "return CuniTime.new(_cuni_time_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + sec)");
+        self.line(0, "end");
+        self.line(0, "function _cuni_add_seconds(t, s)");
+        self.line(1, "local tv, is_t = _cuni_time_unbox(t)");
+        self.line(1, "if not is_t then _cuni_time_refuse(\"add_seconds needs (time, int)\") end");
+        self.line(1, "return CuniTime.new(_cuni_time_add(tv, s))");
+        self.line(0, "end");
+        self.line(0, "function _cuni_days_between(a, b)");
+        self.line(1, "local av, a_is = _cuni_time_unbox(a)");
+        self.line(1, "local bv, b_is = _cuni_time_unbox(b)");
+        self.line(1, "if not (a_is and b_is) then _cuni_time_refuse(\"days_between needs (time, time)\") end");
+        self.line(1, "return _cuni_time_tdiv(_cuni_time_diff(av, bv), 86400)");
+        self.line(0, "end");
+        // Metamethods are one-liners (the `CuniDec` pattern): the ingester
+        // skips top-level `CuniTime…` lines singly, so multi-line bodies
+        // would leak into the user-code parse.
+        self.line(0, "CuniTime.__add = function(a, b) local av, a_is = _cuni_time_unbox(a); local bv, b_is = _cuni_time_unbox(b); if a_is and b_is then _cuni_time_refuse(\"cannot add time + time\") end; if not a_is and not b_is then _cuni_time_refuse(\"time addition needs a time operand\") end; return CuniTime.new(_cuni_time_add(av, bv)) end");
+        self.line(0, "CuniTime.__sub = function(a, b) local av, a_is = _cuni_time_unbox(a); local bv, b_is = _cuni_time_unbox(b); if a_is and b_is then return _cuni_time_diff(av, bv) end; if a_is and not b_is then return CuniTime.new(_cuni_time_sub(av, bv)) end; _cuni_time_refuse(\"cannot subtract this from/to a time\") end");
+        self.line(0, "CuniTime.__unm = function(a) return CuniTime.new(_cuni_time_neg(_cuni_time_unbox(a))) end");
+        self.line(0, "CuniTime.__eq = function(a, b) local av, a_is = _cuni_time_unbox(a); local bv, b_is = _cuni_time_unbox(b); if not (a_is and b_is) then return false end; return av == bv end");
+        self.line(0, "CuniTime.__lt = function(a, b) return _cuni_time_unbox(a) < _cuni_time_unbox(b) end");
+        self.line(0, "CuniTime.__le = function(a, b) return _cuni_time_unbox(a) <= _cuni_time_unbox(b) end");
+        self.line(0, "CuniTime.__concat = function(a, b) return tostring(a) .. tostring(b) end");
+        self.line(0, "CuniTime.__tostring = function(a) return _cuni_time_str(_cuni_time_unbox(a)) end");
         self.out.push('\n');
         self.line(0, "function _cuni_len(x)");
         self.line(1, "if type(x) == \"string\" then return #x end");
@@ -1111,6 +1239,7 @@ impl Codegen {
             // Scaled integer, boxed: emit-time range refusal happened in
             // generate(), so this always fits int64 (docs/DECIMAL.md §7).
             ExprKind::Dec(s) => format!("CuniDec.new({s})"),
+            ExprKind::Time(e) => format!("CuniTime.new({e})"),
             ExprKind::Float(f) => {
                 let s = f.to_string();
                 if s.contains('.') || s.contains('e') {
@@ -1176,6 +1305,18 @@ impl Codegen {
                     match n.as_str() {
                         "dec_of_int" => return format!("_cuni_dec_of_int({})", one()),
                         "int_of_dec" => return format!("_cuni_int_of_dec({})", one()),
+                        // `time` builtins (docs/TIME.md §5).
+                        "parse_time" => return format!("_cuni_parse_time({})", one()),
+                        "add_seconds" => {
+                            let a = args.first().map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "nil".to_string());
+                            let b = args.get(1).map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "nil".to_string());
+                            return format!("_cuni_add_seconds({a}, {b})");
+                        }
+                        "days_between" => {
+                            let a = args.first().map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "nil".to_string());
+                            let b = args.get(1).map(|a| self.gen_expr(a.expr(), scope)).unwrap_or_else(|| "nil".to_string());
+                            return format!("_cuni_days_between({a}, {b})");
+                        }
                         _ => {}
                     }
                 }

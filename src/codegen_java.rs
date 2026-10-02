@@ -72,6 +72,11 @@ enum JTy {
     /// `java.math.BigInteger` — arbitrary precision, divide() truncates
     /// toward zero natively. Wide seat: no range refusal.
     Dec,
+    /// CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md).
+    /// Primitive `long`; checked helpers (`Math.addExact` etc.) refuse
+    /// loudly on overflow (narrow-seat envelope). Tracked distinctly from
+    /// `Long` so `say`/interpolation render ISO-8601, not the raw epoch.
+    Time,
     Double,
     Bool,
     Str,
@@ -89,6 +94,7 @@ impl JTy {
     fn decl(&self) -> String {
         match self {
             JTy::Long => "long".into(),
+            JTy::Time => "long".into(),
             JTy::Dec => "java.math.BigInteger".into(),
             JTy::Double => "double".into(),
             JTy::Bool => "boolean".into(),
@@ -102,17 +108,19 @@ impl JTy {
     fn boxed(&self) -> String {
         match self {
             JTy::Long => "Long".into(),
+            JTy::Time => "Long".into(),
             JTy::Double => "Double".into(),
             JTy::Bool => "Boolean".into(),
             v => v.decl(),
         }
     }
     fn is_primitive(&self) -> bool {
-        matches!(self, JTy::Long | JTy::Double | JTy::Bool)
+        matches!(self, JTy::Long | JTy::Time | JTy::Double | JTy::Bool)
     }
     fn zero(&self) -> String {
         match self {
             JTy::Long => "0L".into(),
+            JTy::Time => "0L".into(),
             JTy::Dec => "java.math.BigInteger.ZERO".into(),
             JTy::Double => "0.0".into(),
             JTy::Bool => "false".into(),
@@ -130,6 +138,7 @@ fn jty(ty: &Type) -> Result<JTy, String> {
     match ty {
         Type::Named(n) => match n.as_str() {
             "int" => Ok(JTy::Long),
+            "time" => Ok(JTy::Time),
             "dec" => Ok(JTy::Dec),
             "float" => Ok(JTy::Double),
             "str" => Ok(JTy::Str),
@@ -335,6 +344,66 @@ impl Codegen {
         self.line(2, "// trunc(a*10000/b) toward zero (docs/DECIMAL.md §3); BigInteger.divide truncates natively.");
         self.line(2, "if (b.signum() == 0) throw new ArithmeticException(\"cuni: dec division by zero\");");
         self.line(2, "return a.multiply(CUNI_DEC_SCALE).divide(b);");
+        self.line(1, "}");
+        // ---- CuNi `time`: int64 unix epoch seconds, UTC (docs/TIME.md) ----
+        self.line(1, "static String cuni_time_str(long v) {");
+        self.line(2, "// Canonical ISO-8601 UTC rendering (docs/TIME.md §4).");
+        self.line(2, "long days = Math.floorDiv(v, 86400);");
+        self.line(2, "long sod = Math.floorMod(v, 86400);");
+        self.line(2, "long z = days + 719468;");
+        self.line(2, "long era = Math.floorDiv(z, 146097);");
+        self.line(2, "long doe = z - era * 146097;");
+        self.line(2, "long yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;");
+        self.line(2, "long y = yoe + era * 400;");
+        self.line(2, "long doy = doe - (365 * yoe + yoe / 4 - yoe / 100);");
+        self.line(2, "long mp = (5 * doy + 2) / 153;");
+        self.line(2, "long d = doy - (153 * mp + 2) / 5 + 1;");
+        self.line(2, "long m = mp < 10 ? mp + 3 : mp - 9;");
+        self.line(2, "if (m <= 2) y++;");
+        self.line(2, "long hh = sod / 3600, mi = (sod % 3600) / 60, ss = sod % 60;");
+        self.line(2, "String ys = y < 0 ? \"-\" + String.format(\"%04d\", -y) : String.format(\"%04d\", y);");
+        self.line(2, "return ys + \"-\" + String.format(\"%02d\", m) + \"-\" + String.format(\"%02d\", d) + \"T\" + String.format(\"%02d\", hh) + \":\" + String.format(\"%02d\", mi) + \":\" + String.format(\"%02d\", ss) + \"Z\";");
+        self.line(1, "}");
+        self.line(1, "static long cuni_time_days_from_civil(long y, long m, long d) {");
+        self.line(2, "long y0 = m <= 2 ? y - 1 : y;");
+        self.line(2, "long era = Math.floorDiv(y0, 400);");
+        self.line(2, "long yoe = y0 - era * 400;");
+        self.line(2, "long mp = (m + 9) % 12;");
+        self.line(2, "long doy = (153 * mp + 2) / 5 + d - 1;");
+        self.line(2, "long doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;");
+        self.line(2, "return era * 146097 + doe - 719468;");
+        self.line(1, "}");
+        self.line(1, "static long cuni_parse_time(String s) {");
+        self.line(2, "// Strict ISO-8601 UTC -> epoch (docs/TIME.md §2, §5): bad input throws loudly.");
+        self.line(2, "String bad = \"cuni: parse_time: bad ISO-8601 UTC timestamp — refused\";");
+        self.line(2, "if (s == null || s.length() != 20) throw new IllegalArgumentException(bad);");
+        self.line(2, "if (s.charAt(4) != '-' || s.charAt(7) != '-' || s.charAt(10) != 'T' || s.charAt(13) != ':' || s.charAt(16) != ':' || s.charAt(19) != 'Z') throw new IllegalArgumentException(bad);");
+        self.line(2, "long[] dg = new long[6];");
+        self.line(2, "int[][] pos = {{0,4},{5,7},{8,10},{11,13},{14,16},{17,19}};");
+        self.line(2, "for (int k = 0; k < 6; k++) {");
+        self.line(3, "long v = 0;");
+        self.line(3, "for (int i = pos[k][0]; i < pos[k][1]; i++) {");
+        self.line(4, "char c = s.charAt(i);");
+        self.line(4, "if (c < '0' || c > '9') throw new IllegalArgumentException(bad);");
+        self.line(4, "v = v * 10 + (c - '0');");
+        self.line(3, "}");
+        self.line(3, "dg[k] = v;");
+        self.line(2, "}");
+        self.line(2, "long y = dg[0], mo = dg[1], d = dg[2], h = dg[3], mi = dg[4], sec = dg[5];");
+        self.line(2, "if (y < 1 || y > 9999 || mo < 1 || mo > 12) throw new IllegalArgumentException(bad);");
+        self.line(2, "long dim = 31;");
+        self.line(2, "if (mo == 4 || mo == 6 || mo == 9 || mo == 11) dim = 30;");
+        self.line(2, "else if (mo == 2) dim = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 29 : 28;");
+        self.line(2, "if (d < 1 || d > dim || h > 23 || mi > 59 || sec > 59) throw new IllegalArgumentException(bad);");
+        self.line(2, "return cuni_time_days_from_civil(y, mo, d) * 86400 + h * 3600 + mi * 60 + sec;");
+        self.line(1, "}");
+        self.line(1, "static long cuni_add_seconds(long t, long s) {");
+        self.line(2, "// Math.addExact throws ArithmeticException on overflow — the loud refusal.");
+        self.line(2, "return Math.addExact(t, s);");
+        self.line(1, "}");
+        self.line(1, "static long cuni_days_between(long a, long b) {");
+        self.line(2, "// Truncation toward zero (docs/TIME.md §5); Java's / truncates natively.");
+        self.line(2, "return Math.subtractExact(a, b) / 86400;");
         self.line(1, "}");
         self.line(1, "static java.util.List<Long> cuni_range(long n) {");
         self.line(2, "java.util.List<Long> out = new java.util.ArrayList<>();");
@@ -1104,7 +1173,15 @@ impl Codegen {
                                 return Err("`say` takes exactly one argument; refusing".into());
                             }
                             let v = self.gen_expr(args[0].expr())?;
-                            self.line(indent, &format!("say({});", v.code));
+                            // A `time` is a `long` at runtime (docs/TIME.md) —
+                            // it must render as ISO-8601, not as its raw
+                            // epoch. The codegen knows the static type, so
+                            // route here (like dec's BigInteger branch below).
+                            if matches!(v.ty, JTy::Time) {
+                                self.line(indent, &format!("say(cuni_time_str({}));", v.code));
+                            } else {
+                                self.line(indent, &format!("say({});", v.code));
+                            }
                             return Ok(());
                         }
                     }
@@ -1431,6 +1508,11 @@ impl Codegen {
                 code: format!("new java.math.BigInteger(\"{s}\")"),
                 ty: JTy::Dec,
             }),
+            // Epoch `long` literal (docs/TIME.md §2): always `L`-suffixed.
+            ExprKind::Time(e) => Ok(JExpr {
+                code: format!("{e}L"),
+                ty: JTy::Time,
+            }),
             ExprKind::Float(f) => Ok(JExpr {
                 // Same decimal text the py seat emits (`f.to_string()`), so
                 // both parse to the identical IEEE double.
@@ -1457,7 +1539,13 @@ impl Codegen {
                         }
                         StrPartExpr::Expr(e) => {
                             let v = self.gen_expr(e)?;
-                            out.push_str(&format!(" + cuni_str({})", v.code));
+                            // A `time` renders as ISO-8601, not as its raw
+                            // epoch `long` (docs/TIME.md §4).
+                            if matches!(v.ty, JTy::Time) {
+                                out.push_str(&format!(" + cuni_time_str({})", v.code));
+                            } else {
+                                out.push_str(&format!(" + cuni_str({})", v.code));
+                            }
                         }
                     }
                 }
@@ -1628,6 +1716,12 @@ impl Codegen {
                                 code: format!("({}.negate())", v.code),
                                 ty: JTy::Dec,
                             })
+                        } else if matches!(v.ty, JTy::Time) {
+                            // Math.negateExact throws on overflow — the loud refusal.
+                            Ok(JExpr {
+                                code: format!("(Math.negateExact({}))", v.code),
+                                ty: JTy::Time,
+                            })
                         } else {
                             Ok(JExpr {
                                 code: format!("(-{})", v.code),
@@ -1670,6 +1764,37 @@ impl Codegen {
                     // Truncates toward zero; longValueExact throws loudly on
                     // overflow instead of silently wrapping.
                     code: format!("(({}.divide(CUNI_DEC_SCALE)).longValueExact())", v.code),
+                    ty: JTy::Long,
+                });
+            }
+            // `time` builtins (docs/TIME.md §5).
+            if fname == "parse_time" {
+                let a = args
+                    .first()
+                    .ok_or("parse_time needs one argument; refusing")?;
+                let v = self.gen_expr(a.expr())?;
+                return Ok(JExpr {
+                    code: format!("(cuni_parse_time({}))", v.code),
+                    ty: JTy::Time,
+                });
+            }
+            if fname == "add_seconds" {
+                let a = args.first().ok_or("add_seconds needs two arguments; refusing")?;
+                let b = args.get(1).ok_or("add_seconds needs two arguments; refusing")?;
+                let x = self.gen_expr(a.expr())?;
+                let y = self.gen_expr(b.expr())?;
+                return Ok(JExpr {
+                    code: format!("(cuni_add_seconds({}, {}))", x.code, y.code),
+                    ty: JTy::Time,
+                });
+            }
+            if fname == "days_between" {
+                let a = args.first().ok_or("days_between needs two arguments; refusing")?;
+                let b = args.get(1).ok_or("days_between needs two arguments; refusing")?;
+                let x = self.gen_expr(a.expr())?;
+                let y = self.gen_expr(b.expr())?;
+                return Ok(JExpr {
+                    code: format!("(cuni_days_between({}, {}))", x.code, y.code),
                     ty: JTy::Long,
                 });
             }
@@ -1931,6 +2056,54 @@ impl Codegen {
     fn gen_binary(&mut self, op: BinOp, lhs: &Expr, rhs: &Expr) -> Result<JExpr, String> {
         let l = self.gen_expr(lhs)?;
         let r = self.gen_expr(rhs)?;
+        // `time` is a closed world (docs/TIME.md §3–5): the typeck proved the
+        // valid shapes (`time ± int`, `time − time`, `time` comparisons);
+        // anything else is a loud refusal. `Math.addExact`/`subtractExact`/
+        // `negateExact` throw ArithmeticException on overflow (narrow-seat
+        // envelope); `/` truncates toward zero natively.
+        if matches!(l.ty, JTy::Time) || matches!(r.ty, JTy::Time) {
+            let is_time = |t: &JTy| matches!(t, JTy::Time);
+            let is_long = |t: &JTy| matches!(t, JTy::Long);
+            let (code, ty) = match op {
+                BinOp::Add
+                    if (is_time(&l.ty) && is_long(&r.ty))
+                        || (is_long(&l.ty) && is_time(&r.ty)) =>
+                {
+                    (format!("(Math.addExact({}, {}))", l.code, r.code), JTy::Time)
+                }
+                BinOp::Sub if is_time(&l.ty) && is_long(&r.ty) => {
+                    (format!("(Math.subtractExact({}, {}))", l.code, r.code), JTy::Time)
+                }
+                BinOp::Sub if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("(Math.subtractExact({}, {}))", l.code, r.code), JTy::Long)
+                }
+                BinOp::Eq if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} == {})", l.code, r.code), JTy::Bool)
+                }
+                BinOp::Ne if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} != {})", l.code, r.code), JTy::Bool)
+                }
+                BinOp::Lt if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} < {})", l.code, r.code), JTy::Bool)
+                }
+                BinOp::Gt if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} > {})", l.code, r.code), JTy::Bool)
+                }
+                BinOp::Le if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} <= {})", l.code, r.code), JTy::Bool)
+                }
+                BinOp::Ge if is_time(&l.ty) && is_time(&r.ty) => {
+                    (format!("({} >= {})", l.code, r.code), JTy::Bool)
+                }
+                _ => {
+                    return Err(
+                        "time binary op shape rejected by codegen — the typeck should have refused it first; refusing"
+                            .into(),
+                    )
+                }
+            };
+            return Ok(JExpr { code, ty });
+        }
         // `dec` is a closed world (docs/DECIMAL.md §3–5): both operands dec,
         // or a loud refusal. The typeck already rejected mixes; this is
         // defense in depth. BigInteger ops are exact; divide() truncates

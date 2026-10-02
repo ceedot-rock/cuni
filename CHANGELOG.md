@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.6.0] — 2026-10-01 — "Trust Provable, in all things"
+### Added
+- Exact timestamp type `time` (docs/TIME.md): int64 unix epoch seconds, UTC only — no timezones, no `now()`, no DST. Strict ISO-8601 UTC literals (`"2026-10-01T21:30:25Z"t`, validated once in the parser); closed arithmetic world (`time ± int -> time` both orders, `time − time -> int` seconds, comparisons on `(time, time)` only, no implicit time↔int); builtins `parse_time` (strict, loud refusal), `add_seconds`, `days_between` (trunc toward zero); canonical `say` rendering `YYYY-MM-DDTHH:MM:SSZ` byte-identical on every seat via Hinnant's civil-from-days. Per-seat: py `CuniTime`, js/ts BigInt, go `cuniTime`, c/cpp tagged `K_TIME`, rs `Val::Time`, rb `CuniTime` (explicit `coerce`), lua boxed metatable, java `long`, SQL INTEGER (literal folding + `strftime` rendering; `parse_time` folds literals, refuses dynamic strings), Solidity `uint256` via real solc (non-negative only — negative times refuse at emit; 0.8 checked arithmetic reverts), Solana refuses in v1. `cuni check` gates `examples/proof-time/time.cuni` (settlement/vesting/expiry) byte-identical on all 11 native seats + solc-compiled Solidity; `cargo test --test proof_time` pins the 14 verdicts and the refusal battery.
+- Catalog unchanged: 144 ids. `time` is a type, not a seat.
+
 ## [0.5.0] — 2026-10-01 — "Trust Provable, in all things"
 Code Division, first release under the new mission line. ("Replace trust with proof" stays as the 0.4.0-era supporting line.)
 ### Added

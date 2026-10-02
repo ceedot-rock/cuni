@@ -30,6 +30,7 @@ That turns exactness into working infrastructure:
 - **SQL dialect portability** — one query logic, SQLite/PostgreSQL/MySQL dialects, proven against real `sqlite3`. The new SQL seat.
 - **Solana programs** — one transfer-validation law compiled to an Anchor-shaped Solana program: the logic core gate-proven byte-identical, the program shell honestly delimited (not compiled here — no Solana toolchain on the check machine). See `examples/proof-solana/` and `docs/SOLANA.md`.
 - **Exact money math** — the `dec` type: fixed-point decimals (scale 10⁴, truncation toward zero), same stdout on all 12 native seats plus solc-compiled Solidity. See `examples/proof-decimal/` and `docs/DECIMAL.md`.
+- **Exact timestamps** — the `time` type: int64 unix epochs, UTC only, strict ISO-8601 literals, `time ± int` / `time − time` arithmetic, `parse_time` / `add_seconds` / `days_between` — settlement, vesting, and expiries with byte-identical stdout on every seat. The money-types pair with `dec`. See `examples/proof-time/` and `docs/TIME.md`.
 - **Standard library, wave 1** — JSON parse/emit (canonical form), unix timestamps, string ops, SHA-256: same behavior on every seat, honest refusals where a seat can't be exact. See `docs/STDLIB.md`.
 
 <p align="center">
@@ -120,6 +121,7 @@ Result: agents can be implemented in the language that is most convenient, while
 | **Exactness** | [Studio](https://cuni-studio.fly.dev/) or `cuni check examples/full.cuni` | One program → every catalog language → **same stdout** |
 | **Interop (`link`)** | `./examples/link/demo.sh` | One contract → **Go server** + **Python + JS + Go clients** over HTTP |
 | **Decimal (`dec`)** | `cuni check examples/proof-decimal/money.cuni` | Exact fixed-point money math (scale 10⁴, truncation toward zero) → **same stdout** on all 12 native seats + solc-compiled Solidity |
+| **Time (`time`)** | `cuni check examples/proof-time/time.cuni` | Exact int64 unix epochs, UTC only, strict ISO-8601 → **same stdout** on all 12 native seats + solc-compiled Solidity |
 | **Stdlib wave 1** | `cuni check examples/stdlib-wave1/` | JSON / unix time / strings / SHA-256 → **same stdout** on every seat that can be exact, tested refusals where a seat can't |
 
 ### Flagship: one `link`, three languages

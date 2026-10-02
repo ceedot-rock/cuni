@@ -9,6 +9,12 @@ pub enum Token {
     /// once in the parser (`ast::parse_dec_scaled`), so every seat and the
     /// interpreter share one literal semantics (docs/DECIMAL.md §2).
     Dec(String),
+    /// A `time` literal's raw ISO-8601 UTC text, e.g. `"2026-10-01T21:30:25Z"t`
+    /// -> `Time("2026-10-01T21:30:25Z")`.
+    /// The `t` suffix is consumed by the lexer; validation/epoch conversion
+    /// happens once in the parser (`ast::parse_time_epoch`), so every seat
+    /// and the interpreter share one literal semantics (docs/TIME.md §2).
+    Time(String),
     Str(String),
     InterpStr(Vec<StrPart>),
     True,

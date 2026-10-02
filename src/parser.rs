@@ -763,6 +763,18 @@ impl<'a> Parser<'a> {
                     }),
                 }
             }
+            Token::Time(text) => {
+                let tok = self.advance();
+                match crate::ast::parse_time_epoch(&text) {
+                    Ok(epoch) => {
+                        Ok(self.expr(ExprKind::Time(epoch), Span::new(tok.start, tok.end)))
+                    }
+                    Err(msg) => Err(ParseError {
+                        message: msg,
+                        pos: tok.start,
+                    }),
+                }
+            }
             Token::True => {
                 let tok = self.advance();
                 Ok(self.expr(ExprKind::Bool(true), Span::new(tok.start, tok.end)))
