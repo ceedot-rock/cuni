@@ -1,0 +1,22 @@
+name: 'CuNi Audit'
+description: 'Forget trust. Prove. Runs cuni audit: the implementation must match the law byte-for-byte, or the gate refuses.'
+inputs:
+  law:
+    description: 'Path to the .cuni law file'
+    required: true
+  against:
+    description: 'Path to the implementation to audit (by extension: .py, .go, .rs, .java, .sql)'
+    required: true
+  version:
+    description: 'cuni version to install from crates.io'
+    required: false
+    default: '0.8.0'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install CuNi
+      shell: bash
+      run: cargo install cuni --version ${{ inputs.version }}
+    - name: Run audit
+      shell: bash
+      run: cuni audit "${{ inputs.law }}" --against "${{ inputs.against }}"
