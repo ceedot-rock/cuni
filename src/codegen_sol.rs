@@ -255,6 +255,22 @@ impl Codegen {
                     "function _cuni_itoa(int256 v) internal pure returns (string memory) {",
                 );
                 self.line(2, "if (v == 0) return \"0\";");
+                self.line(2, "bool neg = v < 0;");
+                self.line(2, "uint256 u = neg ? uint256(-v) : uint256(v);");
+                self.line(2, "bytes memory b = new bytes(78);");
+                self.line(2, "uint256 i = 78;");
+                self.line(
+                    2,
+                    "while (u > 0) { i--; b[i] = bytes1(uint8(48 + u % 10)); u /= 10; }",
+                );
+                self.line(2, "bytes memory s = new bytes(78 - i + (neg ? 1 : 0));");
+                self.line(2, "if (neg) s[0] = \"-\";");
+                self.line(
+                    2,
+                    "for (uint256 j = 0; j < 78 - i; j++) s[j + (neg ? 1 : 0)] = b[i + j];",
+                );
+                self.line(2, "return string(s);");
+                self.line(1, "}");
                 // String lexicographic comparison helpers (CuNi `<`, `>` on strings).
                 self.line(
                     1,
@@ -273,23 +289,6 @@ impl Codegen {
                     "function cuniStrGt(string memory a, string memory b) internal pure returns (bool) {",
                 );
                 self.line(2, "return cuniStrLt(b, a);");
-                self.line(1, "}");
-
-                self.line(2, "bool neg = v < 0;");
-                self.line(2, "uint256 u = neg ? uint256(-v) : uint256(v);");
-                self.line(2, "bytes memory b = new bytes(78);");
-                self.line(2, "uint256 i = 78;");
-                self.line(
-                    2,
-                    "while (u > 0) { i--; b[i] = bytes1(uint8(48 + u % 10)); u /= 10; }",
-                );
-                self.line(2, "bytes memory s = new bytes(78 - i + (neg ? 1 : 0));");
-                self.line(2, "if (neg) s[0] = \"-\";");
-                self.line(
-                    2,
-                    "for (uint256 j = 0; j < 78 - i; j++) s[j + (neg ? 1 : 0)] = b[i + j];",
-                );
-                self.line(2, "return string(s);");
                 self.line(1, "}");
                 self.out.push('\n');
             }
