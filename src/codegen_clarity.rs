@@ -1225,10 +1225,10 @@ impl PyGen {
 
 
 def cuni_mod(a, b):
-    """CuNi `int` `%`: sign follows the dividend (truncated division)."""
+    """CuNi `int` `%`: Python-floored (sign follows the divisor)."""
     if b == 0:
         raise ZeroDivisionError("cuni: modulo by zero")
-    return a - cuni_div(a, b) * b
+    return a % b
 
 
 def render_dec(scaled):

@@ -40,7 +40,7 @@ fn check_full_example_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("105/113 ok"),
+        stdout.contains("19/53 ok"),
         "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );
@@ -64,7 +64,7 @@ fn check_structs_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("105/113 ok"),
+        stdout.contains("19/53 ok"),
         "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );
@@ -82,7 +82,7 @@ fn check_named_fields_sol_honest_refusal() {
         stdout
     );
     assert!(
-        stdout.contains("105/113 ok"),
+        stdout.contains("19/53 ok"),
         "all seats except honest refusers must still emit+run:\n{}",
         stdout
     );

@@ -889,6 +889,7 @@ static void cuni_dec_check_pair(Val a, Val b) {
     if (a.k != K_DEC || b.k != K_DEC)
         cuni_dec_refuse("cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)");
 }
+static Val cuni_concat(Val a, Val b);
 static Val cuni_add(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_add(a, b); }
     /* `time` is a closed world (docs/TIME.md §3): (time,int)/(int,time) ->
@@ -899,7 +900,7 @@ static Val cuni_add(Val a, Val b) {
         cuni_time_refuse("cannot add time to this operand — durations are plain int seconds (docs/TIME.md §3)");
     }
     if (a.k == K_STR || b.k == K_STR) {
-        /* handled by concat path for strings of numbers too */
+        return cuni_concat(a, b);
     }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) + as_f(b));
     return V_int(a.i + b.i);

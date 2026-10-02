@@ -578,6 +578,7 @@ fn v_add(a: Val, b: Val) -> Val {
     match (&a,&b) {
         (Val::Float(_), _) | (_, Val::Float(_)) => Val::Float(as_f(&a)+as_f(&b)),
         (Val::Int(x), Val::Int(y)) => Val::Int(x+y),
+        (Val::Str(s1), Val::Str(s2)) => Val::Str(format!("{}{}", s1, s2)),
         _ => Val::Int(0),
     }
 }

@@ -387,7 +387,7 @@ impl Codegen {
         self.line(1, "return a / b");
         self.line(0, "}");
         self.out.push('\n');
-        self.line(0, "func cuniMod(a, b int64) int64 {");
+        self.line(0, "func cuniMod(a, b int) int {");
         self.line(1, "// Python-floored modulo (CuNi spec); Go's % truncates.");
         self.line(1, "r := a % b");
         self.line(1, "if r != 0 && ((r < 0) != (b < 0)) { return r + b }");

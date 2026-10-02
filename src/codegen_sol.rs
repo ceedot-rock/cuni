@@ -255,6 +255,26 @@ impl Codegen {
                     "function _cuni_itoa(int256 v) internal pure returns (string memory) {",
                 );
                 self.line(2, "if (v == 0) return \"0\";");
+                // String lexicographic comparison helpers (CuNi `<`, `>` on strings).
+                self.line(
+                    1,
+                    "function cuniStrLt(string memory a, string memory b) internal pure returns (bool) {",
+                );
+                self.line(2, "bytes memory ba = bytes(a); bytes memory bb = bytes(b);");
+                self.line(2, "uint len = ba.length < bb.length ? ba.length : bb.length;");
+                self.line(2, "for (uint i = 0; i < len; i++) {");
+                self.line(3, "if (ba[i] < bb[i]) return true;");
+                self.line(3, "if (ba[i] > bb[i]) return false;");
+                self.line(2, "}");
+                self.line(2, "return ba.length < bb.length;");
+                self.line(1, "}");
+                self.line(
+                    1,
+                    "function cuniStrGt(string memory a, string memory b) internal pure returns (bool) {",
+                );
+                self.line(2, "return cuniStrLt(b, a);");
+                self.line(1, "}");
+
                 self.line(2, "bool neg = v < 0;");
                 self.line(2, "uint256 u = neg ? uint256(-v) : uint256(v);");
                 self.line(2, "bytes memory b = new bytes(78);");
@@ -804,6 +824,19 @@ impl Codegen {
                         "(keccak256(abi.encodePacked({})) != keccak256(abi.encodePacked({})))",
                         l, r
                     ));
+                }
+                // String ordering: lexicographic via byte comparison helper.
+                if matches!(*op, BinOp::Lt) && lk == SolKind::Str {
+                    return Ok(format!("cuniStrLt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Gt) && lk == SolKind::Str {
+                    return Ok(format!("cuniStrGt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Le) && lk == SolKind::Str {
+                    return Ok(format!("!cuniStrGt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Ge) && lk == SolKind::Str {
+                    return Ok(format!("!cuniStrLt({}, {})", l, r));
                 }
                 // `time` is a closed world (docs/TIME.md §3–5): the typeck
                 // proved the valid shapes. Solidity 0.8 checked arithmetic
