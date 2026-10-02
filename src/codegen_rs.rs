@@ -548,6 +548,14 @@ fn v_cmp(a: Val, b: Val) -> i32 {
     if let (Val::Dec(x), Val::Dec(y)) = (&a, &b) {
         return if x < y { -1 } else if x > y { 1 } else { 0 };
     }
+    // strings compare by code point (byte order on UTF-8).
+    if let (Val::Str(x), Val::Str(y)) = (&a, &b) {
+        return match x.as_bytes().cmp(y.as_bytes()) {
+            std::cmp::Ordering::Less => -1,
+            std::cmp::Ordering::Greater => 1,
+            std::cmp::Ordering::Equal => 0,
+        };
+    }
     let x = as_f(&a); let y = as_f(&b);
     if x < y { -1 } else if x > y { 1 } else { 0 }
 }

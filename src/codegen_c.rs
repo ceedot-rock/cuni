@@ -876,6 +876,13 @@ static int cuni_cmp(Val a, Val b) {
     }
     if (a.k == K_TIME || b.k == K_TIME)
         cuni_time_refuse("cannot mix time and non-time — durations are plain int seconds (docs/TIME.md §3)");
+    /* strings compare by code point (strcmp on UTF-8 bytes). */
+    if (a.k == K_STR && b.k == K_STR) {
+        int c = strcmp(a.s ? a.s : "", b.s ? b.s : "");
+        if (c < 0) return -1;
+        if (c > 0) return 1;
+        return 0;
+    }
     double x = (a.k == K_FLOAT) ? a.f : (double)a.i;
     double y = (b.k == K_FLOAT) ? b.f : (double)b.i;
     if (x < y) return -1;

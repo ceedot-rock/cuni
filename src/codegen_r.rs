@@ -14,12 +14,12 @@
 //!   no core change needed.
 //! - `cuni_say(x, ty)` prints via `cat(x, "\n", sep = "")` (the `sep = ""`
 //!   matters: `cat`'s default separator is a space). The `ty` tag renders
-//!   bools as `True`/`False` since R's native literals are `TRUE`/`FALSE`.
+//!   bools as `True`/`False` since R's native literals are `TRUE`/`FALSE`,
+//!   and ints via `format(x, scientific = FALSE)` so large values never
+//!   print as `1e+09`.
 //!
 //! Honest caveat: R numerics are doubles, so ints are exact only up to
-//! 2^53, and very large integral values may print in scientific notation
-//! (`1e+14`) under R's default `scipen`. That is R's own printing, not a
-//! CuNi lie — but it bounds this seat's exactness range.
+//! 2^53. That bounds this seat's exactness range.
 //!
 //! Refuses everything beyond the core subset (see codegen_core docs).
 
@@ -48,6 +48,7 @@ const SPEC: LangSpec = LangSpec {
     header: "# CuNi core-subset helpers (R)\n\
 cuni_say <- function(x, ty) {\n\
   if (ty == \"bool\") { cat(if (x) \"True\" else \"False\", \"\\n\", sep = \"\") }\n\
+  else if (ty == \"int\") { cat(format(x, scientific = FALSE, trim = TRUE), \"\\n\", sep = \"\") }\n\
   else { cat(x, \"\\n\", sep = \"\") }\n\
 }\n\
 cuni_div <- function(a, b) trunc(a / b)\n\
