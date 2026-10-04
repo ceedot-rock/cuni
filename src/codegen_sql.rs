@@ -1024,8 +1024,18 @@ impl<'a> Codegen<'a> {
             }
         }
         self.env = merged;
-        self.alive = outer_alive;
-        self.dead = outer_dead;
+        // A `ret`/`fail` inside either branch is real: the path that took
+        // it must not execute what follows the `if`. `do_return` records
+        // every taken return in `returned`, so the post-`if` point stays
+        // live only where no return has fired yet. (When nothing returned,
+        // `returned` is the literal "0" and this is exactly `outer_alive`,
+        // so emit output is byte-identical for the common no-return case.)
+        if self.returned == "0" {
+            self.alive = outer_alive;
+        } else {
+            self.alive = Self::and_sql(&outer_alive, &format!("NOT ({})", self.returned));
+        }
+        self.dead = outer_dead || self.alive == "0";
         Ok(())
     }
 
