@@ -113,7 +113,7 @@ fn money_exactness_gate_all_native_seats() {
     ]);
     assert!(
         ok,
-        "exactness gate failed for the 12 native seats\nstdout:\n{stdout}\nstderr:\n{stderr}"
+        "exactness gate failed for the 11 dec seats\nstdout:\n{stdout}\nstderr:\n{stderr}"
     );
     assert!(
         stdout.contains("exactness: PASS"),

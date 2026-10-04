@@ -71,7 +71,7 @@ Studio’s error banner runs the same fix-it mapping client-side for hosted try 
 | Surface | Gate |
 |---------|------|
 | CuNi Studio / Publish / Agent | `cuni check --only py,go,js` (flagship promise) |
-| Local CLI / Exactness CI | full 144-language catalog |
+| Local CLI / Exactness CI | full 53-entry catalog |
 
 Missing optional runners (c/cpp/rs) on the Studio host must not refuse a program whose py/go/js stdout already match. That is gate alignment, not approximate mode.
 

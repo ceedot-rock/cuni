@@ -31,7 +31,7 @@ curl -s https://agentrider.fly.dev/api/v0/contracts | jq .
 Registered contracts are visible in Studio without leaving the page:
 
 1. **Contracts panel** — count + recent rows (`id`, `sourceHash`, `registeredAt`, `status`); empty state when `count=0`
-2. **Health strip** — `registered: N` · `rider remote: on/off` · `langs: 144`
+2. **Health strip** — `registered: N` · `rider remote: on/off` · `langs: 53`
 3. **Rider link** — prefers `health.rider.remote_url`, falls back to https://agentrider.fly.dev
 4. **Docs** — this file + [`STATUS.md`](STATUS.md) + [`RIDER_CUTOVER.md`](RIDER_CUTOVER.md)
 

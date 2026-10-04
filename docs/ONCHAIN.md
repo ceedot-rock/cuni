@@ -97,7 +97,7 @@ machine, the Financial Division's law, the Onchain Division's reach.
   any seat implementation.
 - **Profiles, not seats.** The six emitters are compilation profiles, like
   `--emit-solana`. The catalog is unchanged: 53 entries, 45 native
-  seats, 132 lowerings.
+  seats, 8 lowerings.
 
 ## For the implementer
 

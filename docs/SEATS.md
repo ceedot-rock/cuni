@@ -55,7 +55,7 @@ cuni prove file.cuni --against impl.py  # foreign code must match CuNi gold
 | sh | top-level only: `x=value`, `x=$((expr))`, `"$var"` interpolation, `echo`, `if [ … ]; then/elif/else/fi` with `-gt/-lt/-ge/-le/-eq/-ne`/`=`/`!=`; functions, loops, `$( )`, pipes refuse |
 | sql | `SELECT <expr>;` → `say(<expr>)`; `'...'` strings, `=`/`<>`, `AND`/`OR`/`NOT` mapped; `FROM`, joins, DDL refuse |
 | wat | `(func $n (param $p T)* (result T) <single expr>)` with `T` in i32/i64/f32/f64; const/local.get/call/add/sub/mul/signed+float comparisons; `(start $f)` → top-level call; locals, `if`, div/rem, memories refuse |
-| other 132 | Python lowerings only: the CuNi `#` header is required, then the py subset above; headerless files refuse |
+| other 8 | Python lowerings only: the CuNi `#` header is required, then the py subset above; headerless files refuse |
 
 Every ingester ends with a self-check: the produced `.cuni` must lex, parse, and typecheck in the real front-end, or ingest refuses. Skipped prelude helpers that are still referenced therefore refuse instead of producing a broken program. Types erased by a backend (js/ts untyped params, c/cpp/rs `Val` boxing, awk/perl dynamic) are recovered by two-pass call-site inference: parameter types from every call site, return types from return expressions, bindings/literals/comparisons as evidence. When there are no call sites, mixed types, or no evidence at all, ingest refuses with a named reason instead of guessing (the old `untyped → int` default is gone).
 

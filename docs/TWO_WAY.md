@@ -23,12 +23,13 @@ Bool printing is canonical `True`/`False` on **all** native backends (js/go were
 normalized 2026-09-23; py/c/cpp/rs already matched). `cuni check` on the
 str+bool RT2 corpus: **PASS (7/7 native seats)**.
 
-## Header-gated lowering seats (132)
+## Header-gated lowering seats (8)
 
-The remaining 132 seats emit a Python lowering (runs under python3) and ingest
+The remaining 8 seats emit a Python lowering (runs under python3) and ingest
 **only** artifacts carrying the CuNi `#` lowering header, via the Python
 subset. Headerless foreign files refuse with a named reason. Verified by
-`ingest::tests::rt1_all_langs`: 144/144 round-trip.
+`ingest::tests::rt1_all_langs`, which round-trips every seat that has an
+ingest parser (seats without one are skipped by name in the test).
 
 Next candidates for native ingest (most-used real languages, still lowering):
 `java`, `cs`, `rb`, `php`, `lua`.

@@ -558,7 +558,7 @@ async function loadHealth() {
     if (regCount != null) parts.push(`registered: ${regCount}`);
     else if (j.rider) parts.push(`rider: ${j.rider.register ? "ok" : "off"}`);
     if (remoteBit) parts.push(remoteBit);
-    parts.push(`langs: ${j.lang_count ?? 144}`);
+    parts.push(`langs: ${j.lang_count ?? 53}`);
     els.health.textContent = parts.join(" · ");
     if (els.riderLink) {
       els.riderLink.href = riderBase;

@@ -23,7 +23,7 @@ Canonical law: [`PROTOCOL.md`](../PROTOCOL.md), [`docs/SEATS.md`](SEATS.md), [`d
 ### Non-goals (v0)
 
 - Approximate / “close enough” emit when seats diverge.
-- Claiming 144 (or “~145”) languages as first-class 1-for-1 native seats.
+- Claiming 53 catalog entries as first-class 1-for-1 native seats.
 - Replacing PCC or folding Fund into a compressor product.
 - Full language interop for every catalog oddity (pointers, macros, etc.) via silent rewriting.
 - Shipping SettleHop as a CuNi deliverable in this doc (Rider owns settle; CuNi owns PASS artifacts).
@@ -36,14 +36,14 @@ Live Studio health and catalog law (2026-09), aligned with `PROTOCOL.md` / `docs
 
 | Tier | What it means | Count / ids |
 |------|----------------|-------------|
-| **Catalog seats** | Language ids in `src/langs.rs` — emit+run under `cuni check`, or refuse | **144** |
-| **Native seats** | Real maturity: toolchain of that language | **~7:** `py`, `go`, `js`, `ts`, `c`, `cpp`, `rs` |
+| **Catalog seats** | Language ids in `src/langs.rs` — emit+run under `cuni check`, or refuse | **53** |
+| **Native seats** | Real emitter with that language's own toolchain (see `seat_kind` in `src/emit.rs`) | **45** |
 | **Studio / Publish gate** | Fly image limitation — hosted exactness / publish | **`py`, `go`, `js` only** |
-| **Rest of catalog** | Python **lowering** until native — still emit+run; receipt marks `native` vs `lowering` | Majority of 144 |
+| **Rest of catalog** | Python **lowering** until native — still emit+run; receipt marks `native` vs `lowering` | 8 lowerings |
 
 **Say this out loud:**
 
-> **144 catalog seats; 12 native; majority lowering.**
+> **53 catalog entries; 45 native; 8 lowerings.**
 
 Do **not** claim soft “120 languages” 1-for-1.
 
@@ -133,14 +133,14 @@ Point at existing code; grow incrementally:
 | [`docs/RIDER_REGISTRATION_API.md`](RIDER_REGISTRATION_API.md) | `exactness.passed` gate; `POST /api/v0/contracts` |
 | `src/ast.rs` | Current front-end AST |
 | `src/emit.rs` | Multi-seat emit |
-| `src/langs.rs` | 144 catalog seat ids |
+| `src/langs.rs` | 53 catalog entry ids |
 
 ---
 
 ## Summary for CoS
 
 - Track B design doc only — **no merge assumed** until GREEN.
-- Honesty: **144 catalog; 12 native; Studio gate py/go/js; majority lowering.**
+- Honesty: **53 catalog; 45 native; Studio gate py/go/js; 8 lowerings.**
 - Oddity matrix prefers **hard-fail**.
 - Rider funds/executes only PASS citizens (`source_hash` + `exactness.passed`).
 - IR milestones are incremental; **IR is not done.**

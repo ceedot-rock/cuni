@@ -20,7 +20,7 @@ PASS fields:
 | `source_hash` | Non-empty SHA-256 hex of `.cuni` source bytes (`sourceHash` alias OK) |
 | `exactness.passed` | Must be `true` |
 
-Studio hosted gate = **py / go / js** (`CUNI_PLAYGROUND_CHECK_ONLY`). Full 119-lang catalog remains CLI/CI.
+Studio hosted gate = **py / go / js** (`CUNI_PLAYGROUND_CHECK_ONLY`). Full 53-entry catalog remains CLI/CI.
 
 ---
 

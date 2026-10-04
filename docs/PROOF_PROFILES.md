@@ -53,9 +53,7 @@ Two more 0.4.0 pieces make the framing real:
 
 ## Catalog honesty
 
-144 catalog ids, unchanged: **12 native seats**
-(py, go, js, ts, c, cpp, rs, rb, lua, sol, java, sql) + **132 Python lowerings**.
-`java` and `sql` were already catalog ids; promoting them adds no new languages.
+53 catalog ids: **45 native seats** + **8 lowerings** (5 Python lowerings —
+swift, m, vb, st, hack — and 3 onchain profiles — vy, move, cairo).
 `cuni check` still emit+runs the whole catalog; `sol` keeps its honest refusal on
-floats/structs (no Solidity mapping), so the pinned full-catalog count on those
-examples remains 143/144.
+floats/structs (no Solidity mapping).

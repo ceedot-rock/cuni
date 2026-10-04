@@ -301,7 +301,7 @@ ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad`.
 | `contains` | ✅ `in` | ✅ strings.Contains | ✅ includes | ✅ | ✅ hand-rolled | ✅ | ✅ contains | ✅ include? | ✅ plain find | ✅ contains | ✅ instr(x, y) > 0 | ❌ |
 | `sha256` | ✅ hashlib | ✅ crypto/sha256 | ✅ node:crypto | ✅ | ✅ hand-rolled | ✅ | ✅ hand-rolled (no new dep) | ✅ digest stdlib | ✅ hand-rolled (5.4 bitops) | ✅ MessageDigest | ❌ "SQLite core has no SHA-256 (the CLI's sha3() is a different algorithm); refusing" | ❌ "keccak256 ≠ SHA-256; the SHA-256 precompile is unobservable in the compile-only seat; refusing" |
 
-The 132 Python lowerings ride the `py` seat: green wherever `py` is green.
+The 8 lowerings ride the `py` seat: green wherever `py` is green.
 
 ### Why the refusals are honest
 

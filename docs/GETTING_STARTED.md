@@ -42,7 +42,7 @@ exactness: PASS (3 langs)
 `cuni check` emits your program in each target language, runs each one
 with that language's real toolchain, and compares stdout byte-for-byte.
 `--only` limits the gate to the seats you have installed; without it,
-`check` runs all 144 catalog languages.
+`check` runs all 53 catalog entries.
 
 ## What "exactness or refuse" means
 
@@ -63,13 +63,13 @@ cuni: emit refused for sol: Solidity refused: float literals have no Solidity fo
 CuNi refuses to emit rather than silently changing your program's meaning.
 This is the product: the refusal *is* the guarantee.
 
-## The 144-language catalog
+## The 53-entry catalog
 
-`cuni check` without `--only` runs the full catalog: 144 language ids.
-Ten seats — Python, Go, JavaScript, TypeScript, C, C++, Rust, Ruby, Lua,
-and Solidity — compile through their real toolchains. The remaining 134
-emit Python under a language-specific file extension and run under
-`python3`, so every seat's stdout can actually be compared. List them:
+`cuni check` without `--only` runs the full catalog: 53 language ids.
+45 native seats — each with a real emitter run through that language's own
+toolchain. The remaining 8 emit Python under a language-specific file
+extension and run under `python3`, so every seat's stdout can actually be
+compared. List them:
 
 ```sh
 cuni --list-langs

@@ -109,7 +109,7 @@ cannot overflow, "narrow" (int64) seats share one identical envelope
 | seat | representation | overflow / refusal posture |
 |------|---------------|---------------------------|
 | interp (native `cuni run`) | `Val::Time(i64)` | `checked_*` → loud refusal |
-| py (+132 lowerings) | `CuniTime(int)` subclass — operators overridden, tag preserved | n/a (bigint); `int + time` works via `__radd__` |
+| py (+8 lowerings) | `CuniTime(int)` subclass — operators overridden, tag preserved | n/a (bigint); `int + time` works via `__radd__` |
 | js / ts | `BigInt`, literals `1790890225n` | n/a (BigInt); `say`/interpolation route via codegen kind-tracking (both `time` and `dec` are BigInt at runtime) |
 | go | `cuniTime int64` | checked add/sub/diff → `panic("cuni: … — refused")` |
 | c / cpp | tagged `K_TIME`, `long long` field | checked ops → loud refusal |

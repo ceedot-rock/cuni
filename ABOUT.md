@@ -3,10 +3,9 @@
 ## What it is
 
 CuNi is a programming language with one law: **the same output on every
-target, or refuse.** Write once in `.cuni`. It runs exact on 53 catalog entries (top 50 languages + 3 onchain profiles)
-across 12 native seats — Python, Rust, Go, JavaScript, TypeScript, C, C++,
-Ruby, Lua, Java, SQL, Solidity — or it refuses to run at all. No
-approximate mode. No silent rounding. No drift.
+target, or refuse.** Write once in `.cuni`. It runs exact on 53 catalog entries —
+45 native seats, 5 Python lowerings, 3 onchain profiles — or it refuses to
+run at all. No approximate mode. No silent rounding. No drift.
 
 Money gets exact math (`dec`, fixed scale 10⁴, scaled integers — never
 float) and exact time (`time`, int64 unix timestamps, UTC only). The same
@@ -26,7 +25,7 @@ cuni --emit-vyper law.cuni   # emit for a chain
 
 Three divisions, one law:
 
-- **Code** — the machine. Exact types, stdlib, 12 native seats.
+- **Code** — the machine. Exact types, stdlib, 45 native seats.
 - **Financial** — `cuni audit`. Hand it a financial law and an
   implementation, get back a signed receipt. The disagreement itself is
   fileable. Hosted verification at $0.10/check.

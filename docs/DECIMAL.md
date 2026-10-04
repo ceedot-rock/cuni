@@ -74,7 +74,7 @@ Examples: `1.2300 → "1.23"`, `100.0000 → "100.0"`, `0.0001 → "0.0001"`, `-
 
 | seat | representation | dec range | overflow / refusal posture |
 |------|---------------|-----------|---------------------------|
-| py (+132 lowerings) | `CuniDec(int)` subclass — operators overridden, exact bigint | unlimited | n/a (bigint) |
+| py (+8 lowerings) | `CuniDec(int)` subclass — operators overridden, exact bigint | unlimited | n/a (bigint) |
 | rs | `Val::Dec(i128)` (tagged runtime) | ±1.7×10³⁴ | `checked_*` → panic `cuni: dec …` (loud refusal) |
 | js / ts | `BigInt`, literals `12300n` | unlimited | n/a (BigInt); `/` truncates toward zero natively |
 | c / cpp | `Val.d` as `__int128` (tagged runtime) | ±1.7×10³⁴ | checked ops → loud `cuni: dec …` refusal; targets without `__int128` refuse at emit |

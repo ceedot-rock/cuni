@@ -38,7 +38,7 @@ CUNI_PLAYGROUND_HOST=127.0.0.1 python3 playground/server.py
 | `CUNI_PLAYGROUND_MAX_SOURCE` | `200000` | max source bytes |
 | `CUNI_PLAYGROUND_MAX_CONCURRENT` | `2` | parallel /api/run\|emit\|check |
 | `CUNI_PLAYGROUND_DATA` | `playground/data` | Notelog + Critic Book JSON |
-| `CUNI_PLAYGROUND_CHECK_ONLY` | `py,go,js` | Studio exactness seats (`cuni check --only …`). Flagship hosted gate; full 144-lang catalog stays CLI/CI. |
+| `CUNI_PLAYGROUND_CHECK_ONLY` | `py,go,js` | Studio exactness seats (`cuni check --only …`). Flagship hosted gate; full 53-entry catalog stays CLI/CI. |
 
 ## API
 
