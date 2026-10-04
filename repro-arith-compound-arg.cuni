@@ -1,0 +1,9 @@
+def guarded(x: int) -> int do
+    if x > 0 do
+        ret x + 1
+    end
+    ret x
+end
+
+let r = guarded(0 - 5)
+say(r)

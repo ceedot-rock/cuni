@@ -1977,7 +1977,15 @@ impl<'a> Codegen<'a> {
         let save_in_fn = std::mem::replace(&mut self.in_fn, true);
         let save_fallible = std::mem::replace(&mut self.fn_fallible, t.fallible);
 
-        for ((pname, _), aval) in t.params.iter().zip(args.into_iter()) {
+        for ((pname, pty), aval) in t.params.iter().zip(args.into_iter()) {
+            // The declared parameter type is the honest kind when the
+            // argument's own kind is less precise (e.g. NULL from `none`).
+            // Without this, a parameter bound from such an argument loses
+            // its type, and arithmetic on it inside the body is refused
+            // even though the typechecker proved the call safe. Mirrors
+            // the return-type fallback (3ba369e); `let`/`mut`/`??` bindings
+            // already go through `coerce_to_decl` for the same reason.
+            let aval = self.coerce_to_decl(aval, &Some((*pty).clone()))?;
             self.env.insert(pname.clone(), aval);
         }
         self.inline_stack.push(name.to_string());
