@@ -558,7 +558,7 @@ impl<'a> Checker<'a> {
                 if let Some(t) = ty {
                     self.validate_type(t, generics, stmt.span)?;
                 }
-                self.check_expr(value, scope, generics, allow_fallible)?;
+                self.check_expr(value, scope, generics, allow_fallible, fn_ctx)?;
                 let inferred = ty
                     .clone()
                     .or_else(|| self.infer_expr(value, scope, generics));
@@ -583,7 +583,7 @@ impl<'a> Checker<'a> {
                 if let Some(t) = ty {
                     self.validate_type(t, generics, stmt.span)?;
                 }
-                self.check_expr(value, scope, generics, allow_fallible)?;
+                self.check_expr(value, scope, generics, allow_fallible, fn_ctx)?;
                 let inferred = ty
                     .clone()
                     .or_else(|| self.infer_expr(value, scope, generics));
@@ -596,8 +596,8 @@ impl<'a> Checker<'a> {
                 );
             }
             StmtKind::Assign { target, value } => {
-                self.check_expr(value, scope, generics, false)?;
-                self.check_expr(target, scope, generics, false)?;
+                self.check_expr(value, scope, generics, false, fn_ctx)?;
+                self.check_expr(target, scope, generics, false, fn_ctx)?;
                 if let ExprKind::Ident(name) = &target.kind {
                     if let Some(info) = scope.get(name) {
                         if info.mutability != Mutability::Mut {
@@ -613,14 +613,14 @@ impl<'a> Checker<'a> {
                 }
             }
             StmtKind::Ret(Some(e)) => {
-                self.check_expr(e, scope, generics, false)?;
+                self.check_expr(e, scope, generics, false, fn_ctx)?;
                 if let Some((_, ret_ty)) = fn_ctx {
                     self.check_ret_type(e, ret_ty, scope, generics)?;
                 }
             }
             StmtKind::Ret(None) => {}
             StmtKind::Fail(e) => {
-                self.check_expr(e, scope, generics, false)?;
+                self.check_expr(e, scope, generics, false, fn_ctx)?;
                 match fn_ctx {
                     Some((true, _)) => {}
                     Some((false, _)) => {
@@ -642,7 +642,7 @@ impl<'a> Checker<'a> {
                 then_body,
                 else_body,
             } => {
-                self.check_expr(cond, scope, generics, false)?;
+                self.check_expr(cond, scope, generics, false, fn_ctx)?;
                 self.check_block(then_body, scope, generics, fn_ctx)?;
                 if let Some(eb) = else_body {
                     self.check_block(eb, scope, generics, fn_ctx)?;
@@ -653,7 +653,7 @@ impl<'a> Checker<'a> {
                 iter,
                 body,
             } => {
-                self.check_expr(iter, scope, generics, false)?;
+                self.check_expr(iter, scope, generics, false, fn_ctx)?;
                 let iter_ty = self.infer_expr(iter, scope, generics);
                 let (a_ty, b_ty) = match (&iter_ty, b) {
                     (Some(Type::Generic(n, args)), Some(_)) if n == "list" => {
@@ -689,11 +689,11 @@ impl<'a> Checker<'a> {
                 self.check_block(body, scope, generics, fn_ctx)?;
             }
             StmtKind::Whl { cond, body } => {
-                self.check_expr(cond, scope, generics, false)?;
+                self.check_expr(cond, scope, generics, false, fn_ctx)?;
                 self.check_block(body, scope, generics, fn_ctx)?;
             }
             StmtKind::ExprStmt(e) => {
-                self.check_expr(e, scope, generics, false)?;
+                self.check_expr(e, scope, generics, false, fn_ctx)?;
             }
             StmtKind::Todo => {}
         }
@@ -731,6 +731,7 @@ impl<'a> Checker<'a> {
         scope: &HashMap<String, VarInfo>,
         generics: &HashSet<String>,
         allow_fallible: bool,
+        fn_ctx: Option<(bool, &Type)>,
     ) -> Result<(), TypeError> {
         match &expr.kind {
             ExprKind::Int(_)
@@ -743,7 +744,7 @@ impl<'a> Checker<'a> {
             ExprKind::InterpStr(parts) => {
                 for p in parts {
                     if let StrPartExpr::Expr(e) = p {
-                        self.check_expr(e, scope, generics, false)?;
+                        self.check_expr(e, scope, generics, false, fn_ctx)?;
                     }
                 }
             }
@@ -760,18 +761,18 @@ impl<'a> Checker<'a> {
             }
             ExprKind::List(items) => {
                 for i in items {
-                    self.check_expr(i, scope, generics, false)?;
+                    self.check_expr(i, scope, generics, false, fn_ctx)?;
                 }
             }
             ExprKind::Map(pairs) => {
                 for (k, v) in pairs {
-                    self.check_expr(k, scope, generics, false)?;
-                    self.check_expr(v, scope, generics, false)?;
+                    self.check_expr(k, scope, generics, false, fn_ctx)?;
+                    self.check_expr(v, scope, generics, false, fn_ctx)?;
                 }
             }
             ExprKind::Call { callee, args } => {
                 for a in args {
-                    self.check_expr(a.expr(), scope, generics, false)?;
+                    self.check_expr(a.expr(), scope, generics, false, fn_ctx)?;
                 }
                 let any_named = args.iter().any(|a| a.is_named());
                 let all_named = !args.is_empty() && args.iter().all(|a| a.is_named());
@@ -890,7 +891,7 @@ impl<'a> Checker<'a> {
                                 }
                             }
                         }
-                        self.check_expr(base, scope, generics, false)?;
+                        self.check_expr(base, scope, generics, false, fn_ctx)?;
                         // Wave-1 string methods: arity is checked; the
                         // receiver must be a str when its type is known.
                         if let Some((arity, _ret)) = str_method_sig(name) {
@@ -934,12 +935,12 @@ impl<'a> Checker<'a> {
                             }
                         }
                     }
-                    _ => self.check_expr(callee, scope, generics, false)?,
+                    _ => self.check_expr(callee, scope, generics, false, fn_ctx)?,
                 }
             }
             ExprKind::Index { base, index } => {
-                self.check_expr(base, scope, generics, false)?;
-                self.check_expr(index, scope, generics, false)?;
+                self.check_expr(base, scope, generics, false, fn_ctx)?;
+                self.check_expr(index, scope, generics, false, fn_ctx)?;
             }
             ExprKind::Field { base, name } => {
                 if let ExprKind::Ident(base_name) = &base.kind {
@@ -953,7 +954,7 @@ impl<'a> Checker<'a> {
                         return Ok(());
                     }
                 }
-                self.check_expr(base, scope, generics, false)?;
+                self.check_expr(base, scope, generics, false, fn_ctx)?;
                 if let Some(Type::Named(typ_name)) = self.infer_expr(base, scope, generics) {
                     if let Some(info) = self.typs.get(&typ_name) {
                         if !info.fields.contains_key(name) {
@@ -966,19 +967,19 @@ impl<'a> Checker<'a> {
                 }
             }
             ExprKind::Binary { op, lhs, rhs } => {
-                self.check_expr(lhs, scope, generics, false)?;
-                self.check_expr(rhs, scope, generics, false)?;
+                self.check_expr(lhs, scope, generics, false, fn_ctx)?;
+                self.check_expr(rhs, scope, generics, false, fn_ctx)?;
                 self.check_dec_binary(*op, lhs, rhs, scope, generics, expr.span)?;
                 self.check_time_binary(*op, lhs, rhs, scope, generics, expr.span)?;
             }
             ExprKind::Unary { expr: inner, .. } => {
-                self.check_expr(inner, scope, generics, false)?;
+                self.check_expr(inner, scope, generics, false, fn_ctx)?;
             }
             ExprKind::Unwrap {
                 expr: inner,
                 handler,
             } => {
-                self.check_expr(inner, scope, generics, true)?;
+                self.check_expr(inner, scope, generics, true, fn_ctx)?;
                 let mut handler_scope: HashMap<String, VarInfo> = scope
                     .iter()
                     .map(|(k, v)| {
@@ -991,7 +992,7 @@ impl<'a> Checker<'a> {
                         )
                     })
                     .collect();
-                self.check_block(handler, &mut handler_scope, generics, None)?;
+                self.check_block(handler, &mut handler_scope, generics, fn_ctx)?;
             }
         }
         Ok(())

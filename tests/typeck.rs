@@ -105,6 +105,22 @@ fn fail_outside_fallible_function_is_rejected() {
 }
 
 #[test]
+fn fail_in_unwrap_handler_at_top_level_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/fail_in_unwrap_handler_toplevel.cuni",
+        "top level",
+    );
+}
+
+#[test]
+fn fail_in_unwrap_handler_in_nonfallible_function_is_rejected() {
+    assert_rejected(
+        "tests/typeck_invalid/fail_in_unwrap_handler_nonfallible.cuni",
+        "non-fallible",
+    );
+}
+
+#[test]
 fn wrong_call_arg_count_is_rejected() {
     assert_rejected(
         "tests/typeck_invalid/wrong_arg_count.cuni",

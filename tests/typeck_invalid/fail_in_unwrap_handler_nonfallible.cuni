@@ -1,0 +1,11 @@
+def maybe() -> int? do
+  fail "boom"
+end
+
+def plain() -> int do
+  let x = maybe() ?? do
+    fail "handler can't fail a non-fallible function"
+  end
+  ret x
+end
+say(plain())

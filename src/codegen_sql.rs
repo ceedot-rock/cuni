@@ -125,6 +125,7 @@ impl Val {
 #[derive(Clone)]
 struct FnT<'a> {
     params: Vec<(String, &'a Type)>,
+    ret_type: &'a Type,
     body: &'a [Stmt],
     fallible: bool,
 }
@@ -654,6 +655,7 @@ impl<'a> Codegen<'a> {
                         f.name.clone(),
                         FnT {
                             params: f.params.iter().map(|p| (p.name.clone(), &p.ty)).collect(),
+                            ret_type: &f.ret_type,
                             body: &f.body,
                             fallible: f.fallible,
                         },
@@ -1993,6 +1995,23 @@ impl<'a> Codegen<'a> {
         self.fn_fallible = save_fallible;
 
         r?;
+        // A body whose every live return path was `fail` (or bare `ret`)
+        // leaves a NULL with kind Null; the declared return type is the
+        // honest kind for it — the typechecker proved every `ret` value
+        // conforms, and the `??` NULL-guard suppresses rows on the failure
+        // path, so no row ever observes the NULL as a T. Without this, a
+        // second call site of the same function would see kind Null and
+        // refuse honest arithmetic on the unwrapped value.
+        let ret = ret.map(|v| {
+            if v.kind == VKind::Null {
+                match kind_of_type(t.ret_type) {
+                    Ok(k) => Val::scalar(v.sql, k),
+                    Err(_) => v,
+                }
+            } else {
+                v
+            }
+        });
         ret.ok_or_else(|| format!("function `{name}` never returns; refusing"))
     }
 }

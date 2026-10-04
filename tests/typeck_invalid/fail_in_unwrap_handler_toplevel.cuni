@@ -1,0 +1,8 @@
+def maybe() -> int? do
+  fail "boom"
+end
+
+let x = maybe() ?? do
+  fail "no failure channel up here"
+end
+say(x)
