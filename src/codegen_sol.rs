@@ -271,6 +271,25 @@ impl Codegen {
                 );
                 self.line(2, "return string(s);");
                 self.line(1, "}");
+                // String lexicographic comparison helpers (CuNi `<`, `>` on strings).
+                self.line(
+                    1,
+                    "function cuniStrLt(string memory a, string memory b) internal pure returns (bool) {",
+                );
+                self.line(2, "bytes memory ba = bytes(a); bytes memory bb = bytes(b);");
+                self.line(2, "uint len = ba.length < bb.length ? ba.length : bb.length;");
+                self.line(2, "for (uint i = 0; i < len; i++) {");
+                self.line(3, "if (ba[i] < bb[i]) return true;");
+                self.line(3, "if (ba[i] > bb[i]) return false;");
+                self.line(2, "}");
+                self.line(2, "return ba.length < bb.length;");
+                self.line(1, "}");
+                self.line(
+                    1,
+                    "function cuniStrGt(string memory a, string memory b) internal pure returns (bool) {",
+                );
+                self.line(2, "return cuniStrLt(b, a);");
+                self.line(1, "}");
                 self.out.push('\n');
             }
             // _cuni_dec_str helper if any dec say / interpolation needs it.
@@ -792,6 +811,32 @@ impl Codegen {
                 if matches!(*op, BinOp::Add) && lk == SolKind::Str {
                     return Ok(format!("string(abi.encodePacked({}, {}))", l, r));
                 }
+                // Solidity has no == on strings; compare via keccak256 hash.
+                if matches!(*op, BinOp::Eq) && lk == SolKind::Str {
+                    return Ok(format!(
+                        "(keccak256(abi.encodePacked({})) == keccak256(abi.encodePacked({})))",
+                        l, r
+                    ));
+                }
+                if matches!(*op, BinOp::Ne) && lk == SolKind::Str {
+                    return Ok(format!(
+                        "(keccak256(abi.encodePacked({})) != keccak256(abi.encodePacked({})))",
+                        l, r
+                    ));
+                }
+                // String ordering: lexicographic via byte comparison helper.
+                if matches!(*op, BinOp::Lt) && lk == SolKind::Str {
+                    return Ok(format!("cuniStrLt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Gt) && lk == SolKind::Str {
+                    return Ok(format!("cuniStrGt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Le) && lk == SolKind::Str {
+                    return Ok(format!("!cuniStrGt({}, {})", l, r));
+                }
+                if matches!(*op, BinOp::Ge) && lk == SolKind::Str {
+                    return Ok(format!("!cuniStrLt({}, {})", l, r));
+                }
                 // `time` is a closed world (docs/TIME.md §3–5): the typeck
                 // proved the valid shapes. Solidity 0.8 checked arithmetic
                 // REVERTS on overflow — the loud refusal. `time` is uint256,
@@ -868,6 +913,11 @@ impl Codegen {
                     BinOp::And => "&&",
                     BinOp::Or => "||",
                 };
+                // Solidity treats `/` on integer literals as rational division;
+                // force int256 context so `7 / 2` is truncating integer division.
+                if matches!(op, BinOp::Div | BinOp::Mod) {
+                    return Ok(format!("(int256({}) {} int256({}))", l, o, r));
+                }
                 Ok(format!("({} {} {})", l, o, r))
             }
             ExprKind::Unary { op, expr } => {

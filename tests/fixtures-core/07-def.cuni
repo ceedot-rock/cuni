@@ -1,0 +1,20 @@
+def add(a: int, b: int) -> int do
+    ret a + b
+end
+def greet(name: str) -> str do
+    ret "hi " + name
+end
+def is_big(n: int) -> bool do
+    ret n > 100
+end
+say(add(3, 4))
+say(greet("bob"))
+say(is_big(50))
+say(is_big(500))
+def fact(n: int) -> int do
+    if n < 2 do
+        ret 1
+    end
+    ret n * fact(n - 1)
+end
+say(fact(5))

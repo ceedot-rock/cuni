@@ -3,7 +3,7 @@
 //! Proves labeled refuse diagnostics (category + fix-it + file:line:col) for
 //! matrix rows that previously fell through as generic lex/parse errors or
 //! silent `#` trivia. Measured gaps only — not a completeness claim.
-//! Honesty: 144 catalog / 12 native / majority lowering; IR not done.
+//! Honesty: 53 catalog / 45 native / 5 lowering + 3 onchain profiles; IR not done.
 
 use std::path::PathBuf;
 use std::process::Command;

@@ -8,7 +8,7 @@ CuNi is a programming language with one hard rule: write your code once, and it 
 
 Here is why that matters. A program written in Python and the "same" program rewritten in JavaScript are never quite the same program. Tiny differences creep in: how numbers round, how text is handled, what happens at the edges. Most of the time nobody notices. Then money or data is on the line, and a rounding difference becomes a real loss.
 
-CuNi eliminates that whole class of problem. You write one source file. CuNi can turn it into 144 targets — Python, JavaScript, Rust, C, Go, Java, SQL, even Solidity smart contracts that run on Ethereum. Before it hands you any of them, it proves they all produce identical output. If one target would behave even slightly differently, you don't get a subtly broken program. You get a refusal — and you fix the source.
+CuNi eliminates that whole class of problem. You write one source file. CuNi can turn it into 53 targets — the top 50 languages (Python, JavaScript, Rust, C, Go, Java, SQL, even Solidity smart contracts that run on Ethereum) plus 3 onchain chain profiles. Before it hands you any of them, it proves they all produce identical output. If one target would behave even slightly differently, you don't get a subtly broken program. You get a refusal — and you fix the source.
 
 The refusal is the product. Other tools try to paper over differences. CuNi treats a difference as a failed build.
 
@@ -33,7 +33,7 @@ That turns exactness into working infrastructure:
 - **Exact timestamps** — the `time` type: int64 unix epochs, UTC only, strict ISO-8601 literals, `time ± int` / `time − time` arithmetic, `parse_time` / `add_seconds` / `days_between` — settlement, vesting, and expiries with byte-identical stdout on every seat. The money-types pair with `dec`. See `examples/proof-time/` and `docs/TIME.md`.
 - **Standard library, wave 1** — JSON parse/emit (canonical form), unix timestamps, string ops, SHA-256: same behavior on every seat, honest refusals where a seat can't be exact. See `docs/STDLIB.md`.
 - **Financial Division — `cuni audit`** — state a money law once as `.cuni`; prove a foreign implementation (the bank's Java, the auditor's Python, a SQL script) prints byte-identical stdout to the proven gold, and file a signed JSON receipt. Gold gate runs the money seats (py, rs, go, java, sql); impls run by extension (.py/.go/.rs/.java/.sql). PASS or REFUSE is always filed — a failed gate never passes, refusals are signed and fileable too. `cuni audit --gen-key` mints the auditor's Ed25519 receipt-signing key. Three worked laws: tiered fees, interest accrual (`dec` × `time`), marginal withholding — see `examples/finance/` and `docs/FINANCIAL.md`. Hosted verification $0.10/check.
-- **Onchain Division — six chain emitters** — one law, six chains: `--emit-ink` (Polkadot/Substrate), `--emit-move` (Aptos/Sui), `--emit-vyper` (EVM), `--emit-cairo` (Starknet), `--emit-clarity` (Stacks), `--emit-cadence` (Flow). Each emits the pure logic core the gate proves plus the chain shell in the chain's idiom, in two delimited regions; `--emit-X-ref` writes the runnable reference (Rust via `rustc` for ink!, Python for the rest) the gate proves byte-identical to gold. The fee-schedule law runs byte-identical on all six. Logic cores proven with real local toolchains; shells shape-asserted and snapshot-pinned, not compiled here (no chain toolchains on the check machine); nothing deployed. See `docs/ONCHAIN.md`. Profiles, not seats — the catalog stays 144.
+- **Onchain Division — six chain emitters** — one law, six chains: `--emit-ink` (Polkadot/Substrate), `--emit-move` (Aptos/Sui), `--emit-vyper` (EVM), `--emit-cairo` (Starknet), `--emit-clarity` (Stacks), `--emit-cadence` (Flow). Each emits the pure logic core the gate proves plus the chain shell in the chain's idiom, in two delimited regions; `--emit-X-ref` writes the runnable reference (Rust via `rustc` for ink!, Python for the rest) the gate proves byte-identical to gold. The fee-schedule law runs byte-identical on all six. Logic cores proven with real local toolchains; shells shape-asserted and snapshot-pinned, not compiled here (no chain toolchains on the check machine); nothing deployed. See `docs/ONCHAIN.md`. Profiles, not seats — the catalog stays 53 (50 + 3 onchain).
 
 <p align="center">
   <img src="assets/logo.png" alt="CuNi — Code uNiTY" width="360" />
@@ -53,7 +53,7 @@ That turns exactness into working infrastructure:
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.** Receipts name the program by `source_hash`, not by path.
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. CuNi compiles one source into all 144 catalog languages. Ten targets — Python, Go, JavaScript, TypeScript, C, C++, Rust, Ruby, Lua, and Solidity — build through their real toolchains (Solidity compiles to a deployable EVM contract via solc); the other 134 emit Python under a language-specific file extension and run under python3, so every target's output can actually be compared. **`cuni check` runs them all: byte-identical stdout everywhere, or the program refuses to compile.** Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.3.0.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. CuNi compiles one source into all 53 catalog entries. Forty-five of the top 50 — Python, Go, JavaScript, TypeScript, C, C++, C#, Java, Kotlin, Scala, Rust, Ruby, PHP, Lua, Perl, R, Julia, Elixir, Erlang, Haskell, OCaml, F#, Lisp, Clojure, Dart, Zig, Nim, Crystal, D, V, Ada, Pascal, Fortran, COBOL, Prolog, SQL, Assembly, Solidity, Groovy, Objective-C, Bash, PowerShell, Awk, Tcl, and Haxe — build through their real toolchains (Solidity compiles to a deployable EVM contract via solc); the other 5 (MATLAB and Visual Basic, which have no free Linux toolchain, plus Swift, Hack, and Smalltalk, which have no installable Linux toolchain) emit Python under a language-specific file extension and run under python3, so every target's output can actually be compared. **`cuni check` runs them all: byte-identical stdout everywhere, or the program refuses to compile.** Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.3.0.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -153,7 +153,7 @@ Tutorial: [`docs/LINK_TUTORIAL.md`](docs/LINK_TUTORIAL.md) · source: [`examples
 </p>
 
 [Full MP4 (30s)](assets/demo-30s.mp4) · [HTML](assets/demo-30s.html) · live: `./examples/demo-30s.sh`  
-One program → Python / Go / JavaScript / Java / C / C++ / Rust — identical `42` / `cuni`. 144-language gate.
+One program → Python / Go / JavaScript / Java / C / C++ / Rust — identical `42` / `cuni`. 53-entry gate.
 
 ## Install
 
@@ -184,9 +184,9 @@ cuni run examples/compute/fib.cuni
 # → 55
 # optional: emit a native seat instead
 cuni run examples/compute/fib.cuni --lang py
-# exactness gate — 144 languages, emit+run, identical stdout or refuse
+# exactness gate — 53 entries, emit+run, identical stdout or refuse
 cuni check examples/full.cuni
-# → exactness: PASS (144 langs)   exit 0
+# → exactness: PASS (53 entries)   exit 0
 cuni check examples/full.cuni --only py,go,js,c,cpp,rs,rb,lua   # native seats
 cuni check examples/casino/provably-fair-dice.cuni --only py,js,ts,c,cpp,sol  # + Solidity contract
 cuni check examples/compute --timeout 180
@@ -301,7 +301,7 @@ assets/logo.png                        # brand mark
 
 ## Status (v0.5.0)
 
-**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua/Java/SQL, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), **Java seat** (`--emit-java`: `javac`-compiled; audit-finance story — the bank's Java and the auditor's Python gate-proven to agree), **SQL seat** (`--emit-sql`: SQLite/PostgreSQL/MySQL dialects, verified against real `sqlite3`), `--emit-all` language catalog (144: 12 native seats + 132 Python lowerings), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
+**Shipped:** lexer/parser, native seats Python/Go/JS/TS/C/C++/Rust/Ruby/Lua/Java/SQL, **Solidity seat** (`--emit-sol`: same source → solc-compiled EVM contract; `.sol` ingests back to CuNi), **Java seat** (`--emit-java`: `javac`-compiled; audit-finance story — the bank's Java and the auditor's Python gate-proven to agree), **SQL seat** (`--emit-sql`: SQLite/PostgreSQL/MySQL dialects, verified against real `sqlite3`), `--emit-all` language catalog (53: 45 native seats of the top 50 + 5 Python lowerings + 3 onchain profiles), bounded type checker with **line:col** errors, **named typ constructors**, call-site generic binding checks, `use`, `link` interop, enums, fail/`??`, stdlib (`say`, `.push`, `.len`, `range`, `abs`, `min`, `max`, `slice`), `cuni run` (in-process seat; `cuni check` must match catalog gold), `cuni check`, **hosted Studio** ([cuni-studio.fly.dev](https://cuni-studio.fly.dev/)) with a language picker, Exactness **CI + badge**, flagship **link demo**, gold algorithms in `examples/compute/`, provably-fair dice contract in `examples/casino/`.
 
 **New in v0.5.0:** **`dec` exact decimal type** (scale 10⁴ — money math proven byte-identical on all 12 native seats + solc-compiled Solidity), **stdlib wave 1** (JSON, unix time, strings, SHA-256 with per-seat support/refusal matrix), **Solana program emitter** (`--emit-solana`: Anchor-shaped program, logic core gate-proven, shell honestly delimited — proof profile, not a new seat). Mission line: **"Trust Provable, in all things"**.
 

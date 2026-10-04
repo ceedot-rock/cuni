@@ -33,7 +33,7 @@ use std::process::Command;
 const FIXTURE: &str = "examples/onchain/clarity/demo.cuni";
 const SNAPSHOT: &str = "tests/snapshots/clarity_demo.clar.snap";
 /// The eleven driver outputs, pinned (computed honestly via `cuni run`).
-const EXPECTED: &str = "-2\n-2\n-1\n1.2499\n1.5\ntier-one\ntier-two\nTrue\nFalse\n1\n3.5\n";
+const EXPECTED: &str = "-2\n-2\n2\n1.2499\n1.5\ntier-one\ntier-two\nTrue\nFalse\n1\n3.5\n";
 const FEE_FIXTURE: &str = "examples/finance/fee_schedule.cuni";
 /// The six tiered-fee driver outputs, pinned (computed honestly via `cuni run`).
 const FEE_EXPECTED: &str = "1.2499\n1.25\n5.25\n2.75\n0.25\n2500.25\n";

@@ -1,0 +1,9 @@
+let a = "foo"
+let b = "bar"
+say(a + b)
+say(a + " " + b)
+say("x")
+let q = "a\"b"
+say(q)
+let e = "a\\b"
+say(e)

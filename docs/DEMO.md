@@ -21,7 +21,7 @@ Shows `examples/few.cuni`, then `cuni check --only py,go,js,c,cpp,rs`. Expect **
 **Visual:** [assets/demo-30s.mp4](../assets/demo-30s.mp4) · [HTML](../assets/demo-30s.html)
 
 **Talk track:**  
-*“CuNi is 144 languages. One program. Same stdout — or it refuses.”*
+*“CuNi is 53 targets. One program. Same stdout — or it refuses.”*
 
 ### Studio (same promise)
 

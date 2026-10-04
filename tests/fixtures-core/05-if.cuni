@@ -1,0 +1,12 @@
+let x = 10
+if x > 5 do
+    say("big")
+end
+if x < 5 do
+    say("small")
+els
+    say("not small")
+end
+if x == 10 and true do
+    say("both")
+end

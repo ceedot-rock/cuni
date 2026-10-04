@@ -3,7 +3,7 @@
 ## What it is
 
 CuNi is a programming language with one law: **the same output on every
-target, or refuse.** Write once in `.cuni`. It runs exact on 144 languages
+target, or refuse.** Write once in `.cuni`. It runs exact on 53 catalog entries (top 50 languages + 3 onchain profiles)
 across 12 native seats — Python, Rust, Go, JavaScript, TypeScript, C, C++,
 Ruby, Lua, Java, SQL, Solidity — or it refuses to run at all. No
 approximate mode. No silent rounding. No drift.
@@ -16,7 +16,7 @@ Cadence — plus Solana and Solidity.
 ## How to use it
 
 ```sh
-cargo install cuni          # 0.8.0 on crates.io
+cargo install cuni          # 0.9.0 on crates.io
 
 cuni check law.cuni         # prove it exact across the seats
 cuni run law.cuni            # run it

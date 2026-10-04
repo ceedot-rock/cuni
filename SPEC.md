@@ -27,7 +27,7 @@ The one deliberate exception is the `ext` block (see §9), which is an explicit,
 
 **Python, JavaScript, Go** are the native quality backends (garbage-collected, reference semantics). TypeScript uses the JavaScript backend.
 
-CuNi is **144 languages** (`src/langs.rs`). `cuni check` and `--emit-all` apply §2 to every id: emit, run, identical stdout, or refuse.
+CuNi is **53 catalog entries** (`src/langs.rs`: top 50 languages + 3 onchain profiles). `cuni check` and `--emit-all` apply §2 to every id: emit, run, identical stdout, or refuse.
 
 **Native seats today:** Python (`python3`), Go (`go run`), JavaScript and TypeScript (`node`), C (`gcc`), C++ (`g++`), Rust (`rustc`). See `docs/SEATS.md`.
 

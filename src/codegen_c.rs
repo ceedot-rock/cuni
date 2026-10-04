@@ -876,6 +876,13 @@ static int cuni_cmp(Val a, Val b) {
     }
     if (a.k == K_TIME || b.k == K_TIME)
         cuni_time_refuse("cannot mix time and non-time — durations are plain int seconds (docs/TIME.md §3)");
+    /* strings compare by code point (strcmp on UTF-8 bytes). */
+    if (a.k == K_STR && b.k == K_STR) {
+        int c = strcmp(a.s ? a.s : "", b.s ? b.s : "");
+        if (c < 0) return -1;
+        if (c > 0) return 1;
+        return 0;
+    }
     double x = (a.k == K_FLOAT) ? a.f : (double)a.i;
     double y = (b.k == K_FLOAT) ? b.f : (double)b.i;
     if (x < y) return -1;
@@ -889,6 +896,7 @@ static void cuni_dec_check_pair(Val a, Val b) {
     if (a.k != K_DEC || b.k != K_DEC)
         cuni_dec_refuse("cannot mix dec and non-dec — convert explicitly (`dec_of_int` / `int_of_dec`)");
 }
+static Val cuni_concat(Val a, Val b);
 static Val cuni_add(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) { cuni_dec_check_pair(a, b); return cuni_dec_add(a, b); }
     /* `time` is a closed world (docs/TIME.md §3): (time,int)/(int,time) ->
@@ -899,7 +907,7 @@ static Val cuni_add(Val a, Val b) {
         cuni_time_refuse("cannot add time to this operand — durations are plain int seconds (docs/TIME.md §3)");
     }
     if (a.k == K_STR || b.k == K_STR) {
-        /* handled by concat path for strings of numbers too */
+        return cuni_concat(a, b);
     }
     if (a.k == K_FLOAT || b.k == K_FLOAT) return V_float(as_f(a) + as_f(b));
     return V_int(a.i + b.i);
@@ -930,7 +938,11 @@ static Val cuni_div(Val a, Val b) {
 static Val cuni_mod(Val a, Val b) {
     if (a.k == K_DEC || b.k == K_DEC) cuni_dec_refuse("`%` is not defined on `dec`");
     if (a.k == K_TIME || b.k == K_TIME) cuni_time_refuse("`%` is not defined on `time` (docs/TIME.md §3)");
-    return V_int(b.i == 0 ? 0 : a.i % b.i);
+    if (b.i == 0) return V_int(0);
+    // Python-floored modulo (CuNi spec); C's % truncates.
+    long long r = a.i % b.i;
+    if (r != 0 && ((r < 0) != (b.i < 0))) r += b.i;
+    return V_int(r);
 }
 static Val cuni_neg(Val a) {
     if (a.k == K_DEC) return cuni_dec_neg(a);

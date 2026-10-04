@@ -22,7 +22,7 @@ cent never merges.
 |-----------|----------|---------|----------------------------------------------------------|
 | `law`     | yes      | —       | Path to the `.cuni` law file                             |
 | `against` | yes      | —       | Implementation to audit (`.py`, `.go`, `.rs`, `.java`, `.sql`) |
-| `version` | no       | `0.8.0` | `cuni` version to install from crates.io                 |
+| `version` | no       | `0.9.0` | `cuni` version to install from crates.io                 |
 
 Exit 0 on PASS, nonzero on REFUSE — a REFUSE still emits its signed
 receipt. See `docs/FINANCIAL.md` for the full audit story.
