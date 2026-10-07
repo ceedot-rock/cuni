@@ -42,3 +42,9 @@ cargo test
 
 - Idiomatic Rust 2021; avoid drive-by refactors unrelated to the PR.
 - Keep comments honest about toy-backend limits.
+
+## Licensing
+
+CuNi is dual-licensed (AGPL-3.0-or-later, or the Slid Phi Labs Commercial
+License — see `LICENSE`). By contributing you agree your contribution may be
+distributed under both.

@@ -1,5 +1,8 @@
 # CuNi (Code:uNiTY)
 
+[![Audited checks](https://github.com/ceedot-rock/cuni/actions/workflows/audited-checks.yml/badge.svg)](https://github.com/ceedot-rock/cuni/actions/workflows/audited-checks.yml)
+[![License: AGPL-3.0-or-later / Commercial](https://img.shields.io/badge/license-AGPL--3.0--or--later%20%2F%20Commercial-blue.svg)](LICENSE)
+
 <p align="center"><img src="brand/logo-cuni.jpg" alt="product logo" width="280"/></p>
 
 ## What CuNi is

@@ -1,6 +1,6 @@
 {
   "name": "cuni",
-  "version": "0.3.0",
+  "version": "0.9.0",
   "private": true,
   "description": "CuNi (Code:uNiTY) — emit every coding language; exactness gate on Python, Go, JavaScript",
   "homepage": "https://cuni-studio.fly.dev/",
@@ -20,7 +20,7 @@
     "llms.txt",
     "mcp",
     "slid-phi-labs",
-    "gpl-3.0"
+    "agpl-3.0"
   ],
   "funding": {
     "type": "individual",
@@ -53,5 +53,5 @@
     "payment_header": "X-PAYMENT",
     "note": "Lab product x402 on Slid Phi Labs; CuNi pairs with Agent^Rider for exact policy coordination"
   },
-  "license": "GPL-3.0-only"
+  "license": "AGPL-3.0-or-later"
 }
