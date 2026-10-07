@@ -1,0 +1,59 @@
+name: Audited checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Audit layer only: ci.yml already runs the full test suites.
+  # This job checks license/version metadata consistency.
+  metadata-audit:
+    name: License metadata consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: License + version consistency audit
+        run: |
+          python3 - <<'EOF'
+          import json, re
+
+          pkg = json.load(open("package.json"))
+          lic = pkg["license"]
+          ver = pkg["version"]
+          assert lic == "AGPL-3.0-or-later", lic
+
+          lictext = open("LICENSE").read()
+          assert "Affero General Public License" in lictext, "LICENSE missing AGPL text"
+          assert "LICENSE.AGPL-3.0" in lictext, "LICENSE does not point at LICENSE.AGPL-3.0"
+          print(f"package.json license {lic} matches LICENSE (AGPL-3.0 chooser) OK")
+
+          top = None
+          for line in open("CHANGELOG.md"):
+              m = re.match(r"## \[([0-9]+\.[0-9]+\.[0-9]+)\]", line.strip())
+              if m:
+                  top = m.group(1)
+                  break
+          assert top == ver, (top, ver)
+          print(f"CHANGELOG [{top}] matches package.json version {ver} OK")
+          EOF
+
+  secrets-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan for committed secrets
+        run: |
+          set -e
+          echo "Scanning for common secret patterns..."
+          ! grep -rnE "AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|BEGIN [A-Z ]*PRIVATE KEY|sk_(live|test)_[A-Za-z0-9]+|xox[bap]-[A-Za-z0-9-]+|-----BEGIN" \
+            --include="*.rs" --include="*.py" --include="*.txt" --include="*.md" --include="*.yml" --include="*.json" --exclude="audited-checks.yml" .
+          echo "No secrets found."
