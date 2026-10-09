@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# CuNi release matrix: on tag push v*, build the four release binaries,
+# package each as cuni-{version}-{target}.tar.gz (binary at archive root —
+# this must match [package.metadata.binstall] pkg-url/bin-dir/pkg-fmt in
+# Cargo.toml), checksum, and attach everything to the GitHub release.
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-14
+          - target: aarch64-apple-darwin
+            os: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: tag matches Cargo.toml version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
+          if [ "$tag" != "$pkg" ]; then
+            echo "tag v$tag does not match Cargo.toml version $pkg" >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: install cross (aarch64 linux)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+
+      - name: build release binary
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: package tarball + checksum
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          target="${{ matrix.target }}"
+          name="cuni-${version}-${target}"
+          mkdir -p "pkg/${name}"
+          cp "target/${target}/release/cuni" "pkg/${name}/cuni"
+          tar czf "${name}.tar.gz" -C "pkg/${name}" cuni
+          shasum -a 256 "${name}.tar.gz" > "SHA256SUMS-${target}.txt"
+          cat "SHA256SUMS-${target}.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: |
+            cuni-*.tar.gz
+            SHA256SUMS-*.txt
+
+  publish:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: merge checksums
+        run: cat SHA256SUMS-*.txt > CHECKSUMS.txt && cat CHECKSUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            cuni-*.tar.gz
+            CHECKSUMS.txt
+          generate_release_notes: true

@@ -1,0 +1,57 @@
+From af5ac3f7c42286003cbb60f96275e9cd33caeab9 Mon Sep 17 00:00:00 2001
+From: Corey Tasz <Corey@slidphilabs.com>
+Date: Sat, 3 Oct 2026 16:24:47 -0400
+Subject: [PATCH] ci: bump actions past Node 20 deprecation + toolchain smoke
+ steps
+
+actions/checkout v4->v7, setup-go v5->v7, setup-node v4->v7.
+setup-go@v5/setup-node@v4 are two majors behind the current
+ubuntu-latest runner; go was not landing on PATH even though the
+install step reported success, failing 5 tests in tests/check_cmd.rs
+with 'No such file or directory'. Added go version / node --version
+smoke steps right after install so a missing toolchain fails loudly
+instead of mid-suite. Kept go 1.22; node 20->22 (20 is EOL).
+---
+ .github/workflows/ci.yml | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index bc85657..e55bd63 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -25,7 +25,7 @@ jobs:
+     name: cargo test
+     runs-on: ubuntu-latest
+     steps:
+-      - uses: actions/checkout@v4
++      - uses: actions/checkout@v7
+ 
+       - name: Install Rust toolchain
+         uses: dtolnay/rust-toolchain@stable
+@@ -34,14 +34,20 @@ jobs:
+         uses: Swatinem/rust-cache@v2
+ 
+       - name: Install Go (conformance suite runs go run)
+-        uses: actions/setup-go@v5
++        uses: actions/setup-go@v7
+         with:
+           go-version: "1.22"
+ 
++      - name: Go toolchain smoke (fail fast if go is not on PATH)
++        run: go version
++
+       - name: Install Node (conformance suite runs node)
+-        uses: actions/setup-node@v4
++        uses: actions/setup-node@v7
+         with:
+-          node-version: "20"
++          node-version: "22"
++
++      - name: Node toolchain smoke
++        run: node --version
+ 
+       - name: Install Lua 5.4 (native lua seat runs as lua5.4)
+         run: sudo apt-get update && sudo apt-get install -y lua5.4
+-- 
+2.43.0
+

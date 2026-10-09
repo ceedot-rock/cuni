@@ -12,10 +12,24 @@ Protocol v1.1.1 · Install: `cargo install cuni` · Studio: https://cuni-studio.
 
 ---
 
-## [0.9.0] — 2026-10-07
+## [0.10.0] — 2026-10-08 — "The CLI is the product"
+The CLI is the frozen product surface; the API is a thin wrapper over it. No new commands until `check` and `emit` are stable, installable, and machine-readable.
+### Added
+- `cuni emit <file.cuni> [emit flags...]` — the bare-file compiler promoted to a real subcommand; the bare `cuni file.cuni [flags]` form keeps working unchanged.
+- `cuni version` — prints `cuni <version>` (`--version`/`-V` keep working).
+- `cuni check --json` — prints ONLY the machine-readable receipt on stdout, no human output. The future `POST /v1/check` runs this and returns the object.
+- `cuni check --sign <keyfile>` — adds Ed25519 `signature` + `signer_pubkey` fields to the receipt, reusing the `cuni audit --gen-key` keypair machinery so a stranger can verify it. Combines with `--json`.
+- `cuni check --all` — the full 53-entry catalog (the old default).
+### Changed
+- Default `cuni check` runs the money-seat set only (py, rs, go, java, sql, js) — seats a normal install can actually run. `--only` still overrides everything.
+- Native-only verdict: a seat counts toward PASS/FAIL only when its catalog mark is `native`. Lowering seats (m, vb, swift, hack, st) may run under `--all` for information but never flip the verdict.
+- Exit-code contract: 0 = exactness pass / success; 1 = refusal or divergence; 2 = usage error or missing toolchain. A divergence never shares an exit code with a usage error. A missing seat binary now reports `toolchain missing: <seat>` and exits 2.
+- Receipt contract (additive-only): adds `cuni_version` (pinned — a pass from one version is never read as a pass from another), `stdout_hash` (sha256 hex of the gold stdout), `seats_ran` (seat ids that actually executed); per-seat entries keep the `native`/`lowering` mark.
+- Release matrix (`.github/workflows/release.yml`): on tag push `v*`, builds release binaries for x86_64/aarch64 × Linux/macOS, packages `cuni-{version}-{target}.tar.gz` (binary at archive root, matching `[package.metadata.binstall]`), SHA256 checksums, attaches all four tarballs + checksums to the GitHub release. `cargo binstall` supported.
+- `Formula/cuni.rb`: Homebrew formula installing the prebuilt binary tarball (not a source build); sha256 filled per release from the release CHECKSUMS.txt.
 
-**Tag implied by `package.json` and `Cargo.toml` update in repo-health pass**
-
+## [0.9.0] — 2026-10-02 — "Fewer words, more proof"
+Top-50 native seats + honest catalog. Seven new native emitters — PHP, R, Perl, OCaml, Common Lisp, Fortran, Pascal — each verified byte-identical against the Python gold on the core fixtures. Shared `codegen_core.rs` subset emitter (say/let/mut/def/ret/if/els/whl, integer arithmetic, comparisons, logic, string concat); everything outside the subset refuses honestly instead of approximating.
 ### Changed
 - `package.json` license corrected from `GPL-3.0-only` to `AGPL-3.0-or-later` (was contradicting `LICENSE`)
 - `SECURITY.md` supported-versions table updated to `0.9.x`
