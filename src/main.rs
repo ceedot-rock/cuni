@@ -74,6 +74,24 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{Duration, SystemTime};
 
+/// Exit-code contract. The gate is machine-readable: a shell, Rider, or
+/// Studio must be able to tell "the program diverged" from "you forgot a
+/// file" without parsing prose.
+///   0 — exactness pass / success
+///   1 — refusal or divergence (check FAIL, emit refused, run failed,
+///       prove/audit FAIL)
+///   2 — usage error (unknown flag, missing/invalid args) or missing
+///       toolchain
+/// Default `cuni check` seat set: the money seats (audit's gold set) plus
+/// JavaScript — the seats a normal install can actually run. The full
+/// 53-entry catalog stays available via `cuni check --all`; `--only`
+/// overrides both.
+const DEFAULT_CHECK_SEATS: &[&str] = &["py", "rs", "go", "java", "sql", "js"];
+
+fn ex_usage() -> ExitCode {
+    ExitCode::from(2)
+}
+
 /// Unique-per-invocation temp dir. The old scheme (`{prefix}_{pid}`) raced
 /// when one parent spawned several `cuni` processes at once (same pid for
 /// every child): concurrent gates stomped each other's artifacts. Pid +
@@ -91,30 +109,37 @@ fn print_usage() {
         "\
 cuni — CuNi (Code:uNiTY) compiler. 53 catalog entries (top 50 + 3 onchain profiles). Exactness or refuse.
 
-Usage:
-  cuni check <file.cuni|dir> [--verbose] [--timeout <secs>] [--keep] [--only id,id] [--receipt]
+Usage (the frozen surface):
+  cuni check <file.cuni|dir> [--all] [--only id,id] [--json] [--receipt]
+                             [--sign <keyfile>]
+                             [--verbose] [--timeout <secs>] [--keep]
+  cuni emit <file.cuni> [emit flags...]   (same as the bare-file form below)
   cuni run <file.cuni> [--lang py] [--timeout <secs>]
-  cuni ingest <file.ext> [-o out.cuni]
-  cuni bank paste <file> --from py --to <id> [-o out]
-  cuni prove <file.cuni> --against <impl>
-  cuni audit <law.cuni> --against <impl> [--signer <keyfile>] [--out <receipt.json>]
-  cuni audit --gen-key [name]
+  cuni version
   cuni <file.cuni> [--emit-py <out.py>] [--emit-go <out.go>] [--emit-js <out.js>]
                [--emit <seat> <out>] [--emit-all <dir>] [--emit-top50 <dir>] [--list-langs]
   cuni --help
   cuni --version
 
 Commands:
-  check   Exactness gate: emit+run every catalog language (or --only).
-          Native seats today: 45 of the top 50 — py, go, js, ts, c, cpp, cs, java,
-          kt, scala, rs, rb, php, lua, pl, r, jl, ex, erl, hs, ml, fs, lisp, clj,
-          dart, zig, nim, cr, d, v, ada, pas, f90, cob, pro, sql, asm, sol,
-          groovy, m-objc, sh, ps1, awk, tcl, hx.
-          Python-lowered: m, vb (no free toolchain — permanent), swift, hack, st
-          (no installable Linux toolchain — blocked). The 53-entry gate still runs.
-          Prints:  exactness: PASS (N langs)
+  check   Exactness gate: emit+run the default money seats
+          (py, rs, go, java, sql, js) and require identical stdout.
+          --all runs the full 53-entry catalog; --only id,id overrides both.
+          Verdict counts native seats only: lowering seats (m, vb, swift,
+          hack, st) may run under --all for information but never flip
+          PASS/FAIL.
+          Prints:  exactness: PASS (N native seats)
+          --json prints ONLY the machine-readable receipt (source hash,
+          cuni version, seat list, pass/fail, stdout hash) — no human output.
+          --receipt also writes <file>.receipt.json.
+          --sign <keyfile> adds Ed25519 signature fields to the receipt
+          (keypair from `cuni audit --gen-key`); combines with --json.  emit    The compiler: emit catalog seats for a .cuni file. Same flags as
+          the bare-file form. Refuses instead of emitting a wrong seat.
   run     Evaluate in-process (no emit). Optional `--lang py|go|js|…` emits a seat.
           Not a substitute for check.
+  version Print `cuni <version>` (same as --version).
+
+Extra commands (explicit; unchanged behavior):
   ingest  Reverse CuNi: CuNi-shaped subsets of py, go, js/ts, c/cpp, rs, awk,
           pl, sh, sql, wat → .cuni, or refuse. Other catalog seats: only
           artifacts carrying the CuNi lowering header (via the Python
@@ -129,7 +154,13 @@ Commands:
           byte-identical stdout. PASS or REFUSE is always filed.
           `audit --gen-key [name]` mints an Ed25519 receipt-signing keypair.
 
-Emit:
+Exit codes:
+  0  exactness pass / success
+  1  refusal or divergence (check FAIL, emit refused, run failed, prove/audit FAIL)
+  2  usage error (unknown flag, missing/invalid args) or missing toolchain
+  A divergence never shares an exit code with a usage error.
+
+Emit flags (bare-file form and `cuni emit`):
   --emit-all DIR writes one artifact per catalog language.
   --emit SEAT OUT emits one seat; repeat the flag for any subset.
   --emit-top50 DIR emits the first 50 catalog languages into DIR
@@ -138,27 +169,44 @@ Emit:
     );
 }
 
+fn cmd_version() -> ExitCode {
+    println!("cuni {}", env!("CARGO_PKG_VERSION"));
+    ExitCode::SUCCESS
+}
+
+/// `cuni emit` — the bare-file compiler promoted to a real subcommand.
+/// Identical flags and behavior to `cuni <file.cuni> [flags]`; the bare
+/// form keeps working exactly as today for backward compatibility.
+fn cmd_emit(args: &[String]) -> ExitCode {
+    cmd_compile(args)
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.is_empty() || args.iter().any(|a| a == "--help" || a == "-h") {
         print_usage();
         return if args.is_empty() {
-            ExitCode::FAILURE
+            ex_usage()
         } else {
             ExitCode::SUCCESS
         };
     }
 
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("cuni {}", env!("CARGO_PKG_VERSION"));
-        return ExitCode::SUCCESS;
+        return cmd_version();
     }
 
     if args[0] == "check" {
         return cmd_check(&args[1..]);
     }
+    if args[0] == "emit" {
+        return cmd_emit(&args[1..]);
+    }
     if args[0] == "run" {
         return cmd_run(&args[1..]);
+    }
+    if args[0] == "version" {
+        return cmd_version();
     }
     if args[0] == "ingest" {
         return cmd_ingest(&args[1..]);
@@ -182,7 +230,10 @@ fn cmd_check(args: &[String]) -> ExitCode {
     let mut keep = false;
     let mut timeout_secs: u64 = 60;
     let mut only: Option<Vec<String>> = None;
+    let mut all = false;
     let mut receipt = false;
+    let mut json = false;
+    let mut sign_key: Option<String> = None;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -198,10 +249,25 @@ fn cmd_check(args: &[String]) -> ExitCode {
                 receipt = true;
                 i += 1;
             }
+            "--json" => {
+                json = true;
+                i += 1;
+            }
+            "--sign" => {
+                sign_key = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
+                    eprintln!("cuni check: --sign requires a keyfile (see `cuni audit --gen-key`)");
+                    std::process::exit(2);
+                }));
+                i += 2;
+            }
+            "--all" => {
+                all = true;
+                i += 1;
+            }
             "--only" => {
                 let v = args.get(i + 1).unwrap_or_else(|| {
                     eprintln!("cuni check: --only requires id,id");
-                    std::process::exit(1);
+                    std::process::exit(2);
                 });
                 only = Some(
                     v.split(',')
@@ -214,17 +280,17 @@ fn cmd_check(args: &[String]) -> ExitCode {
             "--timeout" => {
                 let v = args.get(i + 1).unwrap_or_else(|| {
                     eprintln!("cuni check: --timeout requires seconds");
-                    std::process::exit(1);
+                    std::process::exit(2);
                 });
                 timeout_secs = v.parse().unwrap_or_else(|_| {
                     eprintln!("cuni check: invalid --timeout value `{}`", v);
-                    std::process::exit(1);
+                    std::process::exit(2);
                 });
                 i += 2;
             }
             s if s.starts_with('-') => {
                 eprintln!("cuni check: unknown flag `{}` (try --help)", s);
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
             s => {
                 paths.push(PathBuf::from(s));
@@ -236,8 +302,17 @@ fn cmd_check(args: &[String]) -> ExitCode {
     if paths.is_empty() {
         eprintln!("cuni check: missing path (file.cuni or directory)");
         print_usage();
-        return ExitCode::FAILURE;
+        return ex_usage();
     }
+
+    // Seat selection: --only wins; otherwise --all runs the full catalog;
+    // the default is the money-seat set (py, rs, go, java, sql, js) — seats
+    // a normal install can actually run.
+    let only: Option<Vec<String>> = match only {
+        Some(ids) => Some(ids),
+        None if all => None,
+        None => Some(DEFAULT_CHECK_SEATS.iter().map(|s| s.to_string()).collect()),
+    };
 
     let mut sources = Vec::new();
     for path in &paths {
@@ -245,7 +320,7 @@ fn cmd_check(args: &[String]) -> ExitCode {
             Ok(mut s) => sources.append(&mut s),
             Err(e) => {
                 eprintln!("cuni check: {}", e);
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
         }
     }
@@ -255,22 +330,51 @@ fn cmd_check(args: &[String]) -> ExitCode {
     let work_root = work_dir("cuni_check");
     if let Err(e) = fs::create_dir_all(&work_root) {
         eprintln!("cuni check: couldn't create temp dir: {}", e);
-        return ExitCode::FAILURE;
+        return ex_usage();
     }
+
+    // Optional receipt signing (explicit new flag): reuse the audit Ed25519
+    // machinery so a stranger can verify the receipt.
+    let signing = match sign_key {
+        Some(p) => match audit::load_signing_key(Path::new(&p)) {
+            Ok(k) => Some(k),
+            Err(e) => {
+                eprintln!("cuni check: {e}");
+                return ex_usage();
+            }
+        },
+        None => None,
+    };
 
     let timeout = Duration::from_secs(timeout_secs);
     let mut failed = 0usize;
     let mut passed = 0usize;
+    let mut missing_toolchains: Vec<String> = Vec::new();
 
     for src in &sources {
         let work = work_root.join(src.file_stem().and_then(|s| s.to_str()).unwrap_or("prog"));
         let _ = fs::create_dir_all(&work);
         let report = check::check_file_only(src, &work, timeout, only.as_deref());
-        check::print_report(&report, verbose);
+        for seat in &report.toolchain_missing {
+            if !missing_toolchains.iter().any(|s| s == seat) {
+                missing_toolchains.push(seat.clone());
+            }
+        }
+        // The receipt is the machine contract; --sign adds the Ed25519
+        // signature fields so third parties can verify it.
+        let rec = match &signing {
+            Some(sk) => check::sign_receipt_json(&report, sk),
+            None => check::receipt_json(&report),
+        };
+        if json {
+            // Machine contract: ONLY the receipt on stdout.
+            println!("{rec}");
+        } else {
+            check::print_report(&report, verbose);
+        }
         if receipt {
-            let rec = check::receipt_json(&report);
             let rec_path = src.with_extension("receipt.json");
-            match fs::write(&rec_path, rec) {
+            match fs::write(&rec_path, &rec) {
                 Ok(()) => eprintln!("cuni: wrote {}", rec_path.display()),
                 Err(e) => eprintln!("cuni: receipt {}: {}", rec_path.display(), e),
             }
@@ -280,10 +384,12 @@ fn cmd_check(args: &[String]) -> ExitCode {
         } else {
             failed += 1;
         }
-        println!();
+        if !json {
+            println!();
+        }
     }
 
-    if sources.len() > 1 {
+    if !json && sources.len() > 1 {
         println!(
             "exactness summary: {} passed, {} failed ({} files)",
             passed,
@@ -298,10 +404,18 @@ fn cmd_check(args: &[String]) -> ExitCode {
         eprintln!("cuni check: kept artifacts under {}", work_root.display());
     }
 
+    // A missing toolchain is an environment problem (exit 2), never an
+    // exactness divergence (exit 1).
+    if !missing_toolchains.is_empty() {
+        eprintln!(
+            "cuni check: toolchain missing: {} — install the seat toolchain or narrow with --only",
+            missing_toolchains.join(", ")
+        );
+        return ex_usage();
+    }
+
     if failed == 0 {
-        if sources.len() == 1 {
-            // already printed per-file PASS
-        } else {
+        if !json && sources.len() > 1 {
             println!("exactness: PASS (all {} files)", sources.len());
         }
         ExitCode::SUCCESS
@@ -320,24 +434,24 @@ fn cmd_run(args: &[String]) -> ExitCode {
             "--lang" => {
                 lang = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                     eprintln!("cuni run: --lang requires an id (py,go,js,ts,c,cpp,rs)");
-                    std::process::exit(1);
+                    std::process::exit(2);
                 }));
                 i += 2;
             }
             "--timeout" => {
                 let v = args.get(i + 1).unwrap_or_else(|| {
                     eprintln!("cuni run: --timeout requires seconds");
-                    std::process::exit(1);
+                    std::process::exit(2);
                 });
                 timeout_secs = v.parse().unwrap_or_else(|_| {
                     eprintln!("cuni run: invalid --timeout value `{}`", v);
-                    std::process::exit(1);
+                    std::process::exit(2);
                 });
                 i += 2;
             }
             s if s.starts_with('-') => {
                 eprintln!("cuni run: unknown flag `{s}`");
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
             _ => {
                 path = Some(args[i].clone());
@@ -347,7 +461,7 @@ fn cmd_run(args: &[String]) -> ExitCode {
     }
     let Some(path) = path else {
         eprintln!("cuni run: missing file.cuni");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
     let program = match check::load_program(Path::new(&path)) {
         Ok(p) => p,
@@ -442,7 +556,7 @@ fn emit_profile_artifact(
         Ok(source) => {
             if let Err(e) = fs::write(out_path, source) {
                 eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                return Some(ExitCode::FAILURE);
+                return Some(ex_usage());
             }
             eprintln!("cuni: wrote {}", out_path);
             None
@@ -467,7 +581,7 @@ fn emit_profile_reference(
         Ok(source) => {
             if let Err(e) = fs::write(out_path, source) {
                 eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                return Some(ExitCode::FAILURE);
+                return Some(ex_usage());
             }
             eprintln!("cuni: wrote {}", out_path);
             None
@@ -513,143 +627,143 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         } else if args[i] == "--emit-all" {
             emit_all = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-all requires a directory");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-top50" {
             emit_top50 = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-top50 requires a directory");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-py" {
             emit_py = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-py requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-rb" {
             emit_rb = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-rb requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-lua" {
             emit_lua = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-lua requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-sol" {
             emit_sol = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-sol requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-solana" {
             emit_solana = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-solana requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-ink" {
             emit_ink = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-ink requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-ink-ref" {
             emit_ink_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-ink-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-move" {
             emit_move_ = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-move requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-move-ref" {
             emit_move_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-move-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-vyper" {
             emit_vyper = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-vyper requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-vyper-ref" {
             emit_vyper_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-vyper-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-cairo" {
             emit_cairo = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-cairo requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-cairo-ref" {
             emit_cairo_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-cairo-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-clarity" {
             emit_clarity = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-clarity requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-clarity-ref" {
             emit_clarity_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-clarity-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-cadence" {
             emit_cadence = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-cadence requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-cadence-ref" {
             emit_cadence_ref = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-cadence-ref requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-go" {
             emit_go = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-go requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit-js" {
             emit_js = Some(args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit-js requires an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             }));
             i += 2;
         } else if args[i] == "--emit" {
             let seat = args.get(i + 1).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit requires a seat id and an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             });
             let out = args.get(i + 2).cloned().unwrap_or_else(|| {
                 eprintln!("cuni: --emit requires a seat id and an output path");
-                std::process::exit(1);
+                std::process::exit(2);
             });
             emit_targets.push((seat, out));
             i += 3;
         } else if args[i].starts_with('-') {
             eprintln!("cuni: unknown flag `{}` (try --help)", args[i]);
-            return ExitCode::FAILURE;
+            return ex_usage();
         } else {
             path = Some(args[i].clone());
             i += 1;
@@ -660,7 +774,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         Some(p) => p,
         None => {
             print_usage();
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
     };
 
@@ -685,7 +799,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         let py_source = codegen_py::generate(&program);
         if let Err(e) = fs::write(&out_path, py_source) {
             eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         eprintln!("cuni: wrote {}", out_path);
         emitted_any = true;
@@ -694,7 +808,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         let rb_source = codegen_rb::generate(&program);
         if let Err(e) = fs::write(&out_path, rb_source) {
             eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         eprintln!("cuni: wrote {}", out_path);
         emitted_any = true;
@@ -704,7 +818,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             Ok(lua_source) => {
                 if let Err(e) = fs::write(&out_path, lua_source) {
                     eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                    return ExitCode::FAILURE;
+                    return ex_usage();
                 }
                 eprintln!("cuni: wrote {}", out_path);
                 emitted_any = true;
@@ -741,7 +855,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             Ok(sol_source) => {
                 if let Err(e) = fs::write(&out_path, sol_source) {
                     eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                    return ExitCode::FAILURE;
+                    return ex_usage();
                 }
                 eprintln!("cuni: wrote {}", out_path);
                 emitted_any = true;
@@ -772,7 +886,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             Ok(program_source) => {
                 if let Err(e) = fs::write(&out_path, program_source) {
                     eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                    return ExitCode::FAILURE;
+                    return ex_usage();
                 }
                 eprintln!("cuni: wrote {}", out_path);
                 emitted_any = true;
@@ -901,7 +1015,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             Ok(go_source) => {
                 if let Err(e) = fs::write(&out_path, go_source) {
                     eprintln!("cuni: couldn't write {}: {}", out_path, e);
-                    return ExitCode::FAILURE;
+                    return ex_usage();
                 }
                 eprintln!("cuni: wrote {}", out_path);
                 emitted_any = true;
@@ -923,7 +1037,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         let js_source = codegen_js::generate(&program);
         if let Err(e) = fs::write(&out_path, js_source) {
             eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         eprintln!("cuni: wrote {}", out_path);
         emitted_any = true;
@@ -933,7 +1047,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             Some(l) => l,
             None => {
                 eprintln!("cuni: unknown seat `{}` (try --list-langs)", seat_id);
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
         };
         if seat_id == "py" || seat_id == "js" {
@@ -959,7 +1073,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
         };
         if let Err(e) = fs::write(&out_path, src) {
             eprintln!("cuni: couldn't write {}: {}", out_path, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         eprintln!("cuni: wrote {} ({})", out_path, seat_id);
         emitted_any = true;
@@ -967,7 +1081,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     if let Some(dir) = emit_all {
         if let Err(e) = fs::create_dir_all(&dir) {
             eprintln!("cuni: couldn't create {}: {}", dir, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         for lang in langs::LANGS {
             let src = match emit::generate_exact(&program, lang) {
@@ -980,7 +1094,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
             let path = format!("{}/{}", dir, lang.out_file());
             if let Err(e) = fs::write(&path, src) {
                 eprintln!("cuni: couldn't write {}: {}", path, e);
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
         }
         eprintln!("cuni: wrote {} languages to {}", langs::LANGS.len(), dir);
@@ -989,7 +1103,7 @@ fn cmd_compile(args: &[String]) -> ExitCode {
     if let Some(dir) = emit_top50 {
         if let Err(e) = fs::create_dir_all(&dir) {
             eprintln!("cuni: couldn't create {}: {}", dir, e);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         let top: Vec<&langs::Lang> = langs::LANGS.iter().take(50).collect();
         for lang in &top {
@@ -1018,7 +1132,7 @@ fn cmd_ingest(args: &[String]) -> ExitCode {
             i += 2;
         } else if args[i].starts_with('-') {
             eprintln!("cuni ingest: unknown flag `{}`", args[i]);
-            return ExitCode::FAILURE;
+            return ex_usage();
         } else {
             input = Some(args[i].clone());
             i += 1;
@@ -1026,14 +1140,14 @@ fn cmd_ingest(args: &[String]) -> ExitCode {
     }
     let Some(input) = input else {
         eprintln!("cuni ingest: missing file.py");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
     match ingest::ingest_file(Path::new(&input)) {
         Ok(cuni) => {
             if let Some(out) = output {
                 if let Err(e) = fs::write(&out, &cuni) {
                     eprintln!("cuni ingest: {e}");
-                    return ExitCode::FAILURE;
+                    return ex_usage();
                 }
                 eprintln!("cuni: ingested {} → {}", input, out);
             } else {
@@ -1084,7 +1198,7 @@ fn cmd_audit(args: &[String]) -> ExitCode {
         let name = args.get(1).cloned().unwrap_or_else(|| "auditor".to_string());
         if name.starts_with('-') {
             eprintln!("cuni audit: --gen-key takes an optional key name, got `{name}`");
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         match audit::gen_keypair(&name, &cwd) {
@@ -1122,22 +1236,22 @@ fn cmd_audit_law(args: &[String]) -> ExitCode {
             i += 2;
         } else if args[i].starts_with('-') {
             eprintln!("cuni audit: unknown flag `{}`", args[i]);
-            return ExitCode::FAILURE;
+            return ex_usage();
         } else if law_path.is_none() {
             law_path = Some(args[i].clone());
             i += 1;
         } else {
             eprintln!("cuni audit: unexpected argument `{}`", args[i]);
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
     }
     let Some(law_path) = law_path else {
         eprintln!("cuni audit: missing law.cuni (or use `cuni audit --gen-key [name]`)");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
     let Some(against) = against else {
         eprintln!("cuni audit: --against <impl> required");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
 
     let signing = match signer {
@@ -1145,7 +1259,7 @@ fn cmd_audit_law(args: &[String]) -> ExitCode {
             Ok(k) => Some(k),
             Err(e) => {
                 eprintln!("cuni audit: {e}");
-                return ExitCode::FAILURE;
+                return ex_usage();
             }
         },
         None => None,
@@ -1169,7 +1283,7 @@ fn cmd_audit_law(args: &[String]) -> ExitCode {
     if let Some(out) = out {
         if let Err(e) = fs::write(&out, format!("{json}\n")) {
             eprintln!("cuni audit: write {out}: {e}");
-            return ExitCode::FAILURE;
+            return ex_usage();
         }
         eprintln!("audit: {} — receipt filed at {out}", receipt.verdict);
     } else {
@@ -1192,7 +1306,7 @@ fn cmd_prove(args: &[String]) -> ExitCode {
             i += 2;
         } else if args[i].starts_with('-') {
             eprintln!("cuni prove: unknown flag `{}`", args[i]);
-            return ExitCode::FAILURE;
+            return ex_usage();
         } else {
             cuni_path = Some(args[i].clone());
             i += 1;
@@ -1200,11 +1314,11 @@ fn cmd_prove(args: &[String]) -> ExitCode {
     }
     let Some(cuni_path) = cuni_path else {
         eprintln!("cuni prove: missing file.cuni");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
     let Some(against) = against else {
         eprintln!("cuni prove: --against <impl> required");
-        return ExitCode::FAILURE;
+        return ex_usage();
     };
     // Same gold machinery as audit (prove keeps its lighter py/go/js seat
     // set; audit uses the money seats).
