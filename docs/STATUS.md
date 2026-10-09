@@ -1,6 +1,6 @@
 # CuNi + Agent-Rider – Current Status
 
-**Last updated**: 2026-09-24 (ET) · **v0.1.10 tagged** / tree **0.1.11** · `cuni run` is a check seat · Studio → Rider loop live (Fly)
+**Last updated**: 2026-10-09 (ET) · **v0.10.0 tagged** · `cuni run` is a check seat · Studio → Rider loop live (Fly)
 
 ## Vision
 Exact multi-runtime agents, coordinated.
@@ -14,7 +14,7 @@ Exact multi-runtime agents, coordinated.
 - **Studio**: https://cuni-studio.fly.dev/ — Playground + Agent mode; spend-control default; Progress + Publish; free to try  
 - **Agent-Rider (live face)**: https://agentrider.fly.dev — Fly-only. The old Vercel edge (`*.vercel.app`) returning HTTP 402 is a **historical dead door**, not the current live path.  
 - **Exactness CI**: green on every push (examples + cargo test)  
-- **v0.1.9 gate**: `cuni check` emit+runs the **53-entry catalog**; `--receipt` records `source_hash` (SHA-256 of `.cuni` bytes) so Rider can refuse a mismatched claim  
+- **v0.10.0 gate**: `cuni check` emit+runs the **money-seat set** (py, rs, go, java, sql, js — seats a normal install can run); `--all` runs the **53-entry catalog** (45 native + 5 Python lowerings + 3 onchain profiles; lowerings never flip the verdict); `--receipt` records `source_hash` (SHA-256 of `.cuni` bytes), `cuni_version`, and `stdout_hash` so Rider can refuse a mismatched or stale claim. Exit codes: 0 pass / 1 refusal or divergence / 2 usage error or missing toolchain  
 
 - **Studio→Rider citizen-receipt push: LIVE** — Studio publish POSTs explicit `citizen_receipt` (`source_hash` + `exactness.passed`) to Rider `/api/v0/contracts` when `CUNI_RIDER_URL` is set and exactness PASS. Landed via [#23](https://github.com/ceedot-rock/cuni/pull/23). Fund = Rider/XPay — never PCC. See [`PASS_GATE.md`](PASS_GATE.md).
 - **Studio `POST /api/pass`: LIVE** — Rider-callable verify door on Fly. Missing/broken source → **REFUSE**; known-good spend-control → **PASS** with receipt. Alias `/api/citizen/pass`.
@@ -24,9 +24,8 @@ Exact multi-runtime agents, coordinated.
   - Studio UI surfaces contract **count**, recent **id / sourceHash / registeredAt / status**, and a Rider link (prefers `health.rider.remote_url`)  
 - **Health**: `/api/health` exposes `rider.register`, `rider.list`, `rider.remote`, `rider.remote_url`, plus `lang_count`  
 - **Flagship proofs**: exactness (identical stdout or refuse) + `link` interop + Agent `spend` skill  
-- **Packaging**: Homebrew formula + binstall metadata advanced to **v0.1.10** — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
-  Preferred install today: `cargo install cuni` or `cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.10`  
-  Linux x86_64 release asset ships on the GitHub Release; broader matrix still needs the release workflow.
+- **Packaging**: Homebrew formula + binstall metadata advanced to **v0.10.0** — see [`docs/PACKAGING.md`](PACKAGING.md) + `packaging/homebrew/cuni.rb`  
+  Preferred install today: prebuilt tarball from the [v0.10.0 release](https://github.com/ceedot-rock/cuni/releases/tag/v0.10.0) (x86_64/aarch64 × Linux/macOS), or `cargo binstall --git https://github.com/ceedot-rock/cuni --version 0.10.0`
 
 ## Exactness stays sacred
 A CuNi program either produces the same behavior on every supported target, or it **refuses**. There is **no approximate mode**. Type and exactness failures now carry concrete fix-its in CLI + Studio (still refuse — never soften the gate).

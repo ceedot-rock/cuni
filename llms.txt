@@ -1,0 +1,12 @@
+# CuNi
+
+> CuNi is a programming language with one hard rule: one source either behaves exactly the same on every target it builds for, or it refuses to build. 53 catalog targets; `cuni check` proves byte-identical stdout. Open source under AGPL-3.0-or-later, or a commercial grant.
+
+## Docs
+
+- [README](https://github.com/ceedot-rock/cuni): install, quick start, the exactness contract
+- [CuNi Studio](https://cuni-studio.fly.dev/): hosted playground — run the exactness gate in the browser
+- [SPEC](https://github.com/ceedot-rock/cuni/blob/master/SPEC.md): the language specification
+- [GRAMMAR](https://github.com/ceedot-rock/cuni/blob/master/GRAMMAR.md): formal EBNF grammar
+- [Agent-Rider](https://github.com/ceedot-rock/Agent-Rider): the agent coordination layer (CuNi exactness is optional protection there)
+- [cuni-transparency](https://github.com/ceedot-rock/cuni-transparency): append-only Merkle log for signed exactness receipts
