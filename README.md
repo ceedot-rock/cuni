@@ -53,7 +53,7 @@ That turns exactness into working infrastructure:
 
 **One source. Emit every coding language. Exactness still runs Python, JavaScript, and Go — or the compiler refuses.** Receipts name the program by `source_hash`, not by path.
 
-CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. CuNi compiles one source into all 53 catalog entries. Forty-five of the top 50 — Python, Go, JavaScript, TypeScript, C, C++, C#, Java, Kotlin, Scala, Rust, Ruby, PHP, Lua, Perl, R, Julia, Elixir, Erlang, Haskell, OCaml, F#, Lisp, Clojure, Dart, Zig, Nim, Crystal, D, V, Ada, Pascal, Fortran, COBOL, Prolog, SQL, Assembly, Solidity, Groovy, Objective-C, Bash, PowerShell, Awk, Tcl, and Haxe — build through their real toolchains (Solidity compiles to a deployable EVM contract via solc); the other 5 (MATLAB and Visual Basic, which have no free Linux toolchain, plus Swift, Hack, and Smalltalk, which have no installable Linux toolchain) emit Python under a language-specific file extension and run under python3, so every target's output can actually be compared. **`cuni check` runs them all: byte-identical stdout everywhere, or the program refuses to compile.** Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.3.0.
+CuNi is a small language with a hard exactness contract: a program either produces the same behavior on every supported target, or it does not compile. No approximate mode. `--emit-all` writes the catalog of coding languages. CuNi compiles one source into all 53 catalog entries. Forty-five of the top 50 — Python, Go, JavaScript, TypeScript, C, C++, C#, Java, Kotlin, Scala, Rust, Ruby, PHP, Lua, Perl, R, Julia, Elixir, Erlang, Haskell, OCaml, F#, Lisp, Clojure, Dart, Zig, Nim, Crystal, D, V, Ada, Pascal, Fortran, COBOL, Prolog, SQL, Assembly, Solidity, Groovy, Objective-C, Bash, PowerShell, Awk, Tcl, and Haxe — build through their real toolchains (Solidity compiles to a deployable EVM contract via solc); the other 5 (MATLAB and Visual Basic, which have no free Linux toolchain, plus Swift, Hack, and Smalltalk, which have no installable Linux toolchain) emit Python under a language-specific file extension and run under python3, so every target's output can actually be compared. **`cuni check` runs the money-seat gate (py, rs, go, java, sql, js): byte-identical stdout everywhere, or the program refuses to compile. `cuni check --all` runs the full 53-entry catalog.** Free hosted **[CuNi Studio](https://cuni-studio.fly.dev/)** (Playground + Agent mode). Open source under AGPL-3.0-or-later, or a paid commercial grant ([LICENSE](LICENSE)), v0.3.0.
 
 > **Exactness contract:** a CuNi program with no `ext` blocks compiles to identical behavior on every supported target — or it **refuses to compile**.
 
@@ -157,17 +157,25 @@ One program → Python / Go / JavaScript / Java / C / C++ / Rust — identical `
 
 ## Install
 
-**Requirements:** Rust (stable), plus `python3`, `go`, and `node` if you want to run the conformance suite.
+**Requirements:** `python3`, `rustc`, `go`, `javac`/`java`, `sqlite3`, and `node` to run the default `cuni check` gate (py, rs, go, java, sql, js). The prebuilt binary needs no Rust toolchain.
 
 ```bash
-# Homebrew tap (build-from-source formula)
-brew tap ceedot-rock/cuni
-brew install cuni
+# Prebuilt binary (recommended) — pick your platform tarball from
+# https://github.com/ceedot-rock/cuni/releases
+#   cuni-0.10.0-x86_64-unknown-linux-gnu.tar.gz
+#   cuni-0.10.0-aarch64-unknown-linux-gnu.tar.gz
+#   cuni-0.10.0-x86_64-apple-darwin.tar.gz
+#   cuni-0.10.0-aarch64-apple-darwin.tar.gz
+tar xzf cuni-0.10.0-<target>.tar.gz
+./cuni version   # -> cuni 0.10.0
 
-# cargo from crates.io when the crate is published; until then use git:
-cargo install --git https://github.com/ceedot-rock/cuni --tag v0.1.10
+# or via cargo-binstall (installs the prebuilt binary, no rustup needed)
+cargo binstall --git https://github.com/ceedot-rock/cuni --version 0.10.0
 
-# or clone and build from source
+# Homebrew (tap not yet created; the formula tracks the prebuilt binary)
+# brew install ceedot-rock/tap/cuni
+
+# or clone and build from source (needs Rust stable)
 git clone https://github.com/ceedot-rock/cuni.git
 cd cuni
 cargo build --release
