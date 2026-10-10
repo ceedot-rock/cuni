@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: CuNi
+message: If you use this software, please cite it as below.
+version: 0.10.0
+date-released: '2026-10-09'
+authors:
+  - family-names: Tasz
+    given-names: Corey
+    affiliation: Slid Phi Labs
+    email: corey@slidphilabs.com
+repository-code: 'https://github.com/ceedot-rock/cuni'
+url: 'https://github.com/ceedot-rock/cuni'
+license: AGPL-3.0-or-later
+abstract: >-
+  A programming language with one hard rule: one source either behaves
+  exactly the same on every target it builds for, or it refuses to build.
+  53 catalog targets; `cuni check` proves byte-identical stdout before
+  anything ships.
