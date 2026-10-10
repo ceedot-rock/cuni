@@ -52,6 +52,12 @@ jobs:
       - name: Install Lua 5.4 (native lua seat runs as lua5.4)
         run: sudo apt-get update && sudo apt-get install -y lua5.4
 
+      - name: Install solc 0.8.28 (proof_crosschain test needs real solc on PATH)
+        run: |
+          curl -sSL -o /usr/local/bin/solc https://github.com/ethereum/solc-bin/raw/gh-pages/linux-amd64/solc-linux-amd64-v0.8.28+commit.7893614a
+          chmod +x /usr/local/bin/solc
+          solc --version
+
       - name: Build
         run: cargo build --verbose
 
