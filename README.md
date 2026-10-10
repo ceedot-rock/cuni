@@ -1,3 +1,7 @@
+> **This repo has moved into the verse.** Development continues at
+> [ceedot-rock/CuNIverse](https://github.com/ceedot-rock/CuNIverse), in repo root.
+> This copy is archived and read-only - history preserved, nothing lost.
+
 # CuNi (Code:uNiTY)
 
 [![Audited checks](https://github.com/ceedot-rock/cuni/actions/workflows/audited-checks.yml/badge.svg)](https://github.com/ceedot-rock/cuni/actions/workflows/audited-checks.yml)
