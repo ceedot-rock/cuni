@@ -59,6 +59,11 @@ jobs:
           sudo mv /tmp/solc /usr/local/bin/solc
           solc --version
 
+      - name: Install deferred-seat toolchains (clojure, elixir+escript, swipl)
+        run: |
+          sudo apt-get update && sudo apt-get install -y clojure elixir swi-prolog
+          clojure --version && elixir --version && escript -e 'io:format("escript ok~n").' && swipl --version
+
       - name: Build
         run: cargo build --verbose
 
