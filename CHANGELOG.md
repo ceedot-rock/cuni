@@ -6,6 +6,11 @@ Protocol v1.1.1 · Install: `cargo install cuni` · Studio: https://cuni-studio.
 
 ---
 
+## [0.10.1] — 2026-11-05 — "Tag/version repair"
+- Cargo version bumped to 0.10.1 to match the v0.10.1 tag (unbreaks the release matrix + crates.io publish)
+- CI installs static solc 0.8.28 so the crosschain bytecode proof runs green
+- package.json wrapper advanced to 0.10.1 for metadata coherence
+
 ## [Unreleased]
 
 - Audited CI checks (version/license coherence, secret scan) — workflow staged; requires a token with `workflow` scope to land

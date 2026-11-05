@@ -52,6 +52,13 @@ jobs:
       - name: Install Lua 5.4 (native lua seat runs as lua5.4)
         run: sudo apt-get update && sudo apt-get install -y lua5.4
 
+      - name: Install solc 0.8.28 (proof_crosschain compiles real bytecode)
+        run: |
+          curl -sSL -o /tmp/solc https://github.com/ethereum/solidity/releases/download/v0.8.28/solc-static-linux
+          chmod +x /tmp/solc
+          sudo mv /tmp/solc /usr/local/bin/solc
+          solc --version
+
       - name: Build
         run: cargo build --verbose
 
