@@ -235,7 +235,7 @@ pub fn exec_plan(lang: &Lang, artifact: &Path) -> ExecPlan {
                 .map(|p| p.to_string_lossy().into_owned())
                 .unwrap_or_else(|| ".".into());
             ExecPlan {
-                compile: Some(("javac".into(), vec!["-d".into(), dir.clone(), path])),
+                compile: Some(("javac".into(), vec!["-encoding".into(), "UTF-8".into(), "-d".into(), dir.clone(), path])),
                 run: ("java".into(), vec!["-cp".into(), dir, "Main".into()]),
                 compares_stdout: true,
             }

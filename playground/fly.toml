@@ -2,7 +2,7 @@
 # From repo root:
 #   flyctl volumes create cuni_studio_data --region iad --size 1
 #   flyctl deploy --config fly.toml --remote-only
-app = "cuni-studio"
+app = "spl-cuni-studio"
 primary_region = "iad"
 
 [build]
