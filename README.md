@@ -1,6 +1,10 @@
 > **This repo has moved into the verse.** Development continues at
 > [ceedot-rock/CuNIverse](https://github.com/ceedot-rock/CuNIverse), in repo root.
 > This copy is archived and read-only - history preserved, nothing lost.
+>
+> CuNi is **one product with many arms**: the compiler (this trunk), Studio,
+> Bank, Audit, Onchain, Exactness, Transparency, and Tap. Registry:
+> [CuNIverse/ARMS.md](https://github.com/ceedot-rock/CuNIverse/blob/master/ARMS.md).
 
 # CuNi (Code:uNiTY)
 
