@@ -5,21 +5,21 @@
  "site": {
   "name": "CuNi Studio",
   "url": "https://cuni-studio.fly.dev",
-  "description": "CuNi Protocol: 144 languages, one program, same stdout or refuse. New in 0.2.0: Solidity seat \u2014 same source compiles to a deployable EVM smart contract. Bank arm: paste N, get X. Studio publishes exact policies into Agent^Rider."
+  "description": "CuNi 0.10.1: one program, same result on 53 listed targets, or it refuses. The same source can also compile to a deployable EVM smart contract. Bank arm: paste N, get X. Studio publishes exact policies into Agent^Rider."
  },
  "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
  "mcp": [
   {
    "url": "https://agentrider.fly.dev/api/mcp",
    "type": "streamable-http",
-   "description": "Agent^Rider MCP (CuNi publishes exact policies into Rider)"
+   "description": "Agent Rider MCP (CuNi publishes exact policies into Rider)"
   }
  ],
  "discovery": {
   "studio": "https://cuni-studio.fly.dev/",
   "bank": "https://cuni-studio.fly.dev/bank",
   "bank_api": "https://cuni-studio.fly.dev/api/bank",
-  "github": "https://github.com/ceedot-rock/cuni",
+  "github": "https://github.com/Slid-Phi-Labs/cuni",
   "protocol": "https://cuni-studio.fly.dev/.well-known/cuni-protocol.json",
   "agent_rider": "https://agentrider.fly.dev/.well-known/agent.json",
   "lab_commerce": "https://www.slidphilabs.com/api/agent",

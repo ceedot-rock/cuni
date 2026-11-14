@@ -1,19 +1,19 @@
-# CuNi (Code:uNiTY)
+# CuNi
 
-> CuNi Protocol: 144 languages, one program, same stdout or refuse. New in 0.2.0: Solidity seat — same source compiles to a deployable EVM smart contract (solc).
+> CuNi 0.10.1: write one program. It must print the same result on the targets you ask for (53 listed targets), or it refuses. It can also compile the same source to a deployable EVM smart contract (Solidity).
 
 ## Protocol
 - JSON: https://cuni-studio.fly.dev/.well-known/cuni-protocol.json
 - Text: https://cuni-studio.fly.dev/PROTOCOL.md
-- GitHub: https://github.com/ceedot-rock/cuni/blob/master/PROTOCOL.md
+- GitHub: https://github.com/Slid-Phi-Labs/cuni/blob/master/PROTOCOL.md
 
 ## Agent discovery
 - Studio: https://cuni-studio.fly.dev/
 - agents.txt: https://cuni-studio.fly.dev/agents.txt
 - agents.json: https://cuni-studio.fly.dev/agents.json
-- GitHub: https://github.com/ceedot-rock/cuni
-- Agent^Rider: https://agentrider.fly.dev/.well-known/agent.json
-- Agent^Rider MCP: https://agentrider.fly.dev/api/mcp
+- GitHub: https://github.com/Slid-Phi-Labs/cuni
+- Agent Rider: https://agentrider.fly.dev/.well-known/agent.json
+- Agent Rider MCP: https://agentrider.fly.dev/api/mcp
 - Lab commerce: https://www.slidphilabs.com/api/agent
 
 ## Bank
@@ -21,27 +21,27 @@
 - UI: https://cuni-studio.fly.dev/bank
 - API: POST https://cuni-studio.fly.dev/api/bank  {source, from:"py", to:"js"}
 - CLI: cuni bank paste IN --from py --to js
-- Law: https://github.com/ceedot-rock/cuni/blob/master/docs/BANK.md
+- Law: https://github.com/Slid-Phi-Labs/cuni/blob/master/docs/BANK.md
 - Tag: cuni-bank-0.1.0
-- Not 144 ingest parsers. 144 langs remains cuni check on the deposit.
+- Ingest reads Python today. The 53-target check still runs on what you deposit.
 
-## Smart contracts (new in 0.2.0)
+## Smart contracts
 - Solidity seat: same CuNi source compiles to a human-readable, solc-verified EVM contract. No Python lowering.
 - CLI: cuni --emit-sol examples/casino/provably-fair-dice.cuni
 - Reader: .sol ingests back to CuNi; round-trip verified against the interpreter.
 - Law: exactness or refuse — a contract that cannot be exact does not compile.
 
 
-## Citizen PASS gate (Agent-Rider)
+## Exactness check before publishing to Agent Rider
 - Verify-by-source: POST https://cuni-studio.fly.dev/api/pass  {"source":"..."}
 - Alias: POST https://cuni-studio.fly.dev/api/citizen/pass
 - Publish push: POST /api/publish → Rider /api/v0/contracts with citizen_receipt (when CUNI_RIDER_URL set)
 - Exactness or refuse (py/go/js). Fund = Rider settle/XPay — not PCC.
-- Docs: https://github.com/ceedot-rock/cuni/blob/master/docs/PASS_GATE.md
+- Docs: https://github.com/Slid-Phi-Labs/cuni/blob/master/docs/PASS_GATE.md
 
 ## Humans
 - Studio: https://cuni-studio.fly.dev/
-- Spec: https://github.com/ceedot-rock/cuni/blob/master/SPEC.md
+- Spec: https://github.com/Slid-Phi-Labs/cuni/blob/master/SPEC.md
 - Protocol: https://cuni-studio.fly.dev/PROTOCOL.md
 
 

@@ -26,7 +26,7 @@ def roll_hundred(server_seed: int, client_seed: int, round: int) -> int do
 end
 
 # Three audited rolls. Any player re-running this program with the same
-# revealed seeds gets the same numbers — on any of the 144 targets.
+# revealed seeds gets the same numbers — on any of the 53 targets.
 say(roll_dice(987654321, 123456789, 1))
 say(roll_dice(987654321, 123456789, 2))
 say(roll_dice(111111111, 222222222, 1))

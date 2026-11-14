@@ -24,7 +24,7 @@ SRC=examples/few.cuni
 export PATH="/usr/bin:/usr/lib/go/bin:${HOME}/.cargo/bin:${PATH}"
 
 echo
-echo "CuNi — 144 languages. One program. Same stdout, or refuse."
+echo "CuNi — 53 targets. One program. Same stdout, or refuse."
 echo
 echo "── source ──────────────────────────────────────────"
 cat "$SRC"
